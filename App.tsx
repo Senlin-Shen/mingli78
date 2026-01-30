@@ -1,6 +1,5 @@
 
-import React, { useState } from 'react';
-import { GoogleGenAI } from "@google/genai";
+import React, { useState, useEffect } from 'react';
 import AnalysisDisplay from './components/AnalysisDisplay.tsx';
 import BoardGrid from './components/BoardGrid.tsx';
 import Header from './components/Header.tsx';
@@ -10,12 +9,12 @@ import { QiMenBoard } from './types.ts';
 
 /**
  * App component - Main entry point for the QiMen prediction system.
- * Updated to use Gemini API via @google/genai SDK.
+ * Optimized for Mainland China access using ByteDance Ark (Doubao) API.
  */
 const App: React.FC = () => {
   const [isEntered, setIsEntered] = useState<boolean>(false);
-  // Default to gemini-3-pro-preview for complex reasoning tasks
-  const [modelId, setModelId] = useState<string>(localStorage.getItem('QIMEN_MODEL_ID') || 'gemini-3-pro-preview');
+  // Default to a common Doubao/DeepSeek endpoint ID if not set
+  const [modelId, setModelId] = useState<string>(localStorage.getItem('QIMEN_MODEL_ID') || 'deepseek-v3-2-251201');
   const [board, setBoard] = useState<QiMenBoard | null>(null);
   const [prediction, setPrediction] = useState('');
   const [loading, setLoading] = useState(false);
@@ -26,7 +25,6 @@ const App: React.FC = () => {
   };
 
   const handlePredict = async (userInput: string, type: 'SHI_JU' | 'MING_JU', date: string) => {
-    // API_KEY is handled externally via process.env.API_KEY
     setLoading(true);
     setError('');
     setPrediction('');
@@ -38,14 +36,7 @@ const App: React.FC = () => {
     setBoard(newBoard);
 
     try {
-      // Initialize Gemini API client inside the handler to use the most up-to-date environment key
-      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-      
-      const response = await ai.models.generateContent({
-        model: modelId || 'gemini-3-pro-preview',
-        contents: userInput,
-        config: {
-          systemInstruction: `你是一位精通传统奇门遁甲体系的预测专家。
+      const systemPrompt = `你是一位精通传统奇门遁甲体系的预测专家。
               
 【核心要求】：
 - 结果中严禁使用任何 "*"、"#" 或 "##" 符号。
@@ -60,13 +51,85 @@ const App: React.FC = () => {
 - 时间：${newBoard.targetTime}
 - 局数：${newBoard.isYang ? '阳' : '阴'}遁${newBoard.bureau}局 (${newBoard.solarTerm})
 - 值符：${newBoard.zhiFuStar}，值使：${newBoard.zhiShiGate}
-- 九宫数据：${JSON.stringify(newBoard.palaces)}`,
-          temperature: 0.7,
+- 九宫数据：${JSON.stringify(newBoard.palaces)}`;
+
+      // Use the provided ByteDance Ark v3 responses endpoint
+      const response = await fetch('https://ark.cn-beijing.volces.com/api/v3/responses', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${process.env.API_KEY}`,
+          'Content-Type': 'application/json',
         },
+        body: JSON.stringify({
+          model: modelId,
+          stream: true,
+          tools: [
+            {
+              type: "web_search",
+              max_keyword: 3
+            }
+          ],
+          input: [
+            {
+              role: "system",
+              content: [
+                {
+                  type: "input_text",
+                  text: systemPrompt
+                }
+              ]
+            },
+            {
+              role: "user",
+              content: [
+                {
+                  type: "input_text",
+                  text: userInput
+                }
+              ]
+            }
+          ]
+        }),
       });
 
-      // Use the .text property directly as per Gemini API guidelines
-      setPrediction(response.text || '未观测到清晰的时空反馈。');
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData?.error?.message || `请求失败: ${response.status}`);
+      }
+
+      if (!response.body) throw new Error('响应正文为空');
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let accumulatedText = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const chunk = decoder.decode(value, { stream: true });
+        const lines = chunk.split('\n');
+
+        for (const line of lines) {
+          const trimmedLine = line.trim();
+          if (!trimmedLine || trimmedLine === 'data: [DONE]') continue;
+          
+          if (trimmedLine.startsWith('data:')) {
+            const dataStr = trimmedLine.slice(5).trim();
+            try {
+              const json = JSON.parse(dataStr);
+              // Ark API v3 response structure for streaming choice deltas
+              const content = json.choices?.[0]?.delta?.content || '';
+              if (content) {
+                accumulatedText += content;
+                setPrediction(accumulatedText);
+              }
+            } catch (e) {
+              // Ignore partial JSON or meta data
+            }
+          }
+        }
+      }
 
     } catch (err: any) {
       console.error(err);
@@ -81,7 +144,6 @@ const App: React.FC = () => {
     localStorage.setItem('QIMEN_MODEL_ID', id);
   };
 
-  // Entry screen
   if (!isEntered) {
     return (
       <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-6 text-center parchment-bg">
@@ -94,7 +156,7 @@ const App: React.FC = () => {
              </div>
           </div>
           <h1 className="text-3xl md:text-4xl font-bold text-slate-100 mb-2 qimen-font tracking-widest">奇门遁甲预测系统</h1>
-          <p className="text-amber-600/80 text-sm mb-12 tracking-[0.3em]">数字化时空建模 · 传统理法推演</p>
+          <p className="text-amber-600/80 text-sm mb-12 tracking-[0.3em]">数字化时空建模 · 大陆直连优化</p>
           
           <button 
             onClick={handleEnterSystem}
@@ -106,7 +168,7 @@ const App: React.FC = () => {
           
           <p className="mt-16 text-slate-600 text-[10px] leading-loose">
             基于传统奇门理法体系构建<br/>
-            Gemini 3 Pro AI 引擎支持
+            字节跳动豆包 Ark AI 引擎支持
           </p>
         </div>
       </div>
@@ -124,21 +186,21 @@ const App: React.FC = () => {
               <div className="flex justify-between items-center mb-6">
                 <h2 className="text-amber-500 font-bold flex items-center gap-2 text-sm uppercase tracking-wider">
                   <span className="w-2 h-2 bg-green-500 rounded-full"></span>
-                  引擎配置
+                  引擎配置 (豆包 Ark)
                 </h2>
-                <span className="text-[10px] px-2 py-0.5 bg-slate-800 rounded text-slate-400">Gemini 3 Pro</span>
+                <span className="text-[10px] px-2 py-0.5 bg-slate-800 rounded text-slate-400">大陆直连模式</span>
               </div>
               
               <div className="mb-6 space-y-2">
-                <label className="text-[10px] text-slate-500 block uppercase tracking-widest font-bold">模型名称 (Model ID)</label>
+                <label className="text-[10px] text-slate-500 block uppercase tracking-widest font-bold">接入点 ID (Endpoint ID)</label>
                 <input 
                   type="text" 
                   value={modelId} 
                   onChange={(e) => saveModelId(e.target.value)}
-                  placeholder="gemini-3-pro-preview"
+                  placeholder="例如: ep-2025..."
                   className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-amber-400 focus:ring-1 focus:ring-amber-600 outline-none transition-all placeholder:opacity-30"
                 />
-                <p className="text-[9px] text-slate-600 italic">默认使用 gemini-3-pro-preview 以获得最精准的理法推演</p>
+                <p className="text-[9px] text-slate-600 italic">请填入火山引擎控制台生成的推理接入点 ID</p>
               </div>
 
               <div className="pt-4 border-t border-slate-800">
@@ -155,7 +217,7 @@ const App: React.FC = () => {
           </section>
 
           <section className="bg-slate-900/80 rounded-2xl border border-slate-700 p-6 min-h-[600px] shadow-2xl backdrop-blur-sm">
-            {loading ? (
+            {loading && !prediction ? (
               <div className="flex flex-col items-center justify-center h-[500px] gap-6 text-amber-400">
                 <div className="relative w-20 h-20">
                    <div className="absolute inset-0 border-4 border-amber-400/20 rounded-full"></div>
@@ -163,7 +225,7 @@ const App: React.FC = () => {
                 </div>
                 <div className="text-center space-y-2">
                   <p className="font-bold text-sm tracking-widest">正在拨动时空罗盘...</p>
-                  <p className="text-[10px] text-slate-500 animate-pulse">Gemini 正在根据理法推演变量</p>
+                  <p className="text-[10px] text-slate-500 animate-pulse">豆包 AI 正在大陆节点进行高能演算</p>
                 </div>
               </div>
             ) : error ? (
@@ -176,11 +238,17 @@ const App: React.FC = () => {
                   onClick={() => setError('')}
                   className="mt-6 text-xs text-red-500/60 hover:text-red-500 underline underline-offset-4"
                 >
-                  重试连接
+                  清除错误
                 </button>
               </div>
             ) : prediction ? (
-              <AnalysisDisplay prediction={prediction} />
+              <div className="animate-in fade-in duration-300">
+                 <AnalysisDisplay prediction={prediction} />
+                 {loading && <div className="mt-4 text-[10px] text-amber-500 animate-pulse flex items-center gap-2">
+                    <span className="w-1.5 h-1.5 bg-amber-500 rounded-full"></span>
+                    演算文字输出中...
+                 </div>}
+              </div>
             ) : (
               <div className="flex flex-col items-center justify-center h-[500px] text-slate-600 gap-4">
                 <div className="w-16 h-16 border border-slate-800 rounded-full flex items-center justify-center">
