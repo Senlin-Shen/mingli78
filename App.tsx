@@ -8,16 +8,10 @@ import { calculateBoard } from './qimenLogic.ts';
 import { QiMenBoard } from './types.ts';
 
 /**
- * 奇门遁甲实战预测系统 - 豆包 Ark (Doubao) 深度适配版
- * 
- * 本版本严格遵循用户提供的 ByteDance Ark v3 接口规范：
- * 1. 终点：https://ark.cn-beijing.volces.com/api/v3/responses
- * 2. 鉴权：Bearer $API_KEY
- * 3. 输入格式：使用 "input" 数组而非 "messages" 数组
+ * 奇门遁甲实战预测系统 - 方案1：后端代理版
  */
 const App: React.FC = () => {
   const [isEntered, setIsEntered] = useState<boolean>(false);
-  // 允许用户配置推理接入点 ID (Endpoint ID)
   const [modelId, setModelId] = useState<string>(localStorage.getItem('QIMEN_ENDPOINT_ID') || 'deepseek-v3-2-251201');
   const [board, setBoard] = useState<QiMenBoard | null>(null);
   const [prediction, setPrediction] = useState('');
@@ -38,7 +32,6 @@ const App: React.FC = () => {
     setError('');
     setPrediction('');
     
-    // 1. 起局逻辑
     const targetDate = date ? new Date(date) : new Date();
     const newBoard = calculateBoard(targetDate);
     newBoard.predictionType = type;
@@ -59,26 +52,16 @@ const App: React.FC = () => {
 1. 严禁 Markdown 格式符号。
 2. 标题为：第一步：[标题]，第二步：[标题]...
 3. 必须包含【成功概率】或【风险百分比】。
-4. 引用具体理法：如“五不遇时”、“青龙返首”等。
-5. 给出具体的化解方位或行为建议。`;
+4. 引用具体理法。`;
 
-      // 2. 发起请求 (适配豆包 Ark v3/responses 规范)
-      // 注意：process.env.API_KEY 应在 Vercel/环境配置中设置为您的 Ark API Key
-      const response = await fetch('https://ark.cn-beijing.volces.com/api/v3/responses', {
+      // 注意：这里改为调用我们自己的后端代理接口
+      const response = await fetch('/api/predict', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${process.env.API_KEY}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
           model: modelId,
-          stream: true,
-          tools: [
-            {
-              type: "web_search",
-              max_keyword: 3
-            }
-          ],
           input: [
             {
               role: "user",
@@ -94,8 +77,8 @@ const App: React.FC = () => {
       });
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData?.error?.message || `网络通讯异常 (HTTP ${response.status})。请检查 API Key 和推理接入点 ID 是否匹配。`);
+        const errorText = await response.text();
+        throw new Error(errorText || `代理请求失败 (${response.status})`);
       }
 
       const reader = response.body?.getReader();
@@ -119,27 +102,21 @@ const App: React.FC = () => {
             try {
               const dataStr = trimmed.slice(5).trim();
               const json = JSON.parse(dataStr);
-              // 适配豆包 Ark v3 的 choices[0].delta.content 结构
               const content = json.choices?.[0]?.delta?.content || '';
               if (content) {
                 accumulated += content;
                 setPrediction(accumulated);
               }
             } catch (e) {
-              // 忽略非 JSON 数据
+              // 忽略解析失败的块
             }
           }
         }
       }
 
     } catch (err: any) {
-      console.error('Ark API Error:', err);
-      // 捕获 Failed to fetch 等网络错误
-      if (err.name === 'TypeError' && err.message === 'Failed to fetch') {
-        setError('接入点连接失败：浏览器跨域限制或大陆网络链路波动。建议在 Vercel 等后端环境部署或通过 API 代理访问。');
-      } else {
-        setError(`演算异常：${err.message || '未知变量干扰'}`);
-      }
+      console.error('Fetch Error:', err);
+      setError(`演算异常：${err.message || '后端连接中断'}`);
     } finally {
       setLoading(false);
     }
@@ -157,26 +134,22 @@ const App: React.FC = () => {
             </div>
           </div>
           <h1 className="text-4xl font-bold text-slate-100 mb-4 qimen-font tracking-[0.2em]">奇门遁甲实战预测</h1>
-          <p className="text-amber-700/80 text-xs mb-12 tracking-[0.5em] font-light">数字化时空建模 · 豆包 Ark 驱动</p>
+          <p className="text-amber-700/80 text-xs mb-12 tracking-[0.5em] font-light">九维时空 · 后端代理模式 (Doubao)</p>
           
           <button 
             onClick={handleEnterSystem}
-            className="group relative px-16 py-4 bg-transparent border border-amber-600/40 rounded-full text-amber-500 font-bold overflow-hidden transition-all hover:border-amber-500 hover:shadow-[0_0_20px_rgba(245,158,11,0.2)]"
+            className="group relative px-16 py-4 bg-transparent border border-amber-600/40 rounded-full text-amber-500 font-bold overflow-hidden transition-all hover:border-amber-500"
           >
             <span className="relative z-10 tracking-widest">进入推演系统</span>
             <div className="absolute inset-0 bg-amber-600/10 translate-y-full group-hover:translate-y-0 transition-transform duration-500"></div>
           </button>
-          
-          <div className="mt-20 text-[10px] text-slate-600 opacity-50 tracking-widest">
-            ARK ENGINE v3 · DOUBAO
-          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen parchment-bg p-4 md:p-8 flex flex-col items-center overflow-y-auto animate-in fade-in duration-700">
+    <div className="min-h-screen parchment-bg p-4 md:p-8 flex flex-col items-center overflow-y-auto">
       <div className="max-w-6xl w-full flex flex-col gap-8">
         <Header />
         
@@ -185,10 +158,9 @@ const App: React.FC = () => {
             <div className="bg-slate-900/90 rounded-3xl border border-slate-800 p-8 shadow-2xl backdrop-blur-xl">
               <div className="flex justify-between items-center mb-6">
                 <h2 className="text-amber-500 font-bold text-xs uppercase tracking-widest flex items-center gap-2">
-                  <span className="w-2 h-2 bg-emerald-500 rounded-full"></span>
-                  引擎配置 (豆包 Ark)
+                  <span className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></span>
+                  后端中转模式 (代理已启用)
                 </h2>
-                <div className="text-[10px] px-2 py-0.5 bg-slate-800 rounded text-slate-500">大陆直连模式</div>
               </div>
 
               <div className="mb-8 space-y-2">
@@ -197,8 +169,7 @@ const App: React.FC = () => {
                   type="text" 
                   value={modelId} 
                   onChange={(e) => saveModelId(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-amber-400 focus:ring-1 focus:ring-amber-600 outline-none transition-all"
-                  placeholder="ep-2025..."
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-amber-400 focus:ring-1 focus:ring-amber-600 outline-none"
                 />
               </div>
 
@@ -215,53 +186,38 @@ const App: React.FC = () => {
             )}
           </section>
 
-          <section className="bg-slate-900/80 rounded-3xl border border-slate-800 p-8 min-h-[700px] shadow-2xl backdrop-blur-md relative">
+          <section className="bg-slate-900/80 rounded-3xl border border-slate-800 p-8 min-h-[700px] shadow-2xl backdrop-blur-md">
             {loading && !prediction ? (
               <div className="flex flex-col items-center justify-center h-[600px] gap-8">
                 <div className="relative">
-                  <div className="w-20 h-20 border-2 border-amber-500/10 rounded-full animate-pulse"></div>
+                  <div className="w-20 h-20 border-2 border-amber-500/10 rounded-full"></div>
                   <div className="absolute inset-0 border-t-2 border-amber-500 rounded-full animate-spin"></div>
                 </div>
-                <div className="text-center">
-                  <p className="text-amber-500 font-bold text-sm tracking-[0.4em]">正在通过豆包内核演算时空</p>
-                  <p className="text-[10px] text-slate-600 mt-2">检索关键字并同步九宫理法...</p>
-                </div>
+                <p className="text-amber-500 font-bold text-sm tracking-[0.4em]">代理服务器正在请求时空数据</p>
               </div>
             ) : error ? (
               <div className="p-10 border border-red-900/30 rounded-3xl bg-red-950/10 text-center animate-in shake duration-500">
-                <div className="text-red-500 text-3xl mb-4 opacity-50">!</div>
                 <h4 className="text-red-500 font-bold mb-3">推演受阻</h4>
                 <p className="text-red-400/80 text-xs leading-loose mb-8">{error}</p>
                 <button 
                   onClick={() => setError('')}
-                  className="px-8 py-2 bg-red-900/20 rounded-full text-[10px] text-red-500 hover:bg-red-900/40 transition-all uppercase tracking-widest"
+                  className="px-8 py-2 bg-red-900/20 rounded-full text-[10px] text-red-500 hover:bg-red-900/40"
                 >
-                  清除负面反馈
+                  重置干扰
                 </button>
               </div>
             ) : prediction ? (
               <div className="animate-in fade-in duration-500">
                  <AnalysisDisplay prediction={prediction} />
-                 {loading && <div className="mt-8 text-[10px] text-amber-500/40 italic flex items-center gap-2">
-                    <span className="w-1.5 h-1.5 bg-amber-500/40 rounded-full animate-ping"></span>
-                    时空信息流持续加载中...
-                 </div>}
               </div>
             ) : (
               <div className="flex flex-col items-center justify-center h-[600px] text-slate-700 opacity-20">
-                <div className="w-20 h-20 border-2 border-slate-800 rounded-full flex items-center justify-center">
-                  <span className="text-3xl qimen-font">卦</span>
-                </div>
-                <p className="mt-6 text-[11px] tracking-[0.5em] uppercase">等待拨动时空以显像</p>
+                <span className="text-3xl qimen-font">等待显像</span>
               </div>
             )}
           </section>
         </div>
       </div>
-      
-      <footer className="w-full py-10 text-slate-700 text-[10px] tracking-[0.3em] text-center mt-auto">
-        奇门遁甲实战预测系统 · 豆包 ARK 增强版
-      </footer>
     </div>
   );
 };
