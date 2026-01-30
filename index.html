@@ -4,32 +4,43 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>奇门遁甲实战预测系统</title>
+    <title>奇门遁甲实战预测系统 - 专业版</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;700&family=Zhi+Mang+Xing&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@300;400;700&family=Zhi+Mang+Xing&display=swap" rel="stylesheet">
     <style>
         body {
-            background-color: #0f172a;
+            background-color: #020617;
             color: #f8fafc;
             font-family: 'Noto Serif SC', serif;
             overflow-x: hidden;
+            scroll-behavior: smooth;
         }
         .qimen-font {
             font-family: 'Zhi Mang Xing', cursive;
         }
         .parchment-bg {
-            background: linear-gradient(rgba(20, 25, 40, 0.95), rgba(20, 25, 40, 0.95)), url('https://www.transparenttextures.com/patterns/natural-paper.png');
+            background: linear-gradient(rgba(2, 6, 23, 0.94), rgba(2, 6, 23, 0.94)), url('https://www.transparenttextures.com/patterns/natural-paper.png');
             background-attachment: fixed;
         }
+        
+        @keyframes shake {
+          0%, 100% { transform: translateX(0); }
+          25% { transform: translateX(-4px); }
+          75% { transform: translateX(4px); }
+        }
+        .animate-shake {
+          animation: shake 0.5s cubic-bezier(.36,.07,.19,.97) both;
+        }
+
         ::-webkit-scrollbar {
-            width: 6px;
+            width: 4px;
         }
         ::-webkit-scrollbar-track {
-            background: #1e293b;
+            background: #0f172a;
         }
         ::-webkit-scrollbar-thumb {
-            background: #475569;
-            border-radius: 3px;
+            background: #334155;
+            border-radius: 10px;
         }
     </style>
 <script type="importmap">
