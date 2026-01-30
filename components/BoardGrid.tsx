@@ -1,7 +1,7 @@
 
 import React from 'react';
-import { QiMenBoard } from '../types';
-import { GRID_LAYOUT } from '../constants';
+import { QiMenBoard } from '../types.ts';
+import { GRID_LAYOUT } from '../constants.ts';
 
 interface BoardGridProps {
   board: QiMenBoard;

@@ -1,12 +1,12 @@
 
 import { GoogleGenAI } from "@google/genai";
 import React, { useState } from 'react';
-import AnalysisDisplay from './components/AnalysisDisplay';
-import BoardGrid from './components/BoardGrid';
-import Header from './components/Header';
-import InputForm from './components/InputForm';
-import { calculateBoard } from './qimenLogic';
-import { QiMenBoard } from './types';
+import AnalysisDisplay from './components/AnalysisDisplay.tsx';
+import BoardGrid from './components/BoardGrid.tsx';
+import Header from './components/Header.tsx';
+import InputForm from './components/InputForm.tsx';
+import { calculateBoard } from './qimenLogic.ts';
+import { QiMenBoard } from './types.ts';
 
 const App: React.FC = () => {
   const [board, setBoard] = useState<QiMenBoard | null>(null);
@@ -16,6 +16,12 @@ const App: React.FC = () => {
   const [error, setError] = useState('');
 
   const handlePredict = async (userInput: string, type: 'SHI_JU' | 'MING_JU', date: string) => {
+    // 检查 API Key 是否存在
+    if (!process.env.API_KEY) {
+      setError('配置错误：未检测到 API Key，请在环境变量中设置。');
+      return;
+    }
+
     setLoading(true);
     setError('');
     setPrediction('');

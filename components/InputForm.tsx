@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { SCENARIOS } from '../constants';
+import { SCENARIOS } from '../constants.ts';
 
 interface InputFormProps {
   onPredict: (query: string, type: 'SHI_JU' | 'MING_JU', date: string) => void;
