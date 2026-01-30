@@ -1,5 +1,6 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
+import { GoogleGenAI } from "@google/genai";
 import AnalysisDisplay from './components/AnalysisDisplay.tsx';
 import BoardGrid from './components/BoardGrid.tsx';
 import Header from './components/Header.tsx';
@@ -7,31 +8,25 @@ import InputForm from './components/InputForm.tsx';
 import { calculateBoard } from './qimenLogic.ts';
 import { QiMenBoard } from './types.ts';
 
+/**
+ * App component - Main entry point for the QiMen prediction system.
+ * Updated to use Gemini API via @google/genai SDK.
+ */
 const App: React.FC = () => {
-  const [hasKey, setHasKey] = useState<boolean>(true);
-  const [modelId, setModelId] = useState<string>(localStorage.getItem('DOUBAO_MODEL_ID') || '');
+  const [isEntered, setIsEntered] = useState<boolean>(false);
+  // Default to gemini-3-pro-preview for complex reasoning tasks
+  const [modelId, setModelId] = useState<string>(localStorage.getItem('QIMEN_MODEL_ID') || 'gemini-3-pro-preview');
   const [board, setBoard] = useState<QiMenBoard | null>(null);
   const [prediction, setPrediction] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  useEffect(() => {
-    if (!process.env.API_KEY || process.env.API_KEY === 'undefined') {
-      setHasKey(false);
-    }
-  }, []);
+  const handleEnterSystem = () => {
+    setIsEntered(true);
+  };
 
   const handlePredict = async (userInput: string, type: 'SHI_JU' | 'MING_JU', date: string) => {
-    if (!process.env.API_KEY) {
-      setError('检测到 API 密钥配置缺失，请在 Vercel 环境变量中设置。');
-      return;
-    }
-
-    if (!modelId) {
-      setError('请输入豆包推理接入点 ID (Endpoint ID)。');
-      return;
-    }
-
+    // API_KEY is handled externally via process.env.API_KEY
     setLoading(true);
     setError('');
     setPrediction('');
@@ -43,55 +38,39 @@ const App: React.FC = () => {
     setBoard(newBoard);
 
     try {
-      // 适配豆包 Ark 平台的 OpenAI 兼容协议
-      const response = await fetch('https://ark.cn-beijing.volces.com/api/v3/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${process.env.API_KEY}`
-        },
-        body: JSON.stringify({
-          model: modelId,
-          messages: [
-            {
-              role: 'system',
-              content: `你是一位精通传统奇门遁甲体系的预测专家。
+      // Initialize Gemini API client inside the handler to use the most up-to-date environment key
+      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+      
+      const response = await ai.models.generateContent({
+        model: modelId || 'gemini-3-pro-preview',
+        contents: userInput,
+        config: {
+          systemInstruction: `你是一位精通传统奇门遁甲体系的预测专家。
               
 【核心要求】：
 - 结果中严禁使用任何 "*"、"#" 或 "##" 符号。
-- 每一节标题直接写为“第一步：...”的形式。
-- 必须提供具体的【成功概率】或【风险百分比】。
-- 解析基于盘面符号生克，引用具体理法。
-- 提供具体的方位、时辰、行为建议。
-- 严禁幻觉：只解析当前数据。
+- 每一节标题直接写为“第一步：...”的形式，不要带任何 Markdown 格式。
+- 必须提供具体的【成功概率】或【风险百分比】（基于理法推算）。
+- 解析基于盘面符号（星、门、神、仪）的生克关系，引用具体理法，如“五不遇时”、“青龙返首”等。
+- 提供具体的方位、时辰、行为建议或调理方案。
+- 严禁幻觉：只解析当前提供的九宫数据。
 
 【当前盘局】：
 - 类型：${type === 'SHI_JU' ? '事局' : '命局'}
 - 时间：${newBoard.targetTime}
 - 局数：${newBoard.isYang ? '阳' : '阴'}遁${newBoard.bureau}局 (${newBoard.solarTerm})
 - 值符：${newBoard.zhiFuStar}，值使：${newBoard.zhiShiGate}
-- 九宫数据：${JSON.stringify(newBoard.palaces)}`
-            },
-            {
-              role: 'user',
-              content: userInput
-            }
-          ],
-          temperature: 0.6
-        })
+- 九宫数据：${JSON.stringify(newBoard.palaces)}`,
+          temperature: 0.7,
+        },
       });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error?.message || '请求失败');
-      }
-
-      const data = await response.json();
-      setPrediction(data.choices[0].message.content || '演算未获响应。');
+      // Use the .text property directly as per Gemini API guidelines
+      setPrediction(response.text || '未观测到清晰的时空反馈。');
 
     } catch (err: any) {
       console.error(err);
-      setError('时空演算中断：' + (err.message || '未知错误'));
+      setError('演算中断：' + (err.message || '未知错误'));
     } finally {
       setLoading(false);
     }
@@ -99,61 +78,72 @@ const App: React.FC = () => {
 
   const saveModelId = (id: string) => {
     setModelId(id);
-    localStorage.setItem('DOUBAO_MODEL_ID', id);
+    localStorage.setItem('QIMEN_MODEL_ID', id);
   };
 
-  if (!hasKey) {
+  // Entry screen
+  if (!isEntered) {
     return (
-      <div className="min-h-screen bg-slate-950 flex items-center justify-center p-6 text-center">
-        <div className="max-w-md w-full bg-slate-900 border border-amber-900/50 rounded-3xl p-8 shadow-2xl">
-          <div className="text-amber-500 text-5xl mb-6">⚙️</div>
-          <h1 className="text-2xl font-bold text-slate-100 mb-4">需配置 API 密钥</h1>
-          <p className="text-slate-400 text-sm mb-8 leading-relaxed">
-            为了支持中国大陆 IP 正常访问，请在 Vercel 中配置您的<b>豆包 API 密钥</b>：
-          </p>
-          <div className="bg-slate-800 rounded-xl p-4 text-left mb-8 space-y-3">
-            <div className="flex items-center gap-3">
-              <span className="w-5 h-5 bg-amber-600 rounded-full text-[10px] flex items-center justify-center text-white font-bold">1</span>
-              <span className="text-slate-300 text-xs">前往 Vercel 项目的 <b>Settings</b></span>
-            </div>
-            <div className="flex items-center gap-3">
-              <span className="w-5 h-5 bg-amber-600 rounded-full text-[10px] flex items-center justify-center text-white font-bold">2</span>
-              <span className="text-slate-300 text-xs">添加变量 <b>API_KEY</b> (填入豆包 API Key)</span>
-            </div>
+      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-6 text-center parchment-bg">
+        <div className="max-w-md w-full animate-in fade-in zoom-in duration-700">
+          <div className="w-32 h-32 mx-auto mb-8 relative">
+             <div className="absolute inset-0 border-2 border-amber-500/30 rounded-full animate-[spin_10s_linear_infinite]"></div>
+             <div className="absolute inset-4 border border-amber-500/20 rounded-full animate-[spin_15s_linear_infinite_reverse]"></div>
+             <div className="absolute inset-0 flex items-center justify-center text-5xl text-amber-500 qimen-font">
+                易
+             </div>
           </div>
-          <p className="text-slate-500 text-[10px] italic">完成后 Redeploy 即可。目前已针对中国大陆线路深度优化。</p>
+          <h1 className="text-3xl md:text-4xl font-bold text-slate-100 mb-2 qimen-font tracking-widest">奇门遁甲预测系统</h1>
+          <p className="text-amber-600/80 text-sm mb-12 tracking-[0.3em]">数字化时空建模 · 传统理法推演</p>
+          
+          <button 
+            onClick={handleEnterSystem}
+            className="group relative px-12 py-3 bg-transparent border border-amber-600/50 rounded-full text-amber-500 font-bold overflow-hidden transition-all hover:border-amber-500"
+          >
+            <span className="relative z-10">进入系统</span>
+            <div className="absolute inset-0 bg-amber-600/10 translate-y-full group-hover:translate-y-0 transition-transform"></div>
+          </button>
+          
+          <p className="mt-16 text-slate-600 text-[10px] leading-loose">
+            基于传统奇门理法体系构建<br/>
+            Gemini 3 Pro AI 引擎支持
+          </p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen parchment-bg p-4 md:p-8 flex flex-col items-center overflow-y-auto">
+    <div className="min-h-screen parchment-bg p-4 md:p-8 flex flex-col items-center overflow-y-auto animate-in fade-in duration-500">
       <div className="max-w-6xl w-full flex flex-col gap-8">
         <Header />
         
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start mb-12">
           <section className="flex flex-col gap-6 lg:sticky lg:top-8">
-            {/* 豆包模型配置区 */}
             <div className="bg-slate-900/90 rounded-2xl border border-slate-700 p-6 shadow-xl backdrop-blur-md">
-              <div className="flex justify-between items-center mb-4">
-                <h2 className="text-amber-500 font-bold flex items-center gap-2 text-sm">
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-amber-500 font-bold flex items-center gap-2 text-sm uppercase tracking-wider">
                   <span className="w-2 h-2 bg-green-500 rounded-full"></span>
-                  豆包 AI 引擎已就绪
+                  引擎配置
                 </h2>
+                <span className="text-[10px] px-2 py-0.5 bg-slate-800 rounded text-slate-400">Gemini 3 Pro</span>
               </div>
-              <div className="mb-4">
-                <label className="text-[10px] text-slate-500 mb-1 block uppercase tracking-wider">推理接入点 ID (Endpoint ID)</label>
+              
+              <div className="mb-6 space-y-2">
+                <label className="text-[10px] text-slate-500 block uppercase tracking-widest font-bold">模型名称 (Model ID)</label>
                 <input 
                   type="text" 
                   value={modelId} 
                   onChange={(e) => saveModelId(e.target.value)}
-                  placeholder="例如: ep-2024..."
-                  className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-xs text-amber-200 focus:ring-1 focus:ring-amber-600 outline-none"
+                  placeholder="gemini-3-pro-preview"
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-amber-400 focus:ring-1 focus:ring-amber-600 outline-none transition-all placeholder:opacity-30"
                 />
-                <p className="text-[9px] text-slate-600 mt-1">请从字节跳动火山引擎控制台获取推理点 ID</p>
+                <p className="text-[9px] text-slate-600 italic">默认使用 gemini-3-pro-preview 以获得最精准的理法推演</p>
               </div>
-              <InputForm onPredict={handlePredict} isLoading={loading} />
+
+              <div className="pt-4 border-t border-slate-800">
+                <InputForm onPredict={handlePredict} isLoading={loading} />
+              </div>
             </div>
             
             {board && (
@@ -166,38 +156,42 @@ const App: React.FC = () => {
 
           <section className="bg-slate-900/80 rounded-2xl border border-slate-700 p-6 min-h-[600px] shadow-2xl backdrop-blur-sm">
             {loading ? (
-              <div className="flex flex-col items-center justify-center h-[500px] gap-4 text-amber-400">
-                <div className="w-16 h-16 border-2 border-amber-400 border-t-transparent rounded-full animate-spin"></div>
-                <p className="animate-pulse text-sm font-bold">豆包大模型正在演算时空变量...</p>
-                <p className="text-[10px] text-slate-500">已连接至大陆专属高性能计算节点</p>
+              <div className="flex flex-col items-center justify-center h-[500px] gap-6 text-amber-400">
+                <div className="relative w-20 h-20">
+                   <div className="absolute inset-0 border-4 border-amber-400/20 rounded-full"></div>
+                   <div className="absolute inset-0 border-4 border-amber-400 border-t-transparent rounded-full animate-spin"></div>
+                </div>
+                <div className="text-center space-y-2">
+                  <p className="font-bold text-sm tracking-widest">正在拨动时空罗盘...</p>
+                  <p className="text-[10px] text-slate-500 animate-pulse">Gemini 正在根据理法推演变量</p>
+                </div>
               </div>
             ) : error ? (
-              <div className="text-red-400 p-6 border border-red-900/30 rounded-xl bg-red-900/10 text-xs leading-loose">
-                <span className="font-bold block mb-1">推演提示：</span>
-                {error}
+              <div className="p-8 border border-red-900/30 rounded-2xl bg-red-900/10">
+                <h4 className="text-red-500 font-bold mb-3 flex items-center gap-2">
+                  <span>演算异常</span>
+                </h4>
+                <p className="text-red-400/80 text-sm leading-relaxed">{error}</p>
+                <button 
+                  onClick={() => setError('')}
+                  className="mt-6 text-xs text-red-500/60 hover:text-red-500 underline underline-offset-4"
+                >
+                  重试连接
+                </button>
               </div>
             ) : prediction ? (
-              <div className="space-y-10">
-                <div className="bg-slate-800/30 p-6 rounded-xl border border-slate-700/50">
-                  <AnalysisDisplay prediction={prediction} />
-                </div>
-              </div>
+              <AnalysisDisplay prediction={prediction} />
             ) : (
-              <div className="flex flex-col items-center justify-center h-[500px] text-slate-500 italic text-center p-8">
-                <div className="w-24 h-24 border border-slate-800 rounded-full flex items-center justify-center mb-6 opacity-20">
-                  <span className="text-4xl text-amber-500">☯</span>
+              <div className="flex flex-col items-center justify-center h-[500px] text-slate-600 gap-4">
+                <div className="w-16 h-16 border border-slate-800 rounded-full flex items-center justify-center">
+                  <span className="text-2xl opacity-20">卦</span>
                 </div>
-                <p className="text-sm">奇门无极，易理有踪。<br/>请选择场景并输入问题进行实战预测。</p>
+                <p className="text-xs tracking-widest uppercase">等待拨动时空以开启解析</p>
               </div>
             )}
           </section>
         </div>
       </div>
-      
-      <footer className="w-full py-8 text-slate-500 text-[10px] md:text-xs opacity-60 text-center space-y-2 border-t border-slate-800/50 mt-auto">
-        <div>奇门遁甲实战预测系统 · 豆包 AI 引擎版</div>
-        <div>已针对中国大陆网络环境优化 · 易理逻辑由大模型深度推理</div>
-      </footer>
     </div>
   );
 };
