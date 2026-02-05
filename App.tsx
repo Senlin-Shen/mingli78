@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import AnalysisDisplay from './components/AnalysisDisplay';
 import BoardGrid from './components/BoardGrid';
@@ -48,7 +47,7 @@ ${JSON.stringify(newBoard.palaces)}
 - 逻辑按“第一步：审局”、“第二步：辨主客”、“第三步：析胜算”输出。
 - 语言风格：专业、沉稳、充满洞察力。`;
 
-      // 调用本地 Vercel 代理路径，彻底避开直接请求火山引擎引起的跨域错误
+      // 仅调用火山引擎代理接口，彻底避开 Google Gemini
       const response = await fetch('/api/ark-proxy', {
         method: 'POST',
         headers: {
@@ -64,11 +63,11 @@ ${JSON.stringify(newBoard.palaces)}
       });
 
       if (!response.ok) {
-        const errJson = await response.json().catch(() => ({ error: '请求解析失败' }));
+        const errJson = await response.json().catch(() => ({ error: '时空链路请求解析失败' }));
         throw new Error(errJson.error || `HTTP 错误 ${response.status}`);
       }
 
-      // 解析 SSE (Server-Sent Events) 流式数据
+      // 处理 SSE 流式响应
       const reader = response.body?.getReader();
       const decoder = new TextDecoder("utf-8");
       let fullContent = "";
@@ -83,16 +82,15 @@ ${JSON.stringify(newBoard.palaces)}
           
           for (const line of lines) {
             const trimmed = line.trim();
+            if (trimmed === "data: [DONE]") break;
             if (trimmed.startsWith("data: ")) {
-              const dataStr = trimmed.slice(6);
-              if (dataStr === "[DONE]") break;
               try {
-                const data = JSON.parse(dataStr);
+                const data = JSON.parse(trimmed.slice(6));
                 const content = data.choices[0]?.delta?.content || "";
                 fullContent += content;
                 setPrediction(fullContent);
               } catch (e) {
-                // 忽略非标准或碎片数据
+                // 忽略非完整 JSON 碎片
               }
             }
           }
@@ -101,7 +99,7 @@ ${JSON.stringify(newBoard.palaces)}
 
     } catch (err: any) {
       console.error('Prediction Error:', err);
-      setError(`演算受阻：${err.message || '请检查 Vercel 环境变量配置'}`);
+      setError(`演算受阻：${err.message || '请确保 Vercel 环境变量配置已正确导入'}`);
     } finally {
       setLoading(false);
     }
@@ -173,7 +171,7 @@ ${JSON.stringify(newBoard.palaces)}
             
             {!loading && !prediction && !error && (
               <div className="flex-1 flex items-center justify-center text-slate-600 text-sm italic tracking-widest text-center px-12">
-                 请在左侧输入您想要预测的问题，系统将通过火山引擎 API 进行深度理法推演。
+                 请在左侧输入您想要预测的问题，系统将通过火山引擎大模型进行深度理法推演。
               </div>
             )}
           </section>

@@ -1,4 +1,3 @@
-
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
@@ -13,7 +12,7 @@ export default defineConfig({
         rewrite: (path) => path.replace(/^\/api\/ark-proxy/, '/chat/completions'),
         configure: (proxy, options) => {
           proxy.on('proxyReq', (proxyReq, req, res) => {
-            // 优先使用 ARK_API_KEY，备用用户提供的默认 Key
+            // 本地调试回退到用户提供的默认 Key
             const apiKey = process.env.ARK_API_KEY || '98cb8068-1092-4293-8284-e75748242001';
             proxyReq.setHeader('Authorization', `Bearer ${apiKey}`);
           });
