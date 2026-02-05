@@ -7,23 +7,18 @@ export default defineConfig({
   server: {
     port: 3000,
     proxy: {
-      '/api/predict': {
-        target: 'https://ark.cn-beijing.volces.com',
+      '/api/volc-proxy': {
+        target: process.env.VOLC_BASE_URL || 'https://ark.cn-beijing.volces.com/api/v3',
         changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/api\/predict/, '/api/v3/chat/completions'),
+        rewrite: (path) => path.replace(/^\/api\/volc-proxy/, '/chat/completions'),
         configure: (proxy, options) => {
           proxy.on('proxyReq', (proxyReq, req, res) => {
-            // 注意：本地开发时建议在环境变量或此处手动设置 Key 测试
-            // 生产环境由 api/predict.ts 处理
-            if (process.env.API_KEY) {
-              proxyReq.setHeader('Authorization', `Bearer ${process.env.API_KEY}`);
+            if (process.env.VOLC_API_KEY) {
+              proxyReq.setHeader('Authorization', `Bearer ${process.env.API_KEY || process.env.VOLC_API_KEY}`);
             }
           });
         }
       }
     }
-  },
-  build: {
-    outDir: 'dist'
   }
 });

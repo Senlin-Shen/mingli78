@@ -48,29 +48,30 @@ ${JSON.stringify(newBoard.palaces)}
 - 逻辑按“第一步：审局”、“第二步：辨主客”、“第三步：析胜算”输出。
 - 语言风格：专业、沉稳、充满洞察力。`;
 
-      // 请求同源代理路径 /api/predict 解决 Failed to fetch (CORS) 错误
-      const response = await fetch('/api/predict', {
+      // 调用本地中间件地址，彻底解决 Failed to fetch (CORS) 问题
+      const response = await fetch('/api/volc-proxy', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          model: "doubao-pro-4k", // 火山引擎模型 ID
           messages: [
             { role: "system", content: systemInstruction },
             { role: "user", content: userInput }
-          ]
+          ],
+          temperature: 0.7
         })
       });
 
       if (!response.ok) {
-        throw new Error(`网络通讯受阻 (${response.status})，请检查 API 配置`);
+        const errJson = await response.json();
+        throw new Error(errJson.error || '连接服务器失败');
       }
 
-      // 解析 SSE 流
+      // 处理 SSE 流式响应
       const reader = response.body?.getReader();
       const decoder = new TextDecoder("utf-8");
-      let accumulatedText = "";
+      let fullText = "";
 
       if (reader) {
         while (true) {
@@ -87,10 +88,10 @@ ${JSON.stringify(newBoard.palaces)}
               try {
                 const data = JSON.parse(dataStr);
                 const content = data.choices[0]?.delta?.content || "";
-                accumulatedText += content;
-                setPrediction(accumulatedText);
+                fullText += content;
+                setPrediction(fullText);
               } catch (e) {
-                // 忽略解析失败的非标准行
+                // 忽略碎片化数据解析错误
               }
             }
           }
@@ -98,8 +99,8 @@ ${JSON.stringify(newBoard.palaces)}
       }
 
     } catch (err: any) {
-      console.error('API Error:', err);
-      setError(`时空连接受阻：${err.message || '请确保代理服务已正确启动'}`);
+      console.error('Prediction Error:', err);
+      setError(`时空连接受阻：${err.message || '请检查 Vercel 环境变量配置'}`);
     } finally {
       setLoading(false);
     }
@@ -180,8 +181,8 @@ ${JSON.stringify(newBoard.palaces)}
                     </div>
                   </div>
                   <div className="text-center space-y-4">
-                    <p className="text-amber-500 text-sm tracking-[0.6em] font-black uppercase">火山引擎 深度推演中</p>
-                    <p className="text-slate-500 text-[10px] tracking-widest max-w-[280px] leading-relaxed mx-auto">正在通过火山引擎 API，针对正统奇门理法进行深度时空演算...</p>
+                    <p className="text-amber-500 text-sm tracking-[0.6em] font-black uppercase">火山引擎 深度演算中</p>
+                    <p className="text-slate-500 text-[10px] tracking-widest max-w-[280px] leading-relaxed mx-auto">正在通过边缘计算网关调用火山引擎 API，进行深度时空演算...</p>
                   </div>
                 </div>
               ) : error ? (
