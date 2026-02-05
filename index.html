@@ -20,17 +20,17 @@
             font-family: 'Zhi Mang Xing', cursive;
         }
         .parchment-bg {
-            background: linear-gradient(rgba(2, 6, 23, 0.94), rgba(2, 6, 23, 0.94)), url('https://www.transparenttextures.com/patterns/natural-paper.png');
+            background: radial-gradient(circle at center, rgba(30, 41, 59, 0.4) 0%, rgba(2, 6, 23, 1) 100%), 
+                        url('https://www.transparenttextures.com/patterns/natural-paper.png');
             background-attachment: fixed;
         }
         
-        @keyframes shake {
-          0%, 100% { transform: translateX(0); }
-          25% { transform: translateX(-4px); }
-          75% { transform: translateX(4px); }
+        @keyframes subtle-glow {
+          0%, 100% { filter: drop-shadow(0 0 5px rgba(245, 158, 11, 0.2)); }
+          50% { filter: drop-shadow(0 0 15px rgba(245, 158, 11, 0.4)); }
         }
-        .animate-shake {
-          animation: shake 0.5s cubic-bezier(.36,.07,.19,.97) both;
+        .animate-glow {
+          animation: subtle-glow 3s ease-in-out infinite;
         }
 
         ::-webkit-scrollbar {
@@ -51,7 +51,8 @@
     "react-dom/": "https://esm.sh/react-dom@^19.2.4/",
     "react/": "https://esm.sh/react@^19.2.4/",
     "vite": "https://esm.sh/vite@^7.3.1",
-    "@vitejs/plugin-react": "https://esm.sh/@vitejs/plugin-react@^5.1.3"
+    "@vitejs/plugin-react": "https://esm.sh/@vitejs/plugin-react@^5.1.3",
+    "@google/genai": "https://esm.sh/@google/genai@^1.40.0"
   }
 }
 </script>

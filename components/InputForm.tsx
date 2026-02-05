@@ -60,4 +60,50 @@ const InputForm: React.FC<InputFormProps> = ({ onPredict, isLoading }) => {
       )}
 
       <div className="flex flex-wrap gap-2 pt-2 border-t border-slate-800/50">
-        {
+        {SCENARIOS.map((cat) => (
+          <button
+            key={cat.id}
+            onClick={() => setActiveCategory(cat.id)}
+            className={`px-3 py-1 text-[10px] rounded-full transition-all ${
+              activeCategory === cat.id
+                ? 'bg-amber-600 text-white'
+                : 'bg-slate-800 text-slate-400 border border-slate-700 hover:border-slate-500'
+            }`}
+          >
+            {cat.label}
+          </button>
+        ))}
+      </div>
+
+      <div className="flex flex-col gap-1.5">
+        {category?.templates.map((tpl, i) => (
+          <button
+            key={i}
+            onClick={() => handleTemplateClick(tpl)}
+            className="text-left text-[10px] bg-slate-900/40 hover:bg-slate-800/60 p-2 rounded border border-slate-800 text-slate-400 transition-colors"
+          >
+            {tpl}
+          </button>
+        ))}
+      </div>
+
+      <form onSubmit={handleSubmit} className="flex flex-col gap-3">
+        <textarea
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          placeholder="请精准描述您的问题..."
+          className="w-full h-24 bg-slate-800/50 border border-slate-700 rounded-xl p-3 text-slate-200 focus:outline-none focus:ring-2 focus:ring-amber-500 transition-all resize-none text-xs"
+        />
+        <button
+          type="submit"
+          disabled={isLoading || !text.trim() || (type === 'MING_JU' && !customDate)}
+          className="w-full bg-amber-600 hover:bg-amber-500 disabled:bg-slate-700 disabled:cursor-not-allowed text-white font-bold py-2.5 rounded-xl transition-all shadow-lg hover:shadow-amber-500/20 text-xs"
+        >
+          {isLoading ? '九维演算中...' : '拨动时空'}
+        </button>
+      </form>
+    </div>
+  );
+};
+
+export default InputForm;
