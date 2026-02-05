@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import AnalysisDisplay from './components/AnalysisDisplay';
 import BoardGrid from './components/BoardGrid';
 import Header from './components/Header';
@@ -15,48 +15,51 @@ const App: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
+  // 极致性能：生成缓存指纹
+  const getCacheKey = (query: string, type: string, date: string) => {
+    return `qimen_cache_${btoa(unescape(encodeURIComponent(`${query}_${type}_${date}`))).slice(0, 32)}`;
+  };
+
   const handleEnterSystem = () => {
     setIsEntered(true);
   };
 
-  const handlePredict = async (userInput: string, type: 'SHI_JU' | 'MING_JU', date: string) => {
+  const handlePredict = useCallback(async (userInput: string, type: 'SHI_JU' | 'MING_JU', date: string) => {
     setLoading(true);
     setError('');
     setPrediction('');
     
+    // 1. 本地逻辑排盘
     const targetDate = date ? new Date(date) : new Date();
     const newBoard = calculateBoard(targetDate);
     newBoard.predictionType = type;
     newBoard.targetTime = targetDate.toLocaleString();
     setBoard(newBoard);
 
+    // 2. 检查本地缓存实现“瞬间返回”
+    const cacheKey = getCacheKey(userInput, type, date);
+    const cachedData = sessionStorage.getItem(cacheKey);
+    if (cachedData) {
+      // 模拟微弱延时增加仪式感
+      setTimeout(() => {
+        setPrediction(cachedData);
+        setLoading(false);
+      }, 300);
+      return;
+    }
+
     try {
-      const systemInstruction = `你是一位精通正统体系的“奇门当代应用”实战分析专家。你的分析不限于玄学，更融合了现代行为科学、中西医学逻辑以及经济学视野。
+      const systemInstruction = `你是一位精通正统体系的“奇门当代应用”实战分析专家。
 
-【奇门理法体系核心】：
-1. 拆补定局：一切分析建立在 ${newBoard.isYang ? '阳' : '阴'}遁${newBoard.bureau}局 的基础上。
-2. 核心分析维度：
-   - 投资决策：分析市场趋势与资金动向（戊落宫），尤其关注虚拟经济、文化产业等新兴领域，判断时机与风险。
-   - 事业创业：运用“十二长生”（如“胎”位判断萌芽酝酿期）评估项目阶段，指导静守筹备或发力推进，规避盲目投入。
-   - 感情人际：以乙代表女方、庚代表男方，结合宫位神煞分析关系走向、萌芽状态及沟通契机。
-   - 健康养生：重点观测天芮星（病星）落宫，结合五行分析身体隐患（如木主肝胆、水主肾泌），提供体检建议与日常调养方向（涵盖中西医常识）。
-   - 学业择业：评估个人能量与机遇匹配度，给出学科调整或职场赛道选择的建议。
-   - 日常择吉：利用八门（开门、休门等）选择吉时，用于签约、搬家、出行等当代生活场景。
+【当前排盘】：${newBoard.isYang ? '阳' : '阴'}遁${newBoard.bureau}局。
+【数据】：${JSON.stringify(newBoard.palaces)}
 
-【当前排盘数据】：
-${JSON.stringify(newBoard.palaces)}
-
-【输出要求】：
-- 严禁任何 Markdown 标记。
-- 逻辑清晰，分为：第一步：审局辨势、第二步：多维推演（结合具体场景）、第三步：行动建议。
-- 风格：睿智、实战、既有传统韵味又符合现代逻辑，强调“胜算概率”。`;
+请基于以上数据进行多维推演（投资/事业/情感/健康/学业/择吉）。
+严禁Markdown，分步输出，给出胜算概率。`;
 
       const response = await fetch('/api/ark-proxy', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'text/event-stream'
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           messages: [
             { role: "system", content: systemInstruction },
@@ -67,16 +70,16 @@ ${JSON.stringify(newBoard.palaces)}
       });
 
       if (!response.ok) {
-        const errJson = await response.json().catch(() => ({ error: '时空链路通讯失败' }));
-        throw new Error(errJson.detail || errJson.error || `HTTP ${response.status}`);
+        throw new Error(`连接不稳定 (HTTP ${response.status})`);
       }
 
       const reader = response.body?.getReader();
       const decoder = new TextDecoder("utf-8");
-      let fullContent = "";
-      let buffer = ""; 
+      let fullText = "";
+      let buffer = "";
 
       if (reader) {
+        // 流式分片渲染优化
         while (true) {
           const { done, value } = await reader.read();
           if (done) break;
@@ -87,30 +90,27 @@ ${JSON.stringify(newBoard.palaces)}
 
           for (const line of lines) {
             const trimmed = line.trim();
-            if (!trimmed || trimmed === "data: [DONE]") continue;
-            
-            if (trimmed.startsWith("data: ")) {
+            if (trimmed.startsWith("data: ") && trimmed !== "data: [DONE]") {
               try {
-                const jsonStr = trimmed.slice(6);
-                const data = JSON.parse(jsonStr);
+                const data = JSON.parse(trimmed.slice(6));
                 const content = data.choices[0]?.delta?.content || "";
-                fullContent += content;
-                setPrediction(fullContent);
-              } catch (e) {
-                // 仅忽略解析不全的碎片
-              }
+                fullText += content;
+                // 使用函数式更新减少渲染压力
+                setPrediction(prev => prev + content);
+              } catch (e) { }
             }
           }
         }
+        // 最终存入缓存
+        sessionStorage.setItem(cacheKey, fullText);
       }
 
     } catch (err: any) {
-      console.error('演算失败:', err);
-      setError(err.message || '未知时空扰动，请检查 API 配置');
+      setError(err.message === 'Failed to fetch' ? '网络连接超时，请重试' : err.message);
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   if (!isEntered) {
     return (
@@ -155,26 +155,32 @@ ${JSON.stringify(newBoard.palaces)}
         </div>
 
         <div className="space-y-8">
-          <section className="bg-slate-900/40 border border-slate-800 p-8 rounded-3xl backdrop-blur-md min-h-[600px] flex flex-col">
+          <section className="bg-slate-900/40 border border-slate-800 p-8 rounded-3xl backdrop-blur-md min-h-[600px] flex flex-col relative overflow-hidden">
             <h2 className="text-xl font-bold mb-6 text-amber-500 flex items-center gap-3">
               <span className="w-8 h-8 rounded-full bg-amber-500/10 flex items-center justify-center text-sm">贰</span>
               当代应用分析
             </h2>
             
             {loading && !prediction && (
-              <div className="flex-1 flex flex-col items-center justify-center gap-4 text-slate-500">
-                <div className="w-12 h-12 border-4 border-amber-500/20 border-t-amber-500 rounded-full animate-spin"></div>
-                <p className="text-xs tracking-[0.3em] animate-pulse">正在拨动干支齿轮...</p>
+              <div className="flex-1 flex flex-col items-center justify-center gap-6 text-slate-500">
+                <div className="relative">
+                  <div className="w-16 h-16 border-4 border-amber-500/10 border-t-amber-500 rounded-full animate-spin"></div>
+                  <div className="absolute inset-0 bg-amber-500/5 blur-xl animate-pulse"></div>
+                </div>
+                <div className="flex flex-col items-center gap-2">
+                  <p className="text-xs tracking-[0.4em] text-amber-500/80 animate-pulse font-bold">正在拨动干支齿轮...</p>
+                  <p className="text-[10px] text-slate-600">正在跨越时空链接服务器</p>
+                </div>
               </div>
             )}
 
             {error && (
-              <div className="bg-red-950/30 border border-red-900/50 p-6 rounded-2xl text-red-400 text-sm italic leading-relaxed">
-                <div className="font-bold mb-2">演算受阻：</div>
-                {error}
-                <div className="mt-4 text-[10px] text-red-500/60 font-mono">
-                  提示：请确保 Vercel 已配置 ARK_API_KEY。
+              <div className="bg-red-950/20 border border-red-900/40 p-6 rounded-2xl text-red-400 text-sm italic animate-in zoom-in-95">
+                <div className="font-bold mb-2 flex items-center gap-2">
+                  <span className="w-2 h-2 bg-red-500 rounded-full animate-ping"></span>
+                  演算受阻
                 </div>
+                {error}
               </div>
             )}
 
@@ -182,7 +188,7 @@ ${JSON.stringify(newBoard.palaces)}
             
             {!loading && !prediction && !error && (
               <div className="flex-1 flex items-center justify-center text-slate-600 text-sm italic tracking-widest text-center px-12">
-                 请在左侧输入预测问题，系统将根据当代应用逻辑为您进行深度推演。
+                 请在左侧输入预测问题，系统将通过 AI 边缘计算为您深度推演。
               </div>
             )}
           </section>
