@@ -3,16 +3,17 @@ import React, { useState } from 'react';
 import AnalysisDisplay from './components/AnalysisDisplay.tsx';
 import BoardGrid from './components/BoardGrid.tsx';
 import Header from './components/Header.tsx';
+import Footer from './components/Footer.tsx';
 import InputForm from './components/InputForm.tsx';
 import { calculateBoard } from './qimenLogic.ts';
 import { QiMenBoard } from './types.ts';
 
 /**
- * 奇门遁甲实战预测系统 - 方案1：后端代理版
+ * 奇门遁甲实战预测系统 - 域名定制版
  */
 const App: React.FC = () => {
   const [isEntered, setIsEntered] = useState<boolean>(false);
-  const [modelId, setModelId] = useState<string>(localStorage.getItem('QIMEN_ENDPOINT_ID') || 'deepseek-v3-2-251201');
+  const [modelId, setModelId] = useState<string>(localStorage.getItem('QIMEN_ENDPOINT_ID') || '');
   const [board, setBoard] = useState<QiMenBoard | null>(null);
   const [prediction, setPrediction] = useState('');
   const [loading, setLoading] = useState(false);
@@ -28,6 +29,11 @@ const App: React.FC = () => {
   };
 
   const handlePredict = async (userInput: string, type: 'SHI_JU' | 'MING_JU', date: string) => {
+    if (!modelId) {
+      setError("请先在左侧输入框填入您的推理接入点 ID (Endpoint ID)");
+      return;
+    }
+
     setLoading(true);
     setError('');
     setPrediction('');
@@ -54,7 +60,6 @@ const App: React.FC = () => {
 3. 必须包含【成功概率】或【风险百分比】。
 4. 引用具体理法。`;
 
-      // 注意：这里改为调用我们自己的后端代理接口
       const response = await fetch('/api/predict', {
         method: 'POST',
         headers: {
@@ -62,23 +67,28 @@ const App: React.FC = () => {
         },
         body: JSON.stringify({
           model: modelId,
-          input: [
-            {
-              role: "user",
-              content: [
-                {
-                  type: "input_text",
-                  text: `${systemPrompt}\n\n用户问题：${userInput}`
-                }
-              ]
-            }
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: userInput }
           ]
         }),
       });
 
       if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(errorText || `代理请求失败 (${response.status})`);
+        let errorInfo = '请求失败';
+        try {
+          const jsonErr = await response.json();
+          errorInfo = jsonErr.error || jsonErr.message || errorInfo;
+          if (jsonErr.details) errorInfo += `: ${jsonErr.details}`;
+        } catch (e) {
+          errorInfo = await response.text() || errorInfo;
+        }
+        
+        if (errorInfo.includes('AuthenticationError') || errorInfo.includes('API key format')) {
+          errorInfo = "【鉴权失败】：API Key 校验未通过。请检查 Vercel 环境变量中的 API_KEY 是否与截图一致，且已点击 Redeploy。";
+        }
+        
+        throw new Error(errorInfo);
       }
 
       const reader = response.body?.getReader();
@@ -126,6 +136,9 @@ const App: React.FC = () => {
     return (
       <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-6 text-center parchment-bg">
         <div className="max-w-md w-full animate-in fade-in zoom-in duration-1000">
+          <div className="mb-6">
+            <span className="text-[10px] text-amber-600/40 tracking-[0.5em] font-mono">WWW.QIMENMASTERCLASS.CN</span>
+          </div>
           <div className="relative w-40 h-40 mx-auto mb-10">
             <div className="absolute inset-0 border-2 border-amber-600/20 rounded-full animate-[spin_20s_linear_infinite]"></div>
             <div className="absolute inset-4 border border-amber-500/10 rounded-full animate-[spin_12s_linear_infinite_reverse]"></div>
@@ -133,14 +146,14 @@ const App: React.FC = () => {
               <span className="text-6xl text-amber-500 qimen-font drop-shadow-[0_0_15px_rgba(245,158,11,0.5)]">易</span>
             </div>
           </div>
-          <h1 className="text-4xl font-bold text-slate-100 mb-4 qimen-font tracking-[0.2em]">奇门遁甲实战预测</h1>
-          <p className="text-amber-700/80 text-xs mb-12 tracking-[0.5em] font-light">九维时空 · 后端代理模式 (Doubao)</p>
+          <h1 className="text-4xl font-bold text-slate-100 mb-4 qimen-font tracking-[0.2em]">奇门大师课</h1>
+          <p className="text-amber-700/80 text-xs mb-12 tracking-[0.5em] font-light italic">官方实战预测系统</p>
           
           <button 
             onClick={handleEnterSystem}
             className="group relative px-16 py-4 bg-transparent border border-amber-600/40 rounded-full text-amber-500 font-bold overflow-hidden transition-all hover:border-amber-500"
           >
-            <span className="relative z-10 tracking-widest">进入推演系统</span>
+            <span className="relative z-10 tracking-widest">进入推演中心</span>
             <div className="absolute inset-0 bg-amber-600/10 translate-y-full group-hover:translate-y-0 transition-transform duration-500"></div>
           </button>
         </div>
@@ -159,7 +172,7 @@ const App: React.FC = () => {
               <div className="flex justify-between items-center mb-6">
                 <h2 className="text-amber-500 font-bold text-xs uppercase tracking-widest flex items-center gap-2">
                   <span className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></span>
-                  后端中转模式 (代理已启用)
+                  服务器已就绪
                 </h2>
               </div>
 
@@ -169,7 +182,8 @@ const App: React.FC = () => {
                   type="text" 
                   value={modelId} 
                   onChange={(e) => saveModelId(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-amber-400 focus:ring-1 focus:ring-amber-600 outline-none"
+                  placeholder="ep-2025xxxxxx-xxxxx"
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-amber-400 focus:ring-1 focus:ring-amber-600 outline-none placeholder:text-slate-700 font-mono"
                 />
               </div>
 
@@ -188,22 +202,27 @@ const App: React.FC = () => {
 
           <section className="bg-slate-900/80 rounded-3xl border border-slate-800 p-8 min-h-[700px] shadow-2xl backdrop-blur-md">
             {loading && !prediction ? (
-              <div className="flex flex-col items-center justify-center h-[600px] gap-8">
+              <div className="flex flex-col items-center justify-center h-[600px] gap-8 text-center">
                 <div className="relative">
                   <div className="w-20 h-20 border-2 border-amber-500/10 rounded-full"></div>
                   <div className="absolute inset-0 border-t-2 border-amber-500 rounded-full animate-spin"></div>
                 </div>
-                <p className="text-amber-500 font-bold text-sm tracking-[0.4em]">代理服务器正在请求时空数据</p>
+                <div>
+                  <p className="text-amber-500 font-bold text-sm tracking-[0.4em] mb-2">正在通过专用通道读取易理...</p>
+                  <p className="text-slate-500 text-[10px]">正在访问 www.qimenmasterclass.cn 演算中枢</p>
+                </div>
               </div>
             ) : error ? (
               <div className="p-10 border border-red-900/30 rounded-3xl bg-red-950/10 text-center animate-in shake duration-500">
-                <h4 className="text-red-500 font-bold mb-3">推演受阻</h4>
-                <p className="text-red-400/80 text-xs leading-loose mb-8">{error}</p>
+                <h4 className="text-red-500 font-bold mb-3 uppercase tracking-widest text-sm">推演受阻</h4>
+                <div className="bg-black/60 p-6 rounded-2xl mb-6 border border-red-900/20">
+                   <p className="text-red-400/90 text-xs leading-relaxed text-left font-sans">{error}</p>
+                </div>
                 <button 
                   onClick={() => setError('')}
-                  className="px-8 py-2 bg-red-900/20 rounded-full text-[10px] text-red-500 hover:bg-red-900/40"
+                  className="px-10 py-3 bg-red-900/20 rounded-full text-[10px] text-red-500 hover:bg-red-900/40 border border-red-900/30 transition-all font-bold tracking-widest"
                 >
-                  重置干扰
+                  重新尝试拨动时空
                 </button>
               </div>
             ) : prediction ? (
@@ -212,11 +231,13 @@ const App: React.FC = () => {
               </div>
             ) : (
               <div className="flex flex-col items-center justify-center h-[600px] text-slate-700 opacity-20">
-                <span className="text-3xl qimen-font">等待显像</span>
+                <span className="text-3xl qimen-font tracking-[0.5em]">静候天机</span>
               </div>
             )}
           </section>
         </div>
+        
+        <Footer />
       </div>
     </div>
   );
