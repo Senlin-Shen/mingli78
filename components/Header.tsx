@@ -21,7 +21,7 @@ const Header: React.FC = () => {
       <p className="text-slate-400 max-w-2xl mx-auto text-sm md:text-base leading-loose px-6 tracking-widest font-light italic">
         基于天、地、人、神四盘深度模型，
         <br className="hidden md:block" />
-        利用豆包大模型协助处理理法逻辑，为你锁定最精准的胜算概率。
+        利用高阶 AI 逻辑处理理法推演，为您锁定最精准的胜算概率。
       </p>
     </header>
   );
