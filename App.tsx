@@ -1,5 +1,6 @@
 
 import React, { useState } from 'react';
+import { GoogleGenAI } from "@google/genai";
 import AnalysisDisplay from './components/AnalysisDisplay';
 import BoardGrid from './components/BoardGrid';
 import Header from './components/Header';
@@ -8,11 +9,6 @@ import InputForm from './components/InputForm';
 import { calculateBoard } from './qimenLogic';
 import { QiMenBoard } from './types';
 
-/**
- * 奇门大师课 - 正统奇门遁甲体系官方平台
- * 核心引擎：通过内部代理访问火山引擎豆包 (Doubao-Pro)
- * 解决跨域：使用 /api/predict 路由避免浏览器 CORS 拦截
- */
 const App: React.FC = () => {
   const [isEntered, setIsEntered] = useState<boolean>(false);
   const [board, setBoard] = useState<QiMenBoard | null>(null);
@@ -36,6 +32,10 @@ const App: React.FC = () => {
     setBoard(newBoard);
 
     try {
+      // 初始化 Gemini API
+      // 注意：process.env.API_KEY 会由系统环境自动处理，无需手动配置
+      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
+      
       const systemInstruction = `你是一位精通正统体系的奇门遁甲实战预测专家。
 
 【奇门理法体系核心】：
@@ -53,58 +53,28 @@ ${JSON.stringify(newBoard.palaces)}
 - 逻辑按“第一步：审局”、“第二步：辨主客”、“第三步：析胜算”输出。
 - 语言风格：专业、沉稳、充满商业洞察力。`;
 
-      // 使用本地 API 路由作为代理，彻底解决 Failed to fetch (CORS) 错误
-      const response = await fetch('/api/predict', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
+      // 使用 Gemini 3 Pro Preview 进行深度分析
+      const responseStream = await ai.models.generateContentStream({
+        model: 'gemini-3-pro-preview',
+        contents: userInput,
+        config: {
+          systemInstruction: systemInstruction,
+          temperature: 0.7,
         },
-        body: JSON.stringify({
-          model: "doubao-pro-4k",
-          messages: [
-            { role: "system", content: systemInstruction },
-            { role: "user", content: userInput }
-          ]
-        })
       });
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(errorText || `服务器响应异常: ${response.status}`);
-      }
-
-      const reader = response.body?.getReader();
-      const decoder = new TextDecoder("utf-8");
-      let accumulatedText = "";
-
-      if (reader) {
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          
-          const chunk = decoder.decode(value);
-          const lines = chunk.split("\n");
-          
-          for (const line of lines) {
-            if (line.startsWith("data: ")) {
-              const dataStr = line.slice(6).trim();
-              if (dataStr === "[DONE]") break;
-              try {
-                const data = JSON.parse(dataStr);
-                const content = data.choices[0]?.delta?.content || "";
-                accumulatedText += content;
-                setPrediction(accumulatedText);
-              } catch (e) {
-                // 忽略非标准数据行
-              }
-            }
-          }
+      let fullText = "";
+      for await (const chunk of responseStream) {
+        const text = chunk.text;
+        if (text) {
+          fullText += text;
+          setPrediction(fullText);
         }
       }
 
     } catch (err: any) {
-      console.error('API Error:', err);
-      setError(`演算中断：${err.message || '网络连接失败，请检查 API 密钥设置及网络状态'}`);
+      console.error('Gemini API Error:', err);
+      setError(`演算中断：${err.message || '连接星象服务器失败，请稍后重试'}`);
     } finally {
       setLoading(false);
     }
@@ -185,8 +155,8 @@ ${JSON.stringify(newBoard.palaces)}
                     </div>
                   </div>
                   <div className="text-center space-y-4">
-                    <p className="text-amber-500 text-sm tracking-[0.6em] font-black uppercase">豆包大模型 演算中</p>
-                    <p className="text-slate-500 text-[10px] tracking-widest max-w-[280px] leading-relaxed mx-auto">正在调用火山引擎 API，针对正统奇门理法进行深度时空演算...</p>
+                    <p className="text-amber-500 text-sm tracking-[0.6em] font-black uppercase">大师演算中</p>
+                    <p className="text-slate-500 text-[10px] tracking-widest max-w-[280px] leading-relaxed mx-auto">正在调用 Gemini 3 Pro 深度模型，针对正统奇门理法进行深度时空演算...</p>
                   </div>
                 </div>
               ) : error ? (
