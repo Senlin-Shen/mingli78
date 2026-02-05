@@ -16,15 +16,15 @@ const App: React.FC = () => {
   const [error, setError] = useState('');
 
   // 极致性能：生成缓存指纹
-  const getCacheKey = (query: string, type: string, date: string) => {
-    return `qimen_cache_${btoa(unescape(encodeURIComponent(`${query}_${type}_${date}`))).slice(0, 32)}`;
+  const getCacheKey = (query: string, type: string, date: string, direction: string) => {
+    return `qimen_cache_${btoa(unescape(encodeURIComponent(`${query}_${type}_${date}_${direction}`))).slice(0, 32)}`;
   };
 
   const handleEnterSystem = () => {
     setIsEntered(true);
   };
 
-  const handlePredict = useCallback(async (userInput: string, type: 'SHI_JU' | 'MING_JU', date: string) => {
+  const handlePredict = useCallback(async (userInput: string, type: 'SHI_JU' | 'MING_JU', date: string, direction: string) => {
     setLoading(true);
     setError('');
     setPrediction('');
@@ -34,13 +34,13 @@ const App: React.FC = () => {
     const newBoard = calculateBoard(targetDate);
     newBoard.predictionType = type;
     newBoard.targetTime = targetDate.toLocaleString();
+    newBoard.direction = direction;
     setBoard(newBoard);
 
     // 2. 检查本地缓存实现“瞬间返回”
-    const cacheKey = getCacheKey(userInput, type, date);
+    const cacheKey = getCacheKey(userInput, type, date, direction);
     const cachedData = sessionStorage.getItem(cacheKey);
     if (cachedData) {
-      // 模拟微弱延时增加仪式感
       setTimeout(() => {
         setPrediction(cachedData);
         setLoading(false);
@@ -49,13 +49,24 @@ const App: React.FC = () => {
     }
 
     try {
-      const systemInstruction = `你是一位精通正统体系的“奇门当代应用”实战分析专家。
+      const systemInstruction = `你是一位精通正统体系的“奇门当代应用”实战分析专家。你的推演逻辑严密，融合了传统理法与当代博弈论。
 
 【当前排盘】：${newBoard.isYang ? '阳' : '阴'}遁${newBoard.bureau}局。
-【数据】：${JSON.stringify(newBoard.palaces)}
+【求测方位】：${direction}
+【核心数据】：${JSON.stringify(newBoard.palaces)}
 
-请基于以上数据进行多维推演（投资/事业/情感/健康/学业/择吉）。
-严禁Markdown，分步输出，给出胜算概率。`;
+【推演要求】：
+1. **理法深剖**：必须详细分析“方位”与“落宫”的生克关系。解释值符、值使、三奇六仪在该时空的动态变化。
+2. **多维演绎**：
+   - 投资/事业：结合“十二长生”和“戊”落宫谈资金流动性。
+   - 情感/人际：分析乙庚落宫及其神煞的相互作用。
+   - 健康：从天芮星落宫深度剖析五行偏胜导致的身体隐患。
+3. **切实建议**：禁止模棱两可。必须给出具体的、可执行的建议（如：避开某方位、在某时段行动、调整某种心态、具体的体检方向等）。
+4. **输出格式**：严禁Markdown符号。逻辑分为：
+   - 第一步：审局辨势（宏观理法分析）
+   - 第二步：方位剖析（结合用户选定方位的专项推演）
+   - 第三步：落地指南（给出具体的、切实的行动建议）
+   - 最终成算：给出胜算概率。`;
 
       const response = await fetch('/api/ark-proxy', {
         method: 'POST',
@@ -79,7 +90,6 @@ const App: React.FC = () => {
       let buffer = "";
 
       if (reader) {
-        // 流式分片渲染优化
         while (true) {
           const { done, value } = await reader.read();
           if (done) break;
@@ -95,13 +105,11 @@ const App: React.FC = () => {
                 const data = JSON.parse(trimmed.slice(6));
                 const content = data.choices[0]?.delta?.content || "";
                 fullText += content;
-                // 使用函数式更新减少渲染压力
                 setPrediction(prev => prev + content);
               } catch (e) { }
             }
           }
         }
-        // 最终存入缓存
         sessionStorage.setItem(cacheKey, fullText);
       }
 
@@ -158,7 +166,7 @@ const App: React.FC = () => {
           <section className="bg-slate-900/40 border border-slate-800 p-8 rounded-3xl backdrop-blur-md min-h-[600px] flex flex-col relative overflow-hidden">
             <h2 className="text-xl font-bold mb-6 text-amber-500 flex items-center gap-3">
               <span className="w-8 h-8 rounded-full bg-amber-500/10 flex items-center justify-center text-sm">贰</span>
-              当代应用分析
+              当代应用推演
             </h2>
             
             {loading && !prediction && (
@@ -169,7 +177,7 @@ const App: React.FC = () => {
                 </div>
                 <div className="flex flex-col items-center gap-2">
                   <p className="text-xs tracking-[0.4em] text-amber-500/80 animate-pulse font-bold">正在拨动干支齿轮...</p>
-                  <p className="text-[10px] text-slate-600">正在跨越时空链接服务器</p>
+                  <p className="text-[10px] text-slate-600">正在跨越时空链接推演模型</p>
                 </div>
               </div>
             )}
@@ -188,7 +196,7 @@ const App: React.FC = () => {
             
             {!loading && !prediction && !error && (
               <div className="flex-1 flex items-center justify-center text-slate-600 text-sm italic tracking-widest text-center px-12">
-                 请在左侧输入预测问题，系统将通过 AI 边缘计算为您深度推演。
+                 请在左侧输入预测问题并选择方位，系统将根据当代实战逻辑为您深度推演。
               </div>
             )}
           </section>

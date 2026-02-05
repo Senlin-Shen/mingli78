@@ -6,6 +6,18 @@ export const STARS = ['天蓬', '天芮', '天冲', '天辅', '天禽', '天心'
 export const GATES = ['休门', '死门', '伤门', '杜门', '中门', '开门', '惊门', '生门', '景门'];
 export const GODS = ['值符', '螣蛇', '太阴', '六合', '白虎', '玄武', '九地', '九天'];
 
+export const DIRECTIONS = [
+  { id: 'N', label: '正北 (坎)', palace: 1 },
+  { id: 'NE', label: '东北 (艮)', palace: 8 },
+  { id: 'E', label: '正东 (震)', palace: 3 },
+  { id: 'SE', label: '东南 (巽)', palace: 4 },
+  { id: 'S', label: '正南 (离)', palace: 9 },
+  { id: 'SW', label: '西南 (坤)', palace: 2 },
+  { id: 'W', label: '正西 (兑)', palace: 7 },
+  { id: 'NW', label: '西北 (乾)', palace: 6 },
+  { id: 'C', label: '中宫/原地', palace: 5 }
+];
+
 export const PALACE_INFO: Record<number, { name: string; element: string; gua: string }> = {
   1: { name: '坎一宫', element: '水', gua: '坎' },
   2: { name: '坤二宫', element: '土', gua: '坤' },

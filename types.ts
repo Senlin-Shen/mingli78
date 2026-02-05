@@ -17,6 +17,7 @@ export interface QiMenBoard {
   startingMethod: string;
   predictionType: PredictionType;
   targetTime: string;
+  direction?: string; // 用户选择的方位
 }
 
 export interface PalaceData {
