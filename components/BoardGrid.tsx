@@ -17,7 +17,7 @@ const BoardGrid: React.FC<BoardGridProps> = ({ board }) => {
             <span className="text-amber-500">{board.trueSolarTime || board.targetTime}</span>
           </div>
           <div className="space-y-1">
-            <span className="text-slate-600 block text-[9px] uppercase">自动映射宫位</span>
+            <span className="text-slate-600 block text-[9px] uppercase">方位映射</span>
             <span className="text-blue-400 font-black">{board.direction || '计算中'}</span>
           </div>
           <div className="space-y-1">
@@ -99,7 +99,7 @@ const BoardGrid: React.FC<BoardGridProps> = ({ board }) => {
       </div>
       
       <div className="text-[9px] text-slate-700 text-center leading-loose tracking-[0.3em] font-bold uppercase">
-        <span className="text-amber-600/40 italic">Lin Yi Expert Framework · 时空映射系统 v2.5</span>
+        <span className="text-amber-600/40 italic text-[8px]">Qi Men Jing Yao · Framework v3.0</span>
       </div>
     </div>
   );

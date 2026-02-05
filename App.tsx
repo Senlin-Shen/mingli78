@@ -153,7 +153,7 @@ const App: React.FC = () => {
     setBoard(newBoard);
 
     try {
-      const systemInstruction = `你是一位精通林毅奇门遁甲体系的“当代实战应用”推演专家。
+      const systemInstruction = `你是一位精通“奇门景曜”体系的当代实战推演专家。
 当前求测者地理位置 (${userLocation?.city || '未知'})，已自动入局【${autoPalace}】。
 
 【起局参数】：
@@ -163,11 +163,11 @@ const App: React.FC = () => {
 - 盘面数据：${JSON.stringify(newBoard.palaces)}
 
 【推演要求】：
-1. 必须针对【${autoPalace}】进行深度解构，分析其中的星门神仪。
-2. 给出当代实战建议。
-3. 如果用户后续进行“追问”或“继续提问”，请保持对当前格局的深度解读，不要脱离本次起局。
+1. 深入分析【${autoPalace}】宫内的能量态势（星、门、神、仪）。
+2. 将传统术数逻辑映射到当代生活决策中。
+3. 保持推演的专业性、客观性与实操性。
 
-输出格式：[审局辨势]、[${autoPalace}解析]、[实战落地建议]、[最终胜算成算]。禁用Markdown符号。`;
+输出格式：[审局辨势]、[${autoPalace}解析]、[实战建议]、[最终胜算]。请禁用Markdown符号，保持纯文本段落感。`;
 
       const initialMessages: ChatMessage[] = [
         { role: "system", content: systemInstruction },
@@ -212,17 +212,17 @@ const App: React.FC = () => {
       ]);
       setPrediction('');
     } catch (err: any) {
-      setError(`追问链路中断: ${err.message}`);
+      setError(`追问失败: ${err.message}`);
     } finally {
       setFollowUpLoading(false);
     }
   };
 
   const quickFollowUps = [
-    "针对格局中的不利因素，具体该如何化解？",
-    "此事的关键转机大概在什么时间点？",
-    "目前局中是否有贵人相助，在什么方位？",
-    "根据理法，我当前最不应该做的事情是什么？"
+    "如何根据此局进行避险化解？",
+    "此事的转机出现在何时？",
+    "该方位的贵人特征是什么？",
+    "目前最需要警惕的变数是什么？"
   ];
 
   if (!isEntered) {
@@ -232,20 +232,20 @@ const App: React.FC = () => {
         <div className="max-w-md w-full relative z-10 text-center">
           <div className="mb-12 relative inline-block animate-glow">
              <div className="absolute -inset-10 bg-amber-500/10 blur-3xl rounded-full"></div>
-             <h1 className="text-7xl font-bold text-slate-100 mb-4 qimen-font tracking-[0.5em] relative">奇门当代应用</h1>
-             <p className="text-amber-500/60 text-xs tracking-[0.8em] font-black uppercase">Official Expert System</p>
+             <h1 className="text-7xl font-bold text-slate-100 mb-4 qimen-font tracking-[0.5em] relative">奇门景曜</h1>
+             <p className="text-amber-500/60 text-xs tracking-[0.8em] font-black uppercase">Official Application Platform</p>
           </div>
           <button 
             onClick={() => setIsEntered(true)}
             className="group relative px-12 py-4 bg-amber-600 hover:bg-amber-500 text-white font-bold rounded-2xl transition-all shadow-2xl hover:shadow-amber-500/40"
           >
-            <span className="relative z-10 tracking-[1em] pl-4 text-sm">进入系统</span>
+            <span className="relative z-10 tracking-[1em] pl-4 text-sm font-black">开启推演</span>
             <div className="absolute inset-0 bg-white/20 scale-x-0 group-hover:scale-x-100 transition-transform origin-left rounded-2xl"></div>
           </button>
           
           {userLocation && (
              <div className="mt-8 text-[10px] text-slate-500 tracking-widest animate-in fade-in duration-1000">
-               已就绪：{userLocation.palaceName} · {userLocation.city || '未知'}
+               时空锚点已就绪：{userLocation.palaceName}
              </div>
           )}
         </div>
@@ -272,7 +272,7 @@ const App: React.FC = () => {
 
       <main className="flex-1 max-w-7xl mx-auto w-full px-6 py-12 grid grid-cols-1 lg:grid-cols-2 gap-12">
         <div className="space-y-8">
-          <section className="bg-slate-900/40 border border-slate-800 p-8 rounded-3xl backdrop-blur-md">
+          <section className="bg-slate-900/40 border border-slate-800 p-8 rounded-3xl backdrop-blur-md shadow-xl">
             <h2 className="text-xl font-bold mb-6 text-amber-500 flex items-center gap-3">
               <span className="w-8 h-8 rounded-full bg-amber-500/10 flex items-center justify-center text-sm">壹</span>
               起局预测请求
@@ -288,7 +288,7 @@ const App: React.FC = () => {
         </div>
 
         <div className="space-y-8 flex flex-col h-full">
-          <section className="bg-slate-900/40 border border-slate-800 p-8 rounded-3xl backdrop-blur-md flex-1 flex flex-col relative overflow-hidden max-h-[1200px]">
+          <section className="bg-slate-900/40 border border-slate-800 p-8 rounded-3xl backdrop-blur-md flex-1 flex flex-col relative overflow-hidden max-h-[1200px] shadow-xl">
             <h2 className="text-xl font-bold mb-6 text-amber-500 flex items-center gap-3">
               <span className="w-8 h-8 rounded-full bg-amber-500/10 flex items-center justify-center text-sm">贰</span>
               专家理法推演
@@ -296,10 +296,10 @@ const App: React.FC = () => {
             
             <div ref={scrollRef} className="flex-1 overflow-y-auto pr-4 space-y-8 scroll-smooth pb-20">
               {chatHistory.filter(m => m.role !== 'system').map((msg, i) => (
-                <div key={i} className={`animate-in fade-in slide-in-from-bottom-2 duration-500 ${msg.role === 'user' ? 'opacity-80 border-l-2 border-amber-500/30 pl-4 py-2 my-4 bg-amber-500/5 rounded' : ''}`}>
+                <div key={i} className={`animate-in fade-in slide-in-from-bottom-2 duration-500 ${msg.role === 'user' ? 'opacity-80 border-l-2 border-amber-500/30 pl-4 py-2 my-4 bg-amber-500/5 rounded-xl' : ''}`}>
                   {msg.role === 'user' && (
                     <div className="flex items-center gap-2 mb-2">
-                      <span className="text-[10px] text-amber-500 font-black tracking-widest uppercase">追问理法：</span>
+                      <span className="text-[10px] text-amber-500 font-black tracking-widest uppercase">追问详情：</span>
                       <div className="h-px flex-1 bg-amber-500/10"></div>
                     </div>
                   )}
@@ -309,7 +309,7 @@ const App: React.FC = () => {
 
               {prediction && (
                 <div className="border-t border-slate-800/50 pt-6 mt-6 animate-pulse">
-                   <p className="text-[10px] text-amber-500 mb-4 tracking-[0.3em] font-black uppercase">正在深入研讨中...</p>
+                   <p className="text-[10px] text-amber-500 mb-4 tracking-[0.3em] font-black uppercase">正在深入解析理法...</p>
                    <AnalysisDisplay prediction={prediction} />
                 </div>
               )}
@@ -317,7 +317,7 @@ const App: React.FC = () => {
               {loading && !prediction && (
                 <div className="flex-1 flex flex-col items-center justify-center gap-6 text-slate-500 min-h-[400px]">
                   <div className="w-12 h-12 border-4 border-amber-500/10 border-t-amber-500 rounded-full animate-spin"></div>
-                  <p className="text-xs tracking-[0.4em] text-amber-500 font-bold uppercase">正在针对格局入局推演...</p>
+                  <p className="text-xs tracking-[0.4em] text-amber-500 font-bold uppercase">奇门景曜·正在入局推演</p>
                 </div>
               )}
 
@@ -325,7 +325,7 @@ const App: React.FC = () => {
               
               {!loading && chatHistory.length === 0 && !error && (
                 <div className="flex-1 flex items-center justify-center text-slate-600 text-sm italic tracking-widest text-center px-12 leading-loose min-h-[400px]">
-                   系统已锁定时空坐标。起局后，您可以针对推演结果持续追问。
+                   系统已锁定时空坐标。输入问题并起局后，您可以针对分析结果继续研讨。
                 </div>
               )}
             </div>
@@ -350,7 +350,7 @@ const App: React.FC = () => {
                    <textarea
                     value={followUpText}
                     onChange={(e) => setFollowUpText(e.target.value)}
-                    placeholder="针对以上理法进一步深入提问..."
+                    placeholder="进一步追问或探讨..."
                     disabled={followUpLoading}
                     className="w-full h-24 bg-slate-950/80 border border-slate-800 rounded-2xl p-4 text-slate-200 focus:outline-none focus:ring-2 focus:ring-amber-500/30 transition-all resize-none text-xs shadow-2xl"
                   />
@@ -359,7 +359,7 @@ const App: React.FC = () => {
                     disabled={followUpLoading || !followUpText.trim()}
                     className="absolute bottom-4 right-4 bg-amber-600 hover:bg-amber-500 text-white px-6 py-2 rounded-xl text-[10px] font-bold tracking-widest transition-all shadow-xl hover:shadow-amber-500/40 disabled:opacity-10"
                   >
-                    {followUpLoading ? '研讨中...' : '继续提问'}
+                    {followUpLoading ? '解析中...' : '继续提问'}
                   </button>
                 </form>
               </div>
