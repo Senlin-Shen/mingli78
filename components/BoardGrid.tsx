@@ -1,7 +1,7 @@
 
 import React from 'react';
-import { QiMenBoard } from '../types.ts';
-import { GRID_LAYOUT } from '../constants.ts';
+import { QiMenBoard } from '../types';
+import { GRID_LAYOUT } from '../constants';
 
 interface BoardGridProps {
   board: QiMenBoard;
@@ -10,7 +10,6 @@ interface BoardGridProps {
 const BoardGrid: React.FC<BoardGridProps> = ({ board }) => {
   return (
     <div className="flex flex-col gap-6">
-      {/* Starting Info Header - Professional Style */}
       <div className="bg-slate-900 border-2 border-slate-800 p-4 rounded-lg">
         <div className="grid grid-cols-2 gap-y-2 text-[11px] leading-relaxed">
           <div className="flex justify-between border-r border-slate-800 pr-4">
@@ -40,7 +39,6 @@ const BoardGrid: React.FC<BoardGridProps> = ({ board }) => {
         </div>
       </div>
       
-      {/* Professional 3x3 Traditional Chart Grid */}
       <div className="grid grid-cols-3 bg-slate-900 border-2 border-amber-900/30 w-full max-w-[420px] mx-auto shadow-2xl">
         {GRID_LAYOUT.map((pIndex) => {
           const palace = board.palaces.find(p => p.index === pIndex);
@@ -53,7 +51,6 @@ const BoardGrid: React.FC<BoardGridProps> = ({ board }) => {
                 ${palace.isEmptiness ? 'bg-slate-950 grayscale-[0.5]' : 'bg-slate-900'}
               `}
             >
-              {/* God (Top Row) */}
               <div className="flex justify-between items-center text-indigo-400 font-bold text-xs">
                 <span className="tracking-widest">{palace.god}</span>
                 <div className="flex gap-1">
@@ -62,12 +59,10 @@ const BoardGrid: React.FC<BoardGridProps> = ({ board }) => {
                 </div>
               </div>
 
-              {/* Palace Background Gua (Subtle) */}
               <div className="absolute inset-0 flex items-center justify-center opacity-[0.03] text-6xl font-black pointer-events-none select-none text-amber-500">
                 {palace.gua}
               </div>
 
-              {/* Middle Section: Star and Gate */}
               <div className="flex flex-col items-center justify-center gap-1.5 z-10">
                 <span className="text-amber-500 font-bold text-[13px] tracking-wider">{palace.star}</span>
                 <div className="bg-slate-950 px-3 py-1 rounded-sm border border-slate-800">
@@ -75,7 +70,6 @@ const BoardGrid: React.FC<BoardGridProps> = ({ board }) => {
                 </div>
               </div>
 
-              {/* Bottom Row: Stems and Palace Info */}
               <div className="flex justify-between items-end border-t border-slate-800/60 pt-1.5 z-10">
                 <div className="flex flex-col items-center">
                   <span className="text-red-500 font-bold text-sm leading-none">{palace.heavenStem}</span>
@@ -88,8 +82,6 @@ const BoardGrid: React.FC<BoardGridProps> = ({ board }) => {
                   <span className="text-blue-400 font-bold text-sm leading-none">{palace.earthStem}</span>
                 </div>
               </div>
-              
-              {/* Palace Index (Corner) */}
               <span className="absolute bottom-0 right-1 text-[8px] text-slate-700 font-mono">{pIndex}</span>
             </div>
           );

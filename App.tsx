@@ -1,12 +1,12 @@
 
 import React, { useState } from 'react';
-import AnalysisDisplay from './components/AnalysisDisplay.tsx';
-import BoardGrid from './components/BoardGrid.tsx';
-import Header from './components/Header.tsx';
-import Footer from './components/Footer.tsx';
-import InputForm from './components/InputForm.tsx';
-import { calculateBoard } from './qimenLogic.ts';
-import { QiMenBoard } from './types.ts';
+import AnalysisDisplay from './components/AnalysisDisplay';
+import BoardGrid from './components/BoardGrid';
+import Header from './components/Header';
+import Footer from './components/Footer';
+import InputForm from './components/InputForm';
+import { calculateBoard } from './qimenLogic';
+import { QiMenBoard } from './types';
 
 /**
  * 奇门大师课 - www.qimenmasterclass.cn 官方主站
@@ -93,7 +93,6 @@ const App: React.FC = () => {
 
           try {
             const json = JSON.parse(dataStr);
-            // 兼容火山引擎各种可能的返回路径
             const content = json.choices?.[0]?.delta?.content || 
                            json.choices?.[0]?.message?.content || 
                            json.content || '';
