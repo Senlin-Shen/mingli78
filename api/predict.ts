@@ -16,25 +16,39 @@ export default async function handler(req: any, res: any) {
   try {
     const { model, messages } = req.body;
 
-    // 使用标准的 OpenAI 兼容接口路径，这通常能解决鉴权格式问题
-    const response = await fetch('https://ark.cn-beijing.volces.com/api/v3/chat/completions', {
+    /**
+     * 严格遵循用户 curl 示例的数据结构：
+     * "input": [ { "role": "user", "content": [ { "type": "input_text", "text": "..." } ] } ]
+     */
+    const formattedInput = messages.map((m: any) => ({
+      role: m.role,
+      content: [
+        {
+          type: "input_text",
+          text: m.content
+        }
+      ]
+    }));
+
+    // 精准调用火山引擎 Ark v3 响应接口
+    const response = await fetch('https://ark.cn-beijing.volces.com/api/v3/responses', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${apiKey.trim()}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: model, // 这里对应您的推理接入点 ID (ep-xxxx)
-        messages: messages,
+        model: model, // 这里填入 ep- 开头的 Endpoint ID
+        input: formattedInput,
         stream: true,
       }),
     });
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('火山引擎返回错误:', errorText);
+      console.error('Ark API Error:', errorText);
       return res.status(response.status).json({ 
-        error: `API 响应异常 (HTTP ${response.status})`,
+        error: `API 异常 (HTTP ${response.status})`,
         details: errorText 
       });
     }
@@ -55,9 +69,9 @@ export default async function handler(req: any, res: any) {
     res.end();
 
   } catch (error: any) {
-    console.error('代理服务器内部错误:', error);
+    console.error('Proxy Error:', error);
     return res.status(500).json({ 
-      error: '代理服务器内部错误',
+      error: '代理服务器连接异常',
       message: error.message 
     });
   }
