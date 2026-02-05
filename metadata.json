@@ -1,7 +1,7 @@
 {
-  "name": "奇门大师课",
-  "short_name": "奇门大师",
-  "description": "正统奇门遁甲体系官方实战预测平台。qimenmasterclass.cn 融合先进 AI 大模型深度推理与传统理法，提供事局推演与命局演算。",
+  "name": "奇门当代应用",
+  "short_name": "奇门应用",
+  "description": "正统奇门遁甲当代实战应用平台。融合 AI 深度推理与传统理法，提供投资决策、事业创业、情感关系、健康养生及日常择吉的专业推演。",
   "theme_color": "#020617",
   "background_color": "#020617",
   "display": "standalone",

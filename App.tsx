@@ -31,24 +31,26 @@ const App: React.FC = () => {
     setBoard(newBoard);
 
     try {
-      const systemInstruction = `你是一位精通正统体系的奇门遁甲实战预测专家。
+      const systemInstruction = `你是一位精通正统体系的“奇门当代应用”实战分析专家。你的分析不限于玄学，更融合了现代行为科学、中西医学逻辑以及经济学视野。
 
 【奇门理法体系核心】：
-1. 拆补定局：一切分析必须建立在 ${newBoard.isYang ? '阳' : '阴'}遁${newBoard.bureau}局 的基础上。
-2. 主客关系：这是断卦的灵魂。如果是用户主动求测，用户为客，事情为主；如果是用户被动应付，用户为主，事情为客。
-3. 动态博弈：分析值符（${newBoard.zhiFuStar}）与值使（${newBoard.zhiShiGate}）落宫生克。
-4. 概率化决策：强调预测是为了决策。必须给出明确的“胜算概率”（0%-100%）。
-5. 空亡与马星：必须考虑空亡带来的“象有实无”和马星带来的“动态变化”。
+1. 拆补定局：一切分析建立在 ${newBoard.isYang ? '阳' : '阴'}遁${newBoard.bureau}局 的基础上。
+2. 核心分析维度：
+   - 投资决策：分析市场趋势与资金动向（戊落宫），尤其关注虚拟经济、文化产业等新兴领域，判断时机与风险。
+   - 事业创业：运用“十二长生”（如“胎”位判断萌芽酝酿期）评估项目阶段，指导静守筹备或发力推进，规避盲目投入。
+   - 感情人际：以乙代表女方、庚代表男方，结合宫位神煞分析关系走向、萌芽状态及沟通契机。
+   - 健康养生：重点观测天芮星（病星）落宫，结合五行分析身体隐患（如木主肝胆、水主肾泌），提供体检建议与日常调养方向（涵盖中西医常识）。
+   - 学业择业：评估个人能量与机遇匹配度，给出学科调整或职场赛道选择的建议。
+   - 日常择吉：利用八门（开门、休门等）选择吉时，用于签约、搬家、出行等当代生活场景。
 
 【当前排盘数据】：
 ${JSON.stringify(newBoard.palaces)}
 
 【输出要求】：
-- 严禁任何 Markdown 标记（如 ** 或 #）。
-- 逻辑按“第一步：审局”、“第二步：辨主客”、“第三步：析胜算”输出。
-- 语言风格：专业、沉稳、充满洞察力。`;
+- 严禁任何 Markdown 标记。
+- 逻辑清晰，分为：第一步：审局辨势、第二步：多维推演（结合具体场景）、第三步：行动建议。
+- 风格：睿智、实战、既有传统韵味又符合现代逻辑，强调“胜算概率”。`;
 
-      // 注意：这里绝对不能带 Authorization 头部，避免触发浏览器的 CORS 限制
       const response = await fetch('/api/ark-proxy', {
         method: 'POST',
         headers: {
@@ -117,14 +119,14 @@ ${JSON.stringify(newBoard.palaces)}
         <div className="max-w-md w-full relative z-10 text-center">
           <div className="mb-12 relative inline-block animate-glow">
              <div className="absolute -inset-10 bg-amber-500/10 blur-3xl rounded-full"></div>
-             <h1 className="text-7xl font-bold text-slate-100 mb-4 qimen-font tracking-[0.5em] relative">奇门大师课</h1>
+             <h1 className="text-7xl font-bold text-slate-100 mb-4 qimen-font tracking-[0.5em] relative">奇门当代应用</h1>
              <p className="text-amber-500/60 text-xs tracking-[0.8em] font-black uppercase">Official System</p>
           </div>
           <button 
             onClick={handleEnterSystem}
             className="group relative px-12 py-4 bg-amber-600 hover:bg-amber-500 text-white font-bold rounded-2xl transition-all shadow-2xl hover:shadow-amber-500/40"
           >
-            <span className="relative z-10 tracking-[1em] pl-4">开启演算</span>
+            <span className="relative z-10 tracking-[1em] pl-4">开启推演</span>
             <div className="absolute inset-0 bg-white/20 scale-x-0 group-hover:scale-x-100 transition-transform origin-left rounded-2xl"></div>
           </button>
         </div>
@@ -156,7 +158,7 @@ ${JSON.stringify(newBoard.palaces)}
           <section className="bg-slate-900/40 border border-slate-800 p-8 rounded-3xl backdrop-blur-md min-h-[600px] flex flex-col">
             <h2 className="text-xl font-bold mb-6 text-amber-500 flex items-center gap-3">
               <span className="w-8 h-8 rounded-full bg-amber-500/10 flex items-center justify-center text-sm">贰</span>
-              九维时空分析
+              当代应用分析
             </h2>
             
             {loading && !prediction && (
@@ -180,7 +182,7 @@ ${JSON.stringify(newBoard.palaces)}
             
             {!loading && !prediction && !error && (
               <div className="flex-1 flex items-center justify-center text-slate-600 text-sm italic tracking-widest text-center px-12">
-                 请在左侧输入预测问题，系统将通过代理安全访问火山引擎。
+                 请在左侧输入预测问题，系统将根据当代应用逻辑为您进行深度推演。
               </div>
             )}
           </section>
