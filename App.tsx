@@ -10,7 +10,7 @@ import { QiMenBoard } from './types';
 
 /**
  * 奇门大师课 - 林毅老师实战体系官方平台
- * 核心引擎：火山引擎豆包 (Doubao-Pro)
+ * 核心引擎：火山引擎豆包 (Doubao-Pro) 通过后端代理访问
  * 域名：www.qimenmasterclass.cn
  */
 const App: React.FC = () => {
@@ -53,24 +53,24 @@ ${JSON.stringify(newBoard.palaces)}
 - 逻辑按“第一步：审局”、“第二步：辨主客”、“第三步：析胜算”输出。
 - 语言风格：专业、沉稳、充满商业洞察力。`;
 
-      const response = await fetch('https://ark.cn-beijing.volces.com/api/v3/chat/completions', {
+      // 改为请求本地代理接口，避免 CORS 跨域问题
+      const response = await fetch('/api/predict', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${process.env.API_KEY}`
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          model: "doubao-pro-4k", // 请确保您的 API_KEY 拥有此模型的调用权限
+          model: "doubao-pro-4k",
           messages: [
             { role: "system", content: systemInstruction },
             { role: "user", content: userInput }
-          ],
-          stream: true
+          ]
         })
       });
 
       if (!response.ok) {
-        throw new Error(`API 访问失败: ${response.status} ${response.statusText}`);
+        const errorText = await response.text();
+        throw new Error(errorText || `API 访问失败: ${response.status}`);
       }
 
       const reader = response.body?.getReader();
@@ -104,7 +104,7 @@ ${JSON.stringify(newBoard.palaces)}
 
     } catch (err: any) {
       console.error('API Error:', err);
-      setError(`演算中断：${err.message || '连接火山引擎超时'}`);
+      setError(`演算中断：${err.message}`);
     } finally {
       setLoading(false);
     }
