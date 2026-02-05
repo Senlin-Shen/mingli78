@@ -10,7 +10,7 @@ import { QiMenBoard } from './types';
 
 /**
  * 奇门大师课 - 林毅老师实战体系官方平台
- * 核心引擎：火山引擎豆包 (Doubao-Pro) 通过后端代理访问
+ * 核心引擎：火山引擎豆包 (Doubao-Pro) 
  * 域名：www.qimenmasterclass.cn
  */
 const App: React.FC = () => {
@@ -53,18 +53,20 @@ ${JSON.stringify(newBoard.palaces)}
 - 逻辑按“第一步：审局”、“第二步：辨主客”、“第三步：析胜算”输出。
 - 语言风格：专业、沉稳、充满商业洞察力。`;
 
-      // 改为请求本地代理接口，避免 CORS 跨域问题
-      const response = await fetch('/api/predict', {
+      // 按照用户指示：直接在网页中通过 fetch 调用火山引擎 API
+      const response = await fetch('https://ark.cn-beijing.volces.com/api/v3/chat/completions', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${process.env.API_KEY}`
         },
         body: JSON.stringify({
           model: "doubao-pro-4k",
           messages: [
             { role: "system", content: systemInstruction },
             { role: "user", content: userInput }
-          ]
+          ],
+          stream: true
         })
       });
 
@@ -95,7 +97,7 @@ ${JSON.stringify(newBoard.palaces)}
                 accumulatedText += content;
                 setPrediction(accumulatedText);
               } catch (e) {
-                // 忽略非 JSON 数据行
+                // 忽略非标准或空数据行
               }
             }
           }
@@ -104,7 +106,12 @@ ${JSON.stringify(newBoard.palaces)}
 
     } catch (err: any) {
       console.error('API Error:', err);
-      setError(`演算中断：${err.message}`);
+      // 特别捕获 "Failed to fetch" 以便提示用户关于 CORS 的问题
+      if (err instanceof TypeError && err.message === 'Failed to fetch') {
+        setError('演算中断：网络请求受阻。由于火山引擎 API 可能未开启 CORS，直接从浏览器调用会失败。请确保您的部署环境已通过服务端代理转发。');
+      } else {
+        setError(`演算中断：${err.message}`);
+      }
     } finally {
       setLoading(false);
     }
