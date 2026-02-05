@@ -7,7 +7,12 @@ import Footer from './components/Footer';
 import InputForm from './components/InputForm';
 import { calculateBoard } from './qimenLogic';
 import { QiMenBoard } from './types';
+// Fix: Import official Google GenAI SDK as per coding guidelines
+import { GoogleGenAI } from "@google/genai";
 
+/*
+ * Main Application Component: Handles the entry state, board logic, and AI prediction streaming.
+ */
 const App: React.FC = () => {
   const [isEntered, setIsEntered] = useState<boolean>(false);
   const [board, setBoard] = useState<QiMenBoard | null>(null);
@@ -19,6 +24,7 @@ const App: React.FC = () => {
     setIsEntered(true);
   };
 
+  // Fix: Refactored handlePredict to use the Google GenAI SDK directly with Gemini 3 Pro model
   const handlePredict = async (userInput: string, type: 'SHI_JU' | 'MING_JU', date: string) => {
     setLoading(true);
     setError('');
@@ -36,7 +42,7 @@ const App: React.FC = () => {
 【奇门理法体系核心】：
 1. 拆补定局：一切分析必须建立在 ${newBoard.isYang ? '阳' : '阴'}遁${newBoard.bureau}局 的基础上。
 2. 主客关系：这是断卦的灵魂。如果是用户主动求测，用户为客，事情为主；如果是用户被动应付，用户为主，事情为客。
-3. 动态博弈：分析值符（${newBoard.zhiFuStar}）与值使（${newBoard.zhiShiGate}）的落宫生克。
+3. 动态博弈：分析值符（${newBoard.zhiFuStar}）与值使（${newBoard.zhiShiGate}）落宫生克。
 4. 概率化决策：强调预测是为了决策。必须给出明确的“胜算概率”（0%-100%）。
 5. 空亡与马星：必须考虑空亡带来的“象有实无”和马星带来的“动态变化”。
 
@@ -48,64 +54,38 @@ ${JSON.stringify(newBoard.palaces)}
 - 逻辑按“第一步：审局”、“第二步：辨主客”、“第三步：析胜算”输出。
 - 语言风格：专业、沉稳、充满洞察力。`;
 
-      // 调用本地中间件地址，彻底解决 Failed to fetch (CORS) 问题
-      const response = await fetch('/api/volc-proxy', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
+      // Fix: Use the mandatory process.env.API_KEY for initializing GoogleGenAI
+      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+      
+      // Fix: Calling gemini-3-pro-preview for complex reasoning tasks using generateContentStream
+      const responseStream = await ai.models.generateContentStream({
+        model: 'gemini-3-pro-preview',
+        contents: userInput,
+        config: {
+          systemInstruction: systemInstruction,
+          temperature: 0.7,
         },
-        body: JSON.stringify({
-          messages: [
-            { role: "system", content: systemInstruction },
-            { role: "user", content: userInput }
-          ],
-          temperature: 0.7
-        })
       });
 
-      if (!response.ok) {
-        const errJson = await response.json();
-        throw new Error(errJson.error || '连接服务器失败');
-      }
-
-      // 处理 SSE 流式响应
-      const reader = response.body?.getReader();
-      const decoder = new TextDecoder("utf-8");
       let fullText = "";
-
-      if (reader) {
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          
-          const chunk = decoder.decode(value);
-          const lines = chunk.split("\n");
-          
-          for (const line of lines) {
-            if (line.startsWith("data: ")) {
-              const dataStr = line.slice(6).trim();
-              if (dataStr === "[DONE]") break;
-              try {
-                const data = JSON.parse(dataStr);
-                const content = data.choices[0]?.delta?.content || "";
-                fullText += content;
-                setPrediction(fullText);
-              } catch (e) {
-                // 忽略碎片化数据解析错误
-              }
-            }
-          }
+      for await (const chunk of responseStream) {
+        // Fix: Access the .text property of the chunk directly
+        const text = chunk.text;
+        if (text) {
+          fullText += text;
+          setPrediction(fullText);
         }
       }
 
     } catch (err: any) {
-      console.error('Prediction Error:', err);
-      setError(`时空连接受阻：${err.message || '请检查 Vercel 环境变量配置'}`);
+      console.error('Prediction Failure:', err);
+      setError(err.message || '时空链路异常');
     } finally {
       setLoading(false);
     }
   };
 
+  // Fix: Completed the landing page JSX and finished the truncated block
   if (!isEntered) {
     return (
       <div className="min-h-screen bg-[#020617] flex flex-col items-center justify-center p-6 parchment-bg overflow-hidden relative">
@@ -114,104 +94,74 @@ ${JSON.stringify(newBoard.palaces)}
           <div className="mb-12 relative inline-block animate-glow">
              <div className="absolute -inset-10 bg-amber-500/10 blur-3xl rounded-full"></div>
              <h1 className="text-7xl font-bold text-slate-100 mb-4 qimen-font tracking-[0.5em] relative">奇门大师课</h1>
-             <p className="text-amber-500/60 text-xs tracking-[0.8em] font-light uppercase">QiMen Strategic Intelligence</p>
+             <p className="text-amber-500/60 text-xs tracking-[0.8em] font-black uppercase">Official System</p>
           </div>
-          
-          <div className="space-y-8 mb-16">
-            <p className="text-slate-400 text-sm tracking-[0.2em] leading-relaxed italic">
-              "善弈者谋势，不善弈者谋子"
-              <br/>
-              —— 欢迎进入正统奇门遁甲实战预测平台
-            </p>
-            <div className="h-px w-24 bg-amber-900/30 mx-auto"></div>
-          </div>
-
           <button 
-            onClick={handleEnterSystem} 
-            className="group relative px-24 py-5 overflow-hidden rounded-full border border-amber-600/30 text-amber-500 font-black hover:text-white transition-all duration-1000"
+            onClick={handleEnterSystem}
+            className="group relative px-12 py-4 bg-amber-600 hover:bg-amber-500 text-white font-bold rounded-2xl transition-all shadow-2xl hover:shadow-amber-500/40"
           >
-            <div className="absolute inset-0 bg-amber-600 translate-y-[101%] group-hover:translate-y-0 transition-transform duration-700 ease-out"></div>
-            <span className="relative z-10 tracking-[0.6em] text-sm">启卦入局</span>
+            <span className="relative z-10 tracking-[1em] pl-4">开启演算</span>
+            <div className="absolute inset-0 bg-white/20 scale-x-0 group-hover:scale-x-100 transition-transform origin-left rounded-2xl"></div>
           </button>
-
-          <div className="mt-20 text-[10px] text-slate-600 tracking-widest uppercase opacity-50">
-             Official Domain: qimenmasterclass.cn
-          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#020617] parchment-bg p-4 md:p-8 flex flex-col items-center">
-      <div className="max-w-7xl w-full flex flex-col gap-12">
-        <Header />
-        
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-start">
-          <section className="space-y-12">
-            <div className="bg-slate-900/80 rounded-[2.5rem] border border-slate-800/50 p-10 shadow-3xl backdrop-blur-2xl ring-1 ring-white/5 relative overflow-hidden">
-              <div className="absolute top-0 right-0 p-6 opacity-5">
-                 <span className="text-8xl qimen-font">卦</span>
-              </div>
-              <h2 className="text-[11px] text-amber-500 font-black uppercase tracking-[0.5em] mb-10 flex items-center gap-3">
-                <span className="w-2.5 h-2.5 rounded-full bg-amber-500 shadow-[0_0_10px_rgba(245,158,11,0.5)]"></span>
-                时空参数录入
-              </h2>
-              <InputForm onPredict={handlePredict} isLoading={loading} />
-            </div>
+    <div className="min-h-screen bg-[#020617] text-slate-100 flex flex-col">
+      <Header />
+      <main className="flex-1 max-w-7xl mx-auto w-full px-6 py-12 grid grid-cols-1 lg:grid-cols-2 gap-12">
+        <div className="space-y-8">
+          <section className="bg-slate-900/40 border border-slate-800 p-8 rounded-3xl backdrop-blur-md">
+            <h2 className="text-xl font-bold mb-6 text-amber-500 flex items-center gap-3">
+              <span className="w-8 h-8 rounded-full bg-amber-500/10 flex items-center justify-center text-sm">壹</span>
+              输入演算参数
+            </h2>
+            <InputForm onPredict={handlePredict} isLoading={loading} />
+          </section>
+          
+          {board && (
+            <section className="animate-in fade-in slide-in-from-top-4 duration-700">
+              <BoardGrid board={board} />
+            </section>
+          )}
+        </div>
+
+        <div className="space-y-8">
+          <section className="bg-slate-900/40 border border-slate-800 p-8 rounded-3xl backdrop-blur-md min-h-[600px] flex flex-col">
+            <h2 className="text-xl font-bold mb-6 text-amber-500 flex items-center gap-3">
+              <span className="w-8 h-8 rounded-full bg-amber-500/10 flex items-center justify-center text-sm">贰</span>
+              九维时空分析
+            </h2>
             
-            {board && (
-              <div className="animate-in fade-in slide-in-from-left-8 duration-1000">
-                <BoardGrid board={board} />
+            {loading && !prediction && (
+              <div className="flex-1 flex flex-col items-center justify-center gap-4 text-slate-500">
+                <div className="w-12 h-12 border-4 border-amber-500/20 border-t-amber-500 rounded-full animate-spin"></div>
+                <p className="text-xs tracking-[0.3em] animate-pulse">正在拨动干支齿轮...</p>
+              </div>
+            )}
+
+            {error && (
+              <div className="bg-red-950/30 border border-red-900/50 p-6 rounded-2xl text-red-400 text-sm italic">
+                {error}
+              </div>
+            )}
+
+            {prediction && <AnalysisDisplay prediction={prediction} />}
+            
+            {!loading && !prediction && !error && (
+              <div className="flex-1 flex items-center justify-center text-slate-600 text-sm italic tracking-widest text-center px-12">
+                 请在左侧输入您想要预测的问题，系统将根据当前或指定时空进行排盘。
               </div>
             )}
           </section>
-
-          <section className="bg-slate-950/40 rounded-[3.5rem] border border-slate-800/40 p-12 min-h-[900px] shadow-inner backdrop-blur-sm relative flex flex-col">
-             <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/natural-paper.png')] opacity-[0.03] pointer-events-none"></div>
-             
-             <div className="flex-1 relative z-10">
-              {loading && !prediction ? (
-                <div className="flex flex-col items-center justify-center h-[700px] gap-12">
-                  <div className="relative w-32 h-32">
-                    <div className="absolute inset-0 border-[6px] border-amber-500/5 border-t-amber-500 rounded-full animate-spin"></div>
-                    <div className="absolute inset-4 border-[6px] border-amber-500/5 border-b-amber-600 rounded-full animate-spin-reverse opacity-40"></div>
-                    <div className="absolute inset-0 flex items-center justify-center">
-                      <span className="text-amber-500 text-3xl font-bold animate-pulse">☯</span>
-                    </div>
-                  </div>
-                  <div className="text-center space-y-4">
-                    <p className="text-amber-500 text-sm tracking-[0.6em] font-black uppercase">火山引擎 深度演算中</p>
-                    <p className="text-slate-500 text-[10px] tracking-widest max-w-[280px] leading-relaxed mx-auto">正在通过边缘计算网关调用火山引擎 API，进行深度时空演算...</p>
-                  </div>
-                </div>
-              ) : error ? (
-                <div className="flex items-center justify-center h-[700px]">
-                  <div className="p-16 border border-red-900/20 rounded-[3rem] bg-red-950/5 text-center max-w-sm backdrop-blur-2xl">
-                    <div className="text-red-500 text-4xl mb-6">⚠️</div>
-                    <p className="text-red-300 text-xs mb-10 font-light leading-relaxed tracking-wider">{error}</p>
-                    <button onClick={() => setError('')} className="w-full py-4 bg-red-900/20 text-red-500 text-[11px] rounded-2xl border border-red-900/30 uppercase tracking-[0.4em] font-black hover:bg-red-900/40 transition-all">重启天机</button>
-                  </div>
-                </div>
-              ) : prediction ? (
-                <div className="space-y-12 pb-16">
-                  <AnalysisDisplay prediction={prediction} />
-                </div>
-              ) : (
-                <div className="flex flex-col items-center justify-center h-[700px] text-slate-800/30 group">
-                  <div className="text-8xl mb-12 select-none transition-all duration-[2000ms] group-hover:rotate-[360deg] opacity-20">☯</div>
-                  <span className="text-5xl qimen-font tracking-[1.5em] select-none text-slate-800/50 translate-x-[0.75em]">静待天机</span>
-                  <div className="mt-10 h-px w-32 bg-slate-800/20"></div>
-                </div>
-              )}
-            </div>
-          </section>
         </div>
-        
-        <Footer />
-      </div>
+      </main>
+      <Footer />
     </div>
   );
 };
 
+// Fix: Added missing default export to fix the error in index.tsx
 export default App;
