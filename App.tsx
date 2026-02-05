@@ -7,12 +7,7 @@ import Footer from './components/Footer';
 import InputForm from './components/InputForm';
 import { calculateBoard } from './qimenLogic';
 import { QiMenBoard } from './types';
-// Fix: Import official Google GenAI SDK as per coding guidelines
-import { GoogleGenAI } from "@google/genai";
 
-/*
- * Main Application Component: Handles the entry state, board logic, and AI prediction streaming.
- */
 const App: React.FC = () => {
   const [isEntered, setIsEntered] = useState<boolean>(false);
   const [board, setBoard] = useState<QiMenBoard | null>(null);
@@ -24,7 +19,6 @@ const App: React.FC = () => {
     setIsEntered(true);
   };
 
-  // Fix: Refactored handlePredict to use the Google GenAI SDK directly with Gemini 3 Pro model
   const handlePredict = async (userInput: string, type: 'SHI_JU' | 'MING_JU', date: string) => {
     setLoading(true);
     setError('');
@@ -54,38 +48,65 @@ ${JSON.stringify(newBoard.palaces)}
 - 逻辑按“第一步：审局”、“第二步：辨主客”、“第三步：析胜算”输出。
 - 语言风格：专业、沉稳、充满洞察力。`;
 
-      // Fix: Use the mandatory process.env.API_KEY for initializing GoogleGenAI
-      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-      
-      // Fix: Calling gemini-3-pro-preview for complex reasoning tasks using generateContentStream
-      const responseStream = await ai.models.generateContentStream({
-        model: 'gemini-3-pro-preview',
-        contents: userInput,
-        config: {
-          systemInstruction: systemInstruction,
-          temperature: 0.7,
+      // 调用本地 Vercel 代理路径，彻底避开直接请求火山引擎引起的跨域错误
+      const response = await fetch('/api/ark-proxy', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
         },
+        body: JSON.stringify({
+          messages: [
+            { role: "system", content: systemInstruction },
+            { role: "user", content: userInput }
+          ],
+          temperature: 0.7
+        })
       });
 
-      let fullText = "";
-      for await (const chunk of responseStream) {
-        // Fix: Access the .text property of the chunk directly
-        const text = chunk.text;
-        if (text) {
-          fullText += text;
-          setPrediction(fullText);
+      if (!response.ok) {
+        const errJson = await response.json().catch(() => ({ error: '请求解析失败' }));
+        throw new Error(errJson.error || `HTTP 错误 ${response.status}`);
+      }
+
+      // 解析 SSE (Server-Sent Events) 流式数据
+      const reader = response.body?.getReader();
+      const decoder = new TextDecoder("utf-8");
+      let fullContent = "";
+
+      if (reader) {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          
+          const chunk = decoder.decode(value, { stream: true });
+          const lines = chunk.split("\n");
+          
+          for (const line of lines) {
+            const trimmed = line.trim();
+            if (trimmed.startsWith("data: ")) {
+              const dataStr = trimmed.slice(6);
+              if (dataStr === "[DONE]") break;
+              try {
+                const data = JSON.parse(dataStr);
+                const content = data.choices[0]?.delta?.content || "";
+                fullContent += content;
+                setPrediction(fullContent);
+              } catch (e) {
+                // 忽略非标准或碎片数据
+              }
+            }
+          }
         }
       }
 
     } catch (err: any) {
-      console.error('Prediction Failure:', err);
-      setError(err.message || '时空链路异常');
+      console.error('Prediction Error:', err);
+      setError(`演算受阻：${err.message || '请检查 Vercel 环境变量配置'}`);
     } finally {
       setLoading(false);
     }
   };
 
-  // Fix: Completed the landing page JSX and finished the truncated block
   if (!isEntered) {
     return (
       <div className="min-h-screen bg-[#020617] flex flex-col items-center justify-center p-6 parchment-bg overflow-hidden relative">
@@ -152,7 +173,7 @@ ${JSON.stringify(newBoard.palaces)}
             
             {!loading && !prediction && !error && (
               <div className="flex-1 flex items-center justify-center text-slate-600 text-sm italic tracking-widest text-center px-12">
-                 请在左侧输入您想要预测的问题，系统将根据当前或指定时空进行排盘。
+                 请在左侧输入您想要预测的问题，系统将通过火山引擎 API 进行深度理法推演。
               </div>
             )}
           </section>
@@ -163,5 +184,4 @@ ${JSON.stringify(newBoard.palaces)}
   );
 };
 
-// Fix: Added missing default export to fix the error in index.tsx
 export default App;
