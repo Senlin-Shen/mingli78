@@ -98,7 +98,7 @@ const BoardGrid: React.FC<BoardGridProps> = ({ board }) => {
         <span className="text-amber-500/60">值符：{board.zhiFuStar}</span> 巡首落 {board.palaces.find(p => p.star === board.zhiFuStar)?.name} | 
         <span className="text-amber-500/60 pl-4">值使：{board.zhiShiGate}</span> 枢机落 {board.palaces.find(p => p.gate === board.zhiShiGate)?.name}
         <br/>
-        <span className="opacity-40 italic font-light">林毅奇门理法体系 · 豆包大模型实战版</span>
+        <span className="opacity-40 italic font-light">正统奇门理法体系 · 豆包大模型实战版</span>
       </div>
     </div>
   );

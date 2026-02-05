@@ -9,9 +9,9 @@ import { calculateBoard } from './qimenLogic';
 import { QiMenBoard } from './types';
 
 /**
- * 奇门大师课 - 林毅老师实战体系官方平台
- * 核心引擎：火山引擎豆包 (Doubao-Pro) 
- * 域名：www.qimenmasterclass.cn
+ * 奇门大师课 - 正统奇门遁甲体系官方平台
+ * 核心引擎：通过内部代理访问火山引擎豆包 (Doubao-Pro)
+ * 解决跨域：使用 /api/predict 路由避免浏览器 CORS 拦截
  */
 const App: React.FC = () => {
   const [isEntered, setIsEntered] = useState<boolean>(false);
@@ -36,13 +36,13 @@ const App: React.FC = () => {
     setBoard(newBoard);
 
     try {
-      const systemInstruction = `你是一位精通林毅老师体系的奇门遁甲实战预测专家。
+      const systemInstruction = `你是一位精通正统体系的奇门遁甲实战预测专家。
 
-【林毅理法体系核心】：
+【奇门理法体系核心】：
 1. 拆补定局：一切分析必须建立在 ${newBoard.isYang ? '阳' : '阴'}遁${newBoard.bureau}局 的基础上。
 2. 主客关系：这是断卦的灵魂。如果是用户主动求测，用户为客，事情为主；如果是用户被动应付，用户为主，事情为客。
 3. 动态博弈：分析值符（${newBoard.zhiFuStar}）与值使（${newBoard.zhiShiGate}）的落宫生克。
-4. 概率化决策：林毅老师强调预测是为了决策。必须给出明确的“胜算概率”（0%-100%）。
+4. 概率化决策：强调预测是为了决策。必须给出明确的“胜算概率”（0%-100%）。
 5. 空亡与马星：必须考虑空亡带来的“象有实无”和马星带来的“动态变化”。
 
 【当前排盘数据】：
@@ -53,26 +53,24 @@ ${JSON.stringify(newBoard.palaces)}
 - 逻辑按“第一步：审局”、“第二步：辨主客”、“第三步：析胜算”输出。
 - 语言风格：专业、沉稳、充满商业洞察力。`;
 
-      // 按照用户指示：直接在网页中通过 fetch 调用火山引擎 API
-      const response = await fetch('https://ark.cn-beijing.volces.com/api/v3/chat/completions', {
+      // 使用本地 API 路由作为代理，彻底解决 Failed to fetch (CORS) 错误
+      const response = await fetch('/api/predict', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${process.env.API_KEY}`
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify({
           model: "doubao-pro-4k",
           messages: [
             { role: "system", content: systemInstruction },
             { role: "user", content: userInput }
-          ],
-          stream: true
+          ]
         })
       });
 
       if (!response.ok) {
         const errorText = await response.text();
-        throw new Error(errorText || `API 访问失败: ${response.status}`);
+        throw new Error(errorText || `服务器响应异常: ${response.status}`);
       }
 
       const reader = response.body?.getReader();
@@ -97,7 +95,7 @@ ${JSON.stringify(newBoard.palaces)}
                 accumulatedText += content;
                 setPrediction(accumulatedText);
               } catch (e) {
-                // 忽略非标准或空数据行
+                // 忽略非标准数据行
               }
             }
           }
@@ -106,12 +104,7 @@ ${JSON.stringify(newBoard.palaces)}
 
     } catch (err: any) {
       console.error('API Error:', err);
-      // 特别捕获 "Failed to fetch" 以便提示用户关于 CORS 的问题
-      if (err instanceof TypeError && err.message === 'Failed to fetch') {
-        setError('演算中断：网络请求受阻。由于火山引擎 API 可能未开启 CORS，直接从浏览器调用会失败。请确保您的部署环境已通过服务端代理转发。');
-      } else {
-        setError(`演算中断：${err.message}`);
-      }
+      setError(`演算中断：${err.message || '网络连接失败，请检查 API 密钥设置及网络状态'}`);
     } finally {
       setLoading(false);
     }
@@ -125,14 +118,14 @@ ${JSON.stringify(newBoard.palaces)}
           <div className="mb-12 relative inline-block animate-glow">
              <div className="absolute -inset-10 bg-amber-500/10 blur-3xl rounded-full"></div>
              <h1 className="text-7xl font-bold text-slate-100 mb-4 qimen-font tracking-[0.5em] relative">奇门大师课</h1>
-             <p className="text-amber-500/60 text-xs tracking-[0.8em] font-light uppercase">Lin Yi QiMen Strategy</p>
+             <p className="text-amber-500/60 text-xs tracking-[0.8em] font-light uppercase">QiMen Strategic Intelligence</p>
           </div>
           
           <div className="space-y-8 mb-16">
             <p className="text-slate-400 text-sm tracking-[0.2em] leading-relaxed italic">
               "善弈者谋势，不善弈者谋子"
               <br/>
-              —— 欢迎进入林毅体系官方预测实战平台
+              —— 欢迎进入正统奇门遁甲实战预测平台
             </p>
             <div className="h-px w-24 bg-amber-900/30 mx-auto"></div>
           </div>
@@ -193,7 +186,7 @@ ${JSON.stringify(newBoard.palaces)}
                   </div>
                   <div className="text-center space-y-4">
                     <p className="text-amber-500 text-sm tracking-[0.6em] font-black uppercase">豆包大模型 演算中</p>
-                    <p className="text-slate-500 text-[10px] tracking-widest max-w-[280px] leading-relaxed mx-auto">正在调用火山引擎 API，针对林毅理法体系进行深度时空演算...</p>
+                    <p className="text-slate-500 text-[10px] tracking-widest max-w-[280px] leading-relaxed mx-auto">正在调用火山引擎 API，针对正统奇门理法进行深度时空演算...</p>
                   </div>
                 </div>
               ) : error ? (

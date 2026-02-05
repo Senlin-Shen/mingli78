@@ -11,6 +11,7 @@ export default async function handler(req: Request) {
   try {
     const { messages, model } = await req.json();
 
+    // 在服务端发起请求，避免浏览器 CORS 限制
     const response = await fetch('https://ark.cn-beijing.volces.com/api/v3/chat/completions', {
       method: 'POST',
       headers: {
@@ -29,7 +30,7 @@ export default async function handler(req: Request) {
       return new Response(`火山引擎错误: ${errorData}`, { status: response.status });
     }
 
-    // 将火山引擎的流直接透传给前端
+    // 将 SSE 流透传回前端
     return new Response(response.body, {
       headers: {
         'Content-Type': 'text/event-stream',
@@ -39,6 +40,6 @@ export default async function handler(req: Request) {
     });
 
   } catch (error: any) {
-    return new Response(`服务端异常: ${error.message}`, { status: 500 });
+    return new Response(`代理服务异常: ${error.message}`, { status: 500 });
   }
 }

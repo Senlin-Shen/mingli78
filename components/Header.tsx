@@ -15,7 +15,7 @@ const Header: React.FC = () => {
       </h1>
       <div className="flex items-center justify-center gap-4 mb-6">
         <div className="h-px w-12 bg-amber-900/40"></div>
-        <p className="text-amber-700/60 text-[10px] tracking-[0.5em] font-bold uppercase">林毅体系实战演算</p>
+        <p className="text-amber-700/60 text-[10px] tracking-[0.5em] font-bold uppercase">正统奇门实战演算</p>
         <div className="h-px w-12 bg-amber-900/40"></div>
       </div>
       <p className="text-slate-400 max-w-2xl mx-auto text-sm md:text-base leading-loose px-6 tracking-widest font-light italic">
