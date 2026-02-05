@@ -8,9 +8,14 @@ export default async function handler(req: Request) {
     return new Response('Method Not Allowed', { status: 405 });
   }
 
+  // 从环境变量读取 API_KEY
   const apiKey = process.env.API_KEY;
+  
   if (!apiKey) {
-    return new Response(JSON.stringify({ error: '服务端 API_KEY 未配置' }), { 
+    return new Response(JSON.stringify({ 
+      error: '服务端未检测到 API_KEY', 
+      details: '配置指引：请在 Vercel 控制台 Environment Variables 中添加：Key 为 API_KEY，Value 为您的秘钥字符串。' 
+    }), { 
       status: 500, 
       headers: { 'Content-Type': 'application/json' } 
     });
@@ -19,9 +24,19 @@ export default async function handler(req: Request) {
   try {
     const { model, messages } = await req.json();
 
-    // 严格转换结构以适配火山引擎 v3/responses
+    if (!model || !model.startsWith('ep-')) {
+      return new Response(JSON.stringify({ 
+        error: 'Endpoint ID 格式不正确', 
+        details: '请在网页输入框填写 ep- 开头的推理接入点 ID，而非 API Key。' 
+      }), { 
+        status: 400, 
+        headers: { 'Content-Type': 'application/json' } 
+      });
+    }
+
+    // 转换消息格式以适配火山引擎 v3/responses 规范
     const formattedInput = messages.map((m: any) => ({
-      role: m.role === 'system' ? 'user' : m.role, // 有些 Endpoint 不接受 system 角色，将其转为 user 更稳健
+      role: m.role,
       content: [
         {
           type: "input_text",
@@ -30,7 +45,6 @@ export default async function handler(req: Request) {
       ]
     }));
 
-    // 精准调用火山引擎 Ark v3 响应接口
     const response = await fetch('https://ark.cn-beijing.volces.com/api/v3/responses', {
       method: 'POST',
       headers: {
@@ -47,7 +61,7 @@ export default async function handler(req: Request) {
     if (!response.ok) {
       const errorText = await response.text();
       return new Response(JSON.stringify({ 
-        error: `API 响应异常 (${response.status})`,
+        error: `火山引擎返回错误 (${response.status})`,
         details: errorText 
       }), { 
         status: response.status,
@@ -55,7 +69,6 @@ export default async function handler(req: Request) {
       });
     }
 
-    // Edge Runtime 下直接返回 fetch 的 body 即可完美支持流
     return new Response(response.body, {
       headers: {
         'Content-Type': 'text/event-stream',
@@ -66,7 +79,7 @@ export default async function handler(req: Request) {
 
   } catch (error: any) {
     return new Response(JSON.stringify({ 
-      error: '边缘代理执行异常',
+      error: '代理服务异常',
       message: error.message 
     }), { 
       status: 500,
