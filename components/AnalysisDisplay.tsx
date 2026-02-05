@@ -18,11 +18,11 @@ const AnalysisDisplay: React.FC<AnalysisDisplayProps> = ({ prediction }) => {
     .replace(/> /g, '')     // 移除引用符号
     .trim();
   
-  // 按照“第X步”或具体的概率结论进行分割
-  const sections = cleanPrediction.split(/(?=第[一二三四五六七八九]步[：:])|(?=最终成算[：:])|(?=结论[：:])/);
+  // 按照“第X步”、“追问”、“解析”等关键词进行分割展示
+  const sections = cleanPrediction.split(/(?=第[一二三四五六七八九]步[：:])|(?=最终成算[：:])|(?=结论[：:])|(?=追问解析[：:])|(?=建议[：:])/);
 
   return (
-    <div className="max-w-none text-slate-300 space-y-12 py-6">
+    <div className="max-w-none text-slate-300 space-y-8">
       {sections.map((section, idx) => {
         // 匹配标题
         const titleMatch = section.match(/^([^：\n]+[：:])/);
@@ -31,31 +31,32 @@ const AnalysisDisplay: React.FC<AnalysisDisplayProps> = ({ prediction }) => {
 
         if (!title && !content) return null;
 
-        const isResult = title.includes('最终') || title.includes('结论');
+        const isResult = title.includes('最终') || title.includes('结论') || title.includes('成算');
+        const isStep = title.includes('第') && title.includes('步');
 
         return (
           <div 
             key={idx} 
-            className="animate-in fade-in slide-in-from-bottom-6 duration-1000 fill-mode-both" 
-            style={{ animationDelay: `${idx * 150}ms` }}
+            className="animate-in fade-in slide-in-from-bottom-4 duration-700 fill-mode-both" 
           >
             {title && (
-              <div className="flex items-center gap-6 mb-6">
-                <div className={`h-px flex-1 ${isResult ? 'bg-amber-500/30' : 'bg-amber-900/20'}`}></div>
-                <h3 className={`text-sm font-black tracking-[0.4em] qimen-font whitespace-nowrap px-6 py-1.5 rounded-full border shadow-lg transition-all
+              <div className="flex items-center gap-4 mb-4">
+                <h3 className={`text-[11px] font-black tracking-[0.3em] qimen-font whitespace-nowrap px-4 py-1 rounded-full border shadow-sm transition-all
                   ${isResult 
-                    ? 'text-amber-400 bg-amber-950/40 border-amber-500/40 scale-110' 
-                    : 'text-amber-600 bg-slate-900/60 border-amber-900/20'}
+                    ? 'text-amber-400 bg-amber-950/40 border-amber-500/40' 
+                    : isStep 
+                    ? 'text-amber-600 bg-slate-900/60 border-amber-900/20'
+                    : 'text-slate-500 bg-slate-950/30 border-slate-800/50'}
                 `}>
                   {title}
                 </h3>
-                <div className={`h-px flex-1 ${isResult ? 'bg-amber-500/30' : 'bg-amber-900/20'}`}></div>
+                <div className={`h-px flex-1 ${isResult ? 'bg-amber-500/20' : 'bg-slate-800/50'}`}></div>
               </div>
             )}
-            <div className={`whitespace-pre-wrap leading-loose tracking-widest font-light pl-6 border-l-2 transition-all
+            <div className={`whitespace-pre-wrap leading-relaxed tracking-widest font-light pl-4 border-l-2 transition-all
               ${isResult 
-                ? 'text-amber-100 text-lg border-amber-500/50' 
-                : 'text-slate-200 text-sm md:text-base border-amber-900/10 italic'}
+                ? 'text-amber-100 text-base border-amber-500/40 font-normal italic bg-amber-500/5 p-4 rounded-r-xl' 
+                : 'text-slate-300 text-sm border-slate-800/50'}
             `}>
               {content}
             </div>

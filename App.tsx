@@ -1,5 +1,5 @@
 
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import AnalysisDisplay from './components/AnalysisDisplay';
 import BoardGrid from './components/BoardGrid';
 import Header from './components/Header';
@@ -11,22 +11,39 @@ import { QiMenBoard, LocationData } from './types';
 // 中国地理中心（大地原点坐标）
 const CHINA_CENTER = { lng: 108.9, lat: 34.2 };
 
+interface ChatMessage {
+  role: 'user' | 'assistant' | 'system';
+  content: string;
+}
+
 const App: React.FC = () => {
   const [isEntered, setIsEntered] = useState<boolean>(false);
   const [board, setBoard] = useState<QiMenBoard | null>(null);
   const [prediction, setPrediction] = useState('');
   const [loading, setLoading] = useState(false);
+  const [followUpLoading, setFollowUpLoading] = useState(false);
   const [error, setError] = useState('');
   const [userLocation, setUserLocation] = useState<(LocationData & { city?: string, ip?: string, palaceName?: string }) | null>(null);
+  
+  // 对话历史
+  const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
+  const [followUpText, setFollowUpText] = useState('');
+  
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  // 自动滚动到底部
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  }, [prediction, chatHistory]);
 
   // 根据经纬度计算相对于地理中心的八卦宫位
   const getPalaceFromCoords = (lng: number, lat: number) => {
-    // 计算方位角 (弧度)
     const angle = Math.atan2(lat - CHINA_CENTER.lat, lng - CHINA_CENTER.lng);
     let degrees = angle * (180 / Math.PI);
     if (degrees < 0) degrees += 360;
 
-    // 0: 东(震), 45: 东北(艮), 90: 北(坎), 135: 西北(乾), 180: 西(兑), 225: 西南(坤), 270: 南(离), 315: 东南(巽)
     if (degrees >= 337.5 || degrees < 22.5) return "震三宫";
     if (degrees >= 22.5 && degrees < 67.5) return "艮八宫";
     if (degrees >= 67.5 && degrees < 112.5) return "坎一宫";
@@ -78,16 +95,57 @@ const App: React.FC = () => {
     fetchGeo();
   }, []);
 
+  const streamResponse = async (messages: ChatMessage[], isFollowUp = false) => {
+    const response = await fetch('/api/ark-proxy', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        messages: messages,
+        temperature: 0.7,
+        stream: true
+      })
+    });
+
+    if (!response.ok) throw new Error(`时空链路同步异常 (HTTP ${response.status})`);
+
+    const reader = response.body?.getReader();
+    const decoder = new TextDecoder("utf-8");
+    let fullText = "";
+    let buffer = "";
+
+    if (reader) {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() || "";
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (trimmed.startsWith("data: ") && trimmed !== "data: [DONE]") {
+            try {
+              const data = JSON.parse(trimmed.slice(6));
+              const content = data.choices[0]?.delta?.content || "";
+              fullText += content;
+              setPrediction(prev => prev + content);
+            } catch (e) { }
+          }
+        }
+      }
+    }
+    return fullText;
+  };
+
   const handlePredict = useCallback(async (userInput: string, type: 'SHI_JU' | 'MING_JU', date: string) => {
     setLoading(true);
     setError('');
     setPrediction('');
+    setChatHistory([]);
     
     const targetDate = date ? new Date(date) : new Date();
     const newBoard = calculateBoard(targetDate, userLocation?.longitude);
     newBoard.predictionType = type;
     
-    // 自动判定方位：基于地理坐标的八卦宫位
     const autoPalace = userLocation?.palaceName || '中五宫';
     newBoard.direction = autoPalace;
 
@@ -112,54 +170,56 @@ const App: React.FC = () => {
 3. 落地建议：针对实际生活（商业、职场、关系）给出具体、明确的行动方案。
 4. 输出：[审局辨势]、[${autoPalace}深度解析]、[落地指南]、[成算概率]。
 
-注意：禁用Markdown符号，保持纯文本段落。`;
+注意：禁用Markdown符号，保持纯文本段落。后续如果用户追问，请继续以该格局为核心进行理法深入探讨。`;
 
-      const response = await fetch('/api/ark-proxy', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          messages: [
-            { role: "system", content: systemInstruction },
-            { role: "user", content: userInput }
-          ],
-          temperature: 0.7,
-          stream: true
-        })
-      });
+      const initialMessages: ChatMessage[] = [
+        { role: "system", content: systemInstruction },
+        { role: "user", content: userInput }
+      ];
 
-      if (!response.ok) throw new Error(`时空链路同步异常 (HTTP ${response.status})`);
+      const fullResponse = await streamResponse(initialMessages);
+      setChatHistory([
+        ...initialMessages,
+        { role: "assistant", content: fullResponse }
+      ]);
+      setPrediction(''); // 移动到 history 后清空 prediction 用于 AnalysisDisplay 逻辑
 
-      const reader = response.body?.getReader();
-      const decoder = new TextDecoder("utf-8");
-      let fullText = "";
-      let buffer = "";
-
-      if (reader) {
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          buffer += decoder.decode(value, { stream: true });
-          const lines = buffer.split("\n");
-          buffer = lines.pop() || "";
-          for (const line of lines) {
-            const trimmed = line.trim();
-            if (trimmed.startsWith("data: ") && trimmed !== "data: [DONE]") {
-              try {
-                const data = JSON.parse(trimmed.slice(6));
-                const content = data.choices[0]?.delta?.content || "";
-                fullText += content;
-                setPrediction(prev => prev + content);
-              } catch (e) { }
-            }
-          }
-        }
-      }
     } catch (err: any) {
       setError(err.message);
     } finally {
       setLoading(false);
     }
   }, [userLocation]);
+
+  const handleFollowUp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!followUpText.trim() || followUpLoading) return;
+
+    const currentText = followUpText;
+    setFollowUpText('');
+    setFollowUpLoading(true);
+    setError('');
+    setPrediction(''); // 用于展示正在生成的追问回答
+
+    const newHistory: ChatMessage[] = [
+      ...chatHistory,
+      { role: "user", content: currentText }
+    ];
+    setChatHistory(newHistory);
+
+    try {
+      const fullResponse = await streamResponse(newHistory, true);
+      setChatHistory(prev => [
+        ...prev,
+        { role: "assistant", content: fullResponse }
+      ]);
+      setPrediction('');
+    } catch (err: any) {
+      setError(`追问链路中断: ${err.message}`);
+    } finally {
+      setFollowUpLoading(false);
+    }
+  };
 
   if (!isEntered) {
     return (
@@ -193,7 +253,7 @@ const App: React.FC = () => {
     <div className="min-h-screen bg-[#020617] text-slate-100 flex flex-col">
       <Header />
       
-      <div className="bg-slate-900/80 border-y border-slate-800 py-2 px-6 backdrop-blur-md">
+      <div className="bg-slate-900/80 border-y border-slate-800 py-2 px-6 backdrop-blur-md sticky top-0 z-50">
         <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-4 text-[9px] tracking-[0.2em] font-bold text-slate-500 uppercase">
           <div className="flex items-center gap-2">
             <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shadow-[0_0_5px_rgba(245,158,11,0.5)]"></span>
@@ -207,11 +267,12 @@ const App: React.FC = () => {
       </div>
 
       <main className="flex-1 max-w-7xl mx-auto w-full px-6 py-12 grid grid-cols-1 lg:grid-cols-2 gap-12">
+        {/* 左侧：输入与排盘 */}
         <div className="space-y-8">
           <section className="bg-slate-900/40 border border-slate-800 p-8 rounded-3xl backdrop-blur-md">
             <h2 className="text-xl font-bold mb-6 text-amber-500 flex items-center gap-3">
               <span className="w-8 h-8 rounded-full bg-amber-500/10 flex items-center justify-center text-sm">壹</span>
-              输入预测请求
+              起局预测请求
             </h2>
             <InputForm onPredict={handlePredict} isLoading={loading} />
           </section>
@@ -223,32 +284,75 @@ const App: React.FC = () => {
           )}
         </div>
 
-        <div className="space-y-8">
-          <section className="bg-slate-900/40 border border-slate-800 p-8 rounded-3xl backdrop-blur-md min-h-[600px] flex flex-col relative overflow-hidden">
+        {/* 右侧：推演与追问 */}
+        <div className="space-y-8 flex flex-col h-full">
+          <section className="bg-slate-900/40 border border-slate-800 p-8 rounded-3xl backdrop-blur-md flex-1 flex flex-col relative overflow-hidden max-h-[1200px]">
             <h2 className="text-xl font-bold mb-6 text-amber-500 flex items-center gap-3">
               <span className="w-8 h-8 rounded-full bg-amber-500/10 flex items-center justify-center text-sm">贰</span>
               专家理法推演
             </h2>
             
-            {loading && !prediction && (
-              <div className="flex-1 flex flex-col items-center justify-center gap-6 text-slate-500">
-                <div className="relative">
-                  <div className="w-16 h-16 border-4 border-amber-500/10 border-t-amber-500 rounded-full animate-spin"></div>
+            <div ref={scrollRef} className="flex-1 overflow-y-auto pr-4 space-y-6 scroll-smooth">
+              {/* 展示已有的历史对话 */}
+              {chatHistory.filter(m => m.role !== 'system').map((msg, i) => (
+                <div key={i} className={`animate-in fade-in slide-in-from-bottom-2 duration-500 ${msg.role === 'user' ? 'opacity-60 border-l border-amber-500/20 pl-4 py-2 bg-slate-800/20 rounded' : ''}`}>
+                  {msg.role === 'user' ? (
+                    <p className="text-xs text-amber-500/80 font-bold mb-2 tracking-widest uppercase">追问理法：</p>
+                  ) : null}
+                  <AnalysisDisplay prediction={msg.content} />
                 </div>
-                <div className="flex flex-col items-center gap-2 text-center">
-                  <p className="text-xs tracking-[0.4em] text-amber-500 font-bold">正在针对【{userLocation?.palaceName}】进行深度推演...</p>
-                  <p className="text-[10px] text-slate-600 tracking-widest">时空方位已自动映射</p>
-                </div>
-              </div>
-            )}
+              ))}
 
-            {error && <div className="p-6 bg-red-950/20 border border-red-900/40 rounded-2xl text-red-400 text-sm italic">{error}</div>}
-            {prediction && <AnalysisDisplay prediction={prediction} />}
-            
-            {!loading && !prediction && !error && (
-              <div className="flex-1 flex items-center justify-center text-slate-600 text-sm italic tracking-widest text-center px-12 leading-loose">
-                 系统已锁定您的地理时空点。输入问题后，将自动根据您的实际方位入局进行推演。
-              </div>
+              {/* 展示正在生成的回复 */}
+              {prediction && (
+                <div className="border-t border-slate-800/50 pt-4 mt-4">
+                   <p className="text-[10px] text-amber-500 animate-pulse mb-4 tracking-[0.3em] font-black uppercase">正在接收推演流...</p>
+                   <AnalysisDisplay prediction={prediction} />
+                </div>
+              )}
+
+              {loading && !prediction && (
+                <div className="flex-1 flex flex-col items-center justify-center gap-6 text-slate-500 min-h-[400px]">
+                  <div className="relative">
+                    <div className="w-16 h-16 border-4 border-amber-500/10 border-t-amber-500 rounded-full animate-spin"></div>
+                  </div>
+                  <div className="flex flex-col items-center gap-2 text-center">
+                    <p className="text-xs tracking-[0.4em] text-amber-500 font-bold">正在针对【{userLocation?.palaceName}】进行深度推演...</p>
+                    <p className="text-[10px] text-slate-600 tracking-widest">时空方位已自动映射</p>
+                  </div>
+                </div>
+              )}
+
+              {error && <div className="p-6 bg-red-950/20 border border-red-900/40 rounded-2xl text-red-400 text-sm italic">{error}</div>}
+              
+              {!loading && chatHistory.length === 0 && !error && (
+                <div className="flex-1 flex items-center justify-center text-slate-600 text-sm italic tracking-widest text-center px-12 leading-loose min-h-[400px]">
+                   系统已锁定您的地理时空点。输入问题后，将自动根据您的实际方位入局进行推演。
+                </div>
+              )}
+            </div>
+
+            {/* 追问输入框 */}
+            {chatHistory.length > 0 && !loading && (
+              <form onSubmit={handleFollowUp} className="mt-8 border-t border-slate-800 pt-6 animate-in slide-in-from-bottom-4">
+                <div className="relative group">
+                   <textarea
+                    value={followUpText}
+                    onChange={(e) => setFollowUpText(e.target.value)}
+                    placeholder="针对以上理法进一步追问（如：格局中的击刑具体如何化解？）"
+                    disabled={followUpLoading}
+                    className="w-full h-20 bg-slate-950/50 border border-slate-800 rounded-2xl p-4 text-slate-200 focus:outline-none focus:ring-2 focus:ring-amber-500/30 transition-all resize-none text-xs leading-relaxed"
+                  />
+                  <button
+                    type="submit"
+                    disabled={followUpLoading || !followUpText.trim()}
+                    className="absolute bottom-3 right-3 bg-amber-600/80 hover:bg-amber-500 text-white px-4 py-1.5 rounded-xl text-[10px] font-bold tracking-widest transition-all disabled:opacity-20"
+                  >
+                    {followUpLoading ? '追问中...' : '请教专家'}
+                  </button>
+                </div>
+                <p className="text-[9px] text-slate-700 mt-2 text-center tracking-[0.2em]">追问功能将保持当前奇门格局的理法连续性</p>
+              </form>
             )}
           </section>
         </div>
