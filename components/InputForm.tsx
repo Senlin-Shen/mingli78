@@ -20,51 +20,56 @@ const InputForm: React.FC<InputFormProps> = ({ onPredict, isLoading }) => {
     }
   };
 
-  const handleTemplateClick = (tpl: string) => setText(tpl);
+  const handleTemplateClick = (tpl: string) => {
+    setText(tpl);
+  };
+
   const category = SCENARIOS.find(c => c.id === activeCategory);
 
   return (
-    <div className="flex flex-col gap-5">
-      <div className="flex bg-slate-950/50 p-1 rounded-xl border border-slate-800 shadow-inner">
+    <div className="flex flex-col gap-4">
+      <div className="flex bg-slate-950/50 p-1 rounded-lg border border-slate-800">
         <button
           onClick={() => setType('SHI_JU')}
-          className={`flex-1 py-2.5 text-xs font-bold rounded-lg transition-all ${
-            type === 'SHI_JU' ? 'bg-amber-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'
+          className={`flex-1 py-2 text-xs font-bold rounded-md transition-all ${
+            type === 'SHI_JU' ? 'bg-amber-600 text-white shadow-md' : 'text-slate-500 hover:text-slate-300'
           }`}
         >
-          事局 (即时预测)
+          事局 (当前时空)
         </button>
         <button
           onClick={() => setType('MING_JU')}
-          className={`flex-1 py-2.5 text-xs font-bold rounded-lg transition-all ${
-            type === 'MING_JU' ? 'bg-amber-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'
+          className={`flex-1 py-2 text-xs font-bold rounded-md transition-all ${
+            type === 'MING_JU' ? 'bg-amber-600 text-white shadow-md' : 'text-slate-500 hover:text-slate-300'
           }`}
         >
-          命局 (本命解析)
+          命局 (生辰本命)
         </button>
       </div>
 
-      {type === 'MING_JU' && (
-        <div className="animate-in fade-in slide-in-from-top-1">
-          <label className="text-[10px] text-slate-500 mb-1.5 block uppercase tracking-widest font-black">出生时间/起卦时间：</label>
-          <input
-            type="datetime-local"
-            value={customDate}
-            onChange={(e) => setCustomDate(e.target.value)}
-            className="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-xs text-white focus:outline-none focus:ring-2 focus:ring-amber-500/50"
-          />
-        </div>
-      )}
+      <div className="grid grid-cols-1 gap-3">
+        {type === 'MING_JU' && (
+          <div className="animate-in fade-in slide-in-from-top-1">
+            <label className="text-[10px] text-slate-500 mb-1 block">出生时间：</label>
+            <input
+              type="datetime-local"
+              value={customDate}
+              onChange={(e) => setCustomDate(e.target.value)}
+              className="w-full bg-slate-800 border border-slate-700 rounded-lg p-2 text-xs text-white focus:outline-none focus:ring-1 focus:ring-amber-500"
+            />
+          </div>
+        )}
+      </div>
 
-      <div className="flex flex-wrap gap-2 pt-2 border-t border-slate-800/30">
+      <div className="flex flex-wrap gap-2 pt-2 border-t border-slate-800/50">
         {SCENARIOS.map((cat) => (
           <button
             key={cat.id}
             onClick={() => setActiveCategory(cat.id)}
-            className={`px-3 py-1 text-[10px] rounded-full transition-all border ${
+            className={`px-3 py-1 text-[10px] rounded-full transition-all ${
               activeCategory === cat.id
-                ? 'bg-amber-600 border-amber-500 text-white'
-                : 'bg-slate-800 text-slate-500 border-slate-700 hover:border-slate-500'
+                ? 'bg-amber-600 text-white'
+                : 'bg-slate-800 text-slate-400 border border-slate-700 hover:border-slate-500'
             }`}
           >
             {cat.label}
@@ -78,26 +83,31 @@ const InputForm: React.FC<InputFormProps> = ({ onPredict, isLoading }) => {
             key={i}
             type="button"
             onClick={() => handleTemplateClick(tpl)}
-            className="text-left text-[10px] bg-slate-900/40 hover:bg-slate-800/60 p-2.5 rounded-lg border border-slate-800 text-slate-400 transition-colors leading-relaxed"
+            className="text-left text-[10px] bg-slate-900/40 hover:bg-slate-800/60 p-2 rounded border border-slate-800 text-slate-400 transition-colors"
           >
             {tpl}
           </button>
         ))}
       </div>
 
-      <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+      <form onSubmit={handleSubmit} className="flex flex-col gap-3">
         <textarea
           value={text}
           onChange={(e) => setText(e.target.value)}
-          placeholder="请精准描述您的问题（如：近期某项投资的时机...）"
-          className="w-full h-28 bg-slate-800/50 border border-slate-700 rounded-2xl p-4 text-slate-200 focus:outline-none focus:ring-2 focus:ring-amber-500/50 transition-all resize-none text-xs leading-relaxed"
+          placeholder="请精准描述您的问题..."
+          className="w-full h-24 bg-slate-800/50 border border-slate-700 rounded-xl p-3 text-slate-200 focus:outline-none focus:ring-2 focus:ring-amber-500 transition-all resize-none text-xs"
         />
         <button
           type="submit"
           disabled={isLoading || !text.trim() || (type === 'MING_JU' && !customDate)}
-          className="w-full bg-amber-600 hover:bg-amber-500 disabled:bg-slate-800 disabled:text-slate-600 text-white font-bold py-3.5 rounded-2xl transition-all shadow-xl hover:shadow-amber-500/20 text-xs tracking-[0.5em] uppercase pl-4"
+          className="w-full bg-amber-600 hover:bg-amber-500 disabled:bg-slate-700 disabled:cursor-not-allowed text-white font-bold py-2.5 rounded-xl transition-all shadow-lg hover:shadow-amber-500/20 text-xs flex items-center justify-center gap-2"
         >
-          {isLoading ? '九维演算中...' : '拨动时空'}
+          {isLoading ? (
+            <>
+              <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+              九维演算中...
+            </>
+          ) : '拨动时空'}
         </button>
       </form>
     </div>
