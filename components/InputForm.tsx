@@ -17,7 +17,7 @@ const InputForm: React.FC<InputFormProps> = ({ onPredict, isLoading }) => {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (text.trim() && !isLoading) {
-      const selectedDir = DIRECTIONS.find(d => d.id === direction)?.label || '中宫';
+      const selectedDir = DIRECTIONS.find(d => d.id === direction)?.label || '中宫/原地';
       onPredict(text, type, type === 'MING_JU' ? customDate : '', selectedDir);
     }
   };
@@ -66,7 +66,7 @@ const InputForm: React.FC<InputFormProps> = ({ onPredict, isLoading }) => {
           <select
             value={direction}
             onChange={(e) => setDirection(e.target.value)}
-            className="w-full bg-slate-800 border border-slate-700 rounded-lg p-2 text-xs text-white focus:outline-none focus:ring-1 focus:ring-amber-500"
+            className="w-full bg-slate-800 border border-slate-700 rounded-lg p-2 text-xs text-white focus:outline-none focus:ring-1 focus:ring-amber-500 appearance-none"
           >
             {DIRECTIONS.map(dir => (
               <option key={dir.id} value={dir.id}>{dir.label}</option>
@@ -95,6 +95,7 @@ const InputForm: React.FC<InputFormProps> = ({ onPredict, isLoading }) => {
         {category?.templates.map((tpl, i) => (
           <button
             key={i}
+            type="button"
             onClick={() => handleTemplateClick(tpl)}
             className="text-left text-[10px] bg-slate-900/40 hover:bg-slate-800/60 p-2 rounded border border-slate-800 text-slate-400 transition-colors"
           >
@@ -113,9 +114,14 @@ const InputForm: React.FC<InputFormProps> = ({ onPredict, isLoading }) => {
         <button
           type="submit"
           disabled={isLoading || !text.trim() || (type === 'MING_JU' && !customDate)}
-          className="w-full bg-amber-600 hover:bg-amber-500 disabled:bg-slate-700 disabled:cursor-not-allowed text-white font-bold py-2.5 rounded-xl transition-all shadow-lg hover:shadow-amber-500/20 text-xs"
+          className="w-full bg-amber-600 hover:bg-amber-500 disabled:bg-slate-700 disabled:cursor-not-allowed text-white font-bold py-2.5 rounded-xl transition-all shadow-lg hover:shadow-amber-500/20 text-xs flex items-center justify-center gap-2"
         >
-          {isLoading ? '九维演算中...' : '拨动时空'}
+          {isLoading ? (
+            <>
+              <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+              九维演算中...
+            </>
+          ) : '拨动时空'}
         </button>
       </form>
     </div>

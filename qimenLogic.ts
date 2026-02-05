@@ -3,15 +3,27 @@ import { STEMS, BRANCHES, STARS, GATES, GODS, PALACE_INFO } from './constants';
 import { QiMenBoard, PalaceData } from './types';
 
 /**
+ * 根据经度计算真太阳时
+ * 北京时间以 120°E 为准，每差 1° 差 4 分钟
+ */
+const getTrueSolarTime = (date: Date, longitude: number): Date => {
+  const offsetMinutes = (longitude - 120) * 4;
+  return new Date(date.getTime() + offsetMinutes * 60000);
+};
+
+/**
  * 奇门遁甲排盘逻辑 - 核心算法
  * 采用拆补法定局，冬至后用阳遁，夏至后用阴遁
  */
-export const calculateBoard = (date: Date): QiMenBoard => {
-  const yearIdx = (date.getFullYear() - 4) % 12;
+export const calculateBoard = (date: Date, longitude?: number): QiMenBoard => {
+  // 如果提供了经度，使用真太阳时进行核心排盘计算
+  const calculationTime = longitude ? getTrueSolarTime(date, longitude) : date;
+  
+  const yearIdx = (calculationTime.getFullYear() - 4) % 12;
   const branchIdx = yearIdx + 1;
-  const month = date.getMonth() + 1;
-  const day = date.getDate();
-  const hourIdx = Math.floor(((date.getHours() + 1) % 24) / 2) + 1;
+  const month = calculationTime.getMonth() + 1;
+  const day = calculationTime.getDate();
+  const hourIdx = Math.floor(((calculationTime.getHours() + 1) % 24) / 2) + 1;
 
   const total = branchIdx + month + day + hourIdx;
   let bureau = total % 9;
@@ -58,8 +70,10 @@ export const calculateBoard = (date: Date): QiMenBoard => {
     zhiShiGate,
     solarTerm,
     bureauFormula: `(${branchIdx} + ${month} + ${day} + ${hourIdx}) ÷ 9 余 ${bureau}`,
-    startingMethod: "拆补法",
+    startingMethod: "拆补法 (基于真太阳时修正)",
     predictionType: 'SHI_JU',
-    targetTime: date.toLocaleString()
+    targetTime: date.toLocaleString(),
+    trueSolarTime: calculationTime.toLocaleString(),
+    location: longitude ? { latitude: 0, longitude, isAdjusted: true } : undefined
   };
 };

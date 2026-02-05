@@ -11,14 +11,20 @@ const BoardGrid: React.FC<BoardGridProps> = ({ board }) => {
   return (
     <div className="flex flex-col gap-8">
       <div className="bg-slate-900/60 border border-slate-800 p-6 rounded-3xl backdrop-blur-xl shadow-inner">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-6 text-[10px] tracking-widest font-bold">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6 text-[10px] tracking-widest font-bold">
           <div className="space-y-1">
-            <span className="text-slate-600 block text-[9px]">公历时空</span>
+            <span className="text-slate-600 block text-[9px]">输入时间</span>
             <span className="text-slate-300">{board.targetTime}</span>
           </div>
           <div className="space-y-1">
-            <span className="text-slate-600 block text-[9px]">当季节气</span>
-            <span className="text-amber-500">{board.solarTerm}</span>
+            <span className="text-slate-600 block text-[9px]">真太阳时</span>
+            <span className="text-amber-500">{board.trueSolarTime || board.targetTime}</span>
+          </div>
+          <div className="space-y-1">
+            <span className="text-slate-600 block text-[9px]">地理时空</span>
+            <span className="text-blue-400">
+              {board.location ? `${board.location.longitude}°E / ${board.location.latitude}°N` : '标准时间起局'}
+            </span>
           </div>
           <div className="space-y-1">
             <span className="text-slate-600 block text-[9px]">干支四柱</span>
@@ -38,18 +44,21 @@ const BoardGrid: React.FC<BoardGridProps> = ({ board }) => {
 
           const isZhiFu = palace.star === board.zhiFuStar;
           const isZhiShi = palace.gate === board.zhiShiGate;
+          const isUserDirection = board.direction?.includes(palace.name.slice(0, 1));
 
           return (
             <div 
               key={pIndex} 
-              className={`relative flex flex-col justify-between p-4 h-40 md:h-44 border border-amber-900/10 transition-colors duration-500
+              className={`relative flex flex-col justify-between p-4 h-40 md:h-44 border border-amber-900/10 transition-all duration-500
                 ${palace.isEmptiness ? 'bg-slate-950/80 grayscale-[0.3]' : 'bg-slate-900/40'}
-                ${isZhiFu ? 'ring-1 ring-inset ring-amber-500/20' : ''}
+                ${isZhiFu ? 'ring-1 ring-inset ring-amber-500/20 shadow-[inset_0_0_20px_rgba(245,158,11,0.05)]' : ''}
+                ${isUserDirection ? 'bg-amber-900/10' : ''}
               `}
             >
               <div className="flex justify-between items-start">
                 <span className="text-indigo-400/80 font-black text-[11px] tracking-widest">{palace.god}</span>
                 <div className="flex gap-1.5">
+                  {isUserDirection && <span className="text-[7px] border border-amber-500/50 text-amber-500 px-1 rounded animate-pulse">求测</span>}
                   {palace.isEmptiness && <span className="text-[9px] bg-red-950/80 text-red-500 px-1.5 py-0.5 rounded border border-red-900/50 font-black">空</span>}
                   {palace.isMaXing && <span className="text-[9px] bg-amber-950/80 text-amber-500 px-1.5 py-0.5 rounded border border-amber-900/50 font-black">马</span>}
                 </div>
@@ -98,7 +107,7 @@ const BoardGrid: React.FC<BoardGridProps> = ({ board }) => {
         <span className="text-amber-500/60">值符：{board.zhiFuStar}</span> 巡首落 {board.palaces.find(p => p.star === board.zhiFuStar)?.name} | 
         <span className="text-amber-500/60 pl-4">值使：{board.zhiShiGate}</span> 枢机落 {board.palaces.find(p => p.gate === board.zhiShiGate)?.name}
         <br/>
-        <span className="opacity-40 italic font-light">正统奇门理法体系 · 高阶 AI 深度实战版</span>
+        <span className="opacity-40 italic font-light">正统理法 · {board.location ? '经纬度真太阳时修正' : '标准时起局'} · AI 深度解析</span>
       </div>
     </div>
   );

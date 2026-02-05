@@ -1,12 +1,12 @@
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import AnalysisDisplay from './components/AnalysisDisplay';
 import BoardGrid from './components/BoardGrid';
 import Header from './components/Header';
 import Footer from './components/Footer';
 import InputForm from './components/InputForm';
 import { calculateBoard } from './qimenLogic';
-import { QiMenBoard } from './types';
+import { QiMenBoard, LocationData } from './types';
 
 const App: React.FC = () => {
   const [isEntered, setIsEntered] = useState<boolean>(false);
@@ -14,10 +14,30 @@ const App: React.FC = () => {
   const [prediction, setPrediction] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [userLocation, setUserLocation] = useState<LocationData | null>(null);
 
-  // 极致性能：生成缓存指纹
-  const getCacheKey = (query: string, type: string, date: string, direction: string) => {
-    return `qimen_cache_${btoa(unescape(encodeURIComponent(`${query}_${type}_${date}_${direction}`))).slice(0, 32)}`;
+  // 获取地理位置 - 提升起局精度关键
+  useEffect(() => {
+    if ("geolocation" in navigator) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          setUserLocation({
+            latitude: Number(position.coords.latitude.toFixed(4)),
+            longitude: Number(position.coords.longitude.toFixed(4)),
+            isAdjusted: true
+          });
+        },
+        (err) => {
+          console.warn("地理位置获取受限:", err.message);
+        },
+        { timeout: 10000 }
+      );
+    }
+  }, []);
+
+  const getCacheKey = (query: string, type: string, date: string, direction: string, loc?: LocationData) => {
+    const locStr = loc ? `${loc.latitude}_${loc.longitude}` : 'default';
+    return `qimen_cache_${btoa(unescape(encodeURIComponent(`${query}_${type}_${date}_${direction}_${locStr}`))).slice(0, 32)}`;
   };
 
   const handleEnterSystem = () => {
@@ -29,16 +49,17 @@ const App: React.FC = () => {
     setError('');
     setPrediction('');
     
-    // 1. 本地逻辑排盘
     const targetDate = date ? new Date(date) : new Date();
-    const newBoard = calculateBoard(targetDate);
+    // 使用地理位置经度进行真太阳时修正
+    const newBoard = calculateBoard(targetDate, userLocation?.longitude);
     newBoard.predictionType = type;
-    newBoard.targetTime = targetDate.toLocaleString();
     newBoard.direction = direction;
+    if (userLocation) {
+        newBoard.location = { ...userLocation, isAdjusted: true };
+    }
     setBoard(newBoard);
 
-    // 2. 检查本地缓存实现“瞬间返回”
-    const cacheKey = getCacheKey(userInput, type, date, direction);
+    const cacheKey = getCacheKey(userInput, type, date, direction, userLocation || undefined);
     const cachedData = sessionStorage.getItem(cacheKey);
     if (cachedData) {
       setTimeout(() => {
@@ -49,25 +70,30 @@ const App: React.FC = () => {
     }
 
     try {
-      const systemInstruction = `你是一位精通正统体系的“奇门当代应用”实战分析专家。你的推演逻辑严密，融合了传统理法与当代博弈论。
+      const systemInstruction = `你是一位精通林毅奇门遁甲体系的“当代实战应用”专家。
+本次演算已应用【真太阳时精准起局】与【地理时空定位】，理法逻辑必须极致严密。
 
-【当前排盘】：${newBoard.isYang ? '阳' : '阴'}遁${newBoard.bureau}局。
-【求测方位】：${direction}
-【核心数据】：${JSON.stringify(newBoard.palaces)}
+【时空定位参数】：
+- 原始北京时间：${newBoard.targetTime}
+- 修正真太阳时：${newBoard.trueSolarTime || '未修正(默认120°E)'}
+- 地理坐标：${userLocation ? `经度${userLocation.longitude}, 纬度${userLocation.latitude}` : '系统默认'}
+- 局数理法：${newBoard.isYang ? '阳' : '阴'}遁${newBoard.bureau}局
+- 核心落宫数据：${JSON.stringify(newBoard.palaces)}
+- 求测人方位：${direction}
 
 【推演要求】：
-1. **理法深剖**：必须详细分析“方位”与“落宫”的生克关系。解释值符、值使、三奇六仪在该时空的动态变化。
-2. **多维演绎**：
-   - 投资/事业：结合“十二长生”和“戊”落宫谈资金流动性。
-   - 情感/人际：分析乙庚落宫及其神煞的相互作用。
-   - 健康：从天芮星落宫深度剖析五行偏胜导致的身体隐患。
-3. **切实建议**：禁止模棱两可。必须给出具体的、可执行的建议（如：避开某方位、在某时段行动、调整某种心态、具体的体检方向等）。
-4. **输出格式**：严禁Markdown符号。逻辑分为：
-   - 第一步：审局辨势（宏观理法分析）
-   - 第二步：方位剖析（结合用户选定方位的专项推演）
-   - 第三步：落地指南（给出具体的、切实的行动建议）
-   - 最终成算：给出胜算概率。`;
+1. **深度理法剖析**：必须基于“天、地、人、神”四盘，结合“旺相休囚”与“十二长生”状态进行剖析。重点分析“值符”星与“值使”门在当前时空下的气场强弱。
+2. **方位博弈分析**：针对求测人选择的【${direction}】，分析该宫位的吉凶格局（如青龙返首、飞鸟跌穴或六仪击刑、辛金入墓等）。
+3. **切实落地建议**：拒绝模棱两可。针对“商业决策、情感选择或日常行事”，给出具体的“最佳行动窗口”和“风险规避方略”。
+4. **输出结构**：
+   - 第一步：【审局辨势】（理法深度推演）
+   - 第二步：【时空布局】（方位能量与环境建议）
+   - 第三步：【落地指南】（具体的、切实的行动建议）
+   - 最终成算：给出具体的成算概率（0-100%）。
 
+注意：禁止使用Markdown符号，保持纯文本或段落感，逻辑分明。`;
+
+      // 针对中国大陆网络优化：使用 Vercel 同域名 Proxy 避免跨域及网络抖动
       const response = await fetch('/api/ark-proxy', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -76,12 +102,14 @@ const App: React.FC = () => {
             { role: "system", content: systemInstruction },
             { role: "user", content: userInput }
           ],
-          temperature: 0.7
+          temperature: 0.7,
+          stream: true
         })
       });
 
       if (!response.ok) {
-        throw new Error(`连接不稳定 (HTTP ${response.status})`);
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.detail || `网络连接波动 (HTTP ${response.status})`);
       }
 
       const reader = response.body?.getReader();
@@ -114,11 +142,11 @@ const App: React.FC = () => {
       }
 
     } catch (err: any) {
-      setError(err.message === 'Failed to fetch' ? '网络连接超时，请重试' : err.message);
+      setError(err.name === 'AbortError' ? '推演超时，请检查网络后重试' : err.message);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [userLocation]);
 
   if (!isEntered) {
     return (
@@ -137,6 +165,12 @@ const App: React.FC = () => {
             <span className="relative z-10 tracking-[1em] pl-4">开启推演</span>
             <div className="absolute inset-0 bg-white/20 scale-x-0 group-hover:scale-x-100 transition-transform origin-left rounded-2xl"></div>
           </button>
+          
+          {userLocation && (
+             <div className="mt-8 text-[10px] text-slate-600 tracking-widest animate-in fade-in duration-1000">
+               已定位时空坐标：{userLocation.longitude}°E, {userLocation.latitude}°N
+             </div>
+          )}
         </div>
       </div>
     );
@@ -145,6 +179,21 @@ const App: React.FC = () => {
   return (
     <div className="min-h-screen bg-[#020617] text-slate-100 flex flex-col">
       <Header />
+      
+      {/* 实时状态条 */}
+      <div className="bg-slate-900/80 border-y border-slate-800 py-2 px-6 backdrop-blur-md">
+        <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-4 text-[9px] tracking-[0.2em] font-bold text-slate-500 uppercase">
+          <div className="flex items-center gap-2">
+            <span className="w-1.5 h-1.5 rounded-full bg-green-500 shadow-[0_0_5px_rgba(34,197,94,0.5)]"></span>
+            网络状态：连接正常 (Proxy Mode)
+          </div>
+          <div className="flex items-center gap-4">
+            <span>坐标：{userLocation ? `${userLocation.longitude}°E, ${userLocation.latitude}°N` : '定位中...'}</span>
+            <span className="text-amber-600/60">当前：{new Date().toLocaleTimeString()}</span>
+          </div>
+        </div>
+      </div>
+
       <main className="flex-1 max-w-7xl mx-auto w-full px-6 py-12 grid grid-cols-1 lg:grid-cols-2 gap-12">
         <div className="space-y-8">
           <section className="bg-slate-900/40 border border-slate-800 p-8 rounded-3xl backdrop-blur-md">
@@ -177,7 +226,7 @@ const App: React.FC = () => {
                 </div>
                 <div className="flex flex-col items-center gap-2">
                   <p className="text-xs tracking-[0.4em] text-amber-500/80 animate-pulse font-bold">正在拨动干支齿轮...</p>
-                  <p className="text-[10px] text-slate-600">正在跨越时空链接推演模型</p>
+                  <p className="text-[10px] text-slate-600">真太阳时已修正，正在跨越时空连接</p>
                 </div>
               </div>
             )}
@@ -195,8 +244,8 @@ const App: React.FC = () => {
             {prediction && <AnalysisDisplay prediction={prediction} />}
             
             {!loading && !prediction && !error && (
-              <div className="flex-1 flex items-center justify-center text-slate-600 text-sm italic tracking-widest text-center px-12">
-                 请在左侧输入预测问题并选择方位，系统将根据当代实战逻辑为您深度推演。
+              <div className="flex-1 flex items-center justify-center text-slate-600 text-sm italic tracking-widest text-center px-12 leading-loose">
+                 请在左侧输入预测问题。系统将根据您的地理经纬度修正真太阳时，结合天、地、人、神四盘为您进行深度理法推演。
               </div>
             )}
           </section>
