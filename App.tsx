@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import AnalysisDisplay from './components/AnalysisDisplay';
 import BoardGrid from './components/BoardGrid';
@@ -47,8 +48,7 @@ ${JSON.stringify(newBoard.palaces)}
 - 逻辑按“第一步：审局”、“第二步：辨主客”、“第三步：析胜算”输出。
 - 语言风格：专业、沉稳、充满洞察力。`;
 
-      // 使用绝对路径或相对路径，取决于部署环境
-      // 在 Vercel 部署后，/api/ark-proxy 将指向同源的 Edge Function
+      // 注意：这里绝对不能带 Authorization 头部，避免触发浏览器的 CORS 限制
       const response = await fetch('/api/ark-proxy', {
         method: 'POST',
         headers: {
@@ -62,36 +62,25 @@ ${JSON.stringify(newBoard.palaces)}
           ],
           temperature: 0.7
         })
-      }).catch(err => {
-        // 捕获网络层面的 "Failed to fetch" 错误
-        if (err.name === 'TypeError' && err.message === 'Failed to fetch') {
-          throw new Error('时空连接中断：无法访问预测服务器。请确保 API 服务已部署或网络连接正常。');
-        }
-        throw err;
       });
 
       if (!response.ok) {
-        const errJson = await response.json().catch(() => ({ error: '时空链路响应异常', detail: `状态码: ${response.status}` }));
-        throw new Error(errJson.error || errJson.detail || `HTTP 错误 ${response.status}`);
+        const errJson = await response.json().catch(() => ({ error: '时空链路通讯失败' }));
+        throw new Error(errJson.detail || errJson.error || `HTTP ${response.status}`);
       }
 
-      // 处理流式响应 (SSE)
       const reader = response.body?.getReader();
       const decoder = new TextDecoder("utf-8");
       let fullContent = "";
-      let buffer = ""; // 用于处理被截断的 JSON 行
+      let buffer = ""; 
 
       if (reader) {
         while (true) {
           const { done, value } = await reader.read();
           if (done) break;
           
-          // 将新读取的数据块与缓冲区内容合并
           buffer += decoder.decode(value, { stream: true });
-          
-          // 按行分割并处理每行数据
           const lines = buffer.split("\n");
-          // 最后一行可能是不完整的，保留在缓冲区中
           buffer = lines.pop() || "";
 
           for (const line of lines) {
@@ -106,9 +95,7 @@ ${JSON.stringify(newBoard.palaces)}
                 fullContent += content;
                 setPrediction(fullContent);
               } catch (e) {
-                // 如果解析失败，说明这一行可能是被截断的，尝试将其放回缓冲区
-                console.warn('JSON 碎片解析失败，等待下一块数据:', trimmed);
-                // 这种情况理论上在使用了 split 后的 buffer 机制中极少发生
+                // 仅忽略解析不全的碎片
               }
             }
           }
@@ -116,8 +103,8 @@ ${JSON.stringify(newBoard.palaces)}
       }
 
     } catch (err: any) {
-      console.error('演算失败详情:', err);
-      setError(err.message || '未知时空扰动');
+      console.error('演算失败:', err);
+      setError(err.message || '未知时空扰动，请检查 API 配置');
     } finally {
       setLoading(false);
     }
@@ -184,7 +171,7 @@ ${JSON.stringify(newBoard.palaces)}
                 <div className="font-bold mb-2">演算受阻：</div>
                 {error}
                 <div className="mt-4 text-[10px] text-red-500/60 font-mono">
-                  [Error Check]: 检查 Vercel Settings -> Environment Variables 是否已配置 ARK_API_KEY 与 ARK_ENDPOINT_ID。
+                  提示：请确保 Vercel 已配置 ARK_API_KEY。
                 </div>
               </div>
             )}
@@ -193,7 +180,7 @@ ${JSON.stringify(newBoard.palaces)}
             
             {!loading && !prediction && !error && (
               <div className="flex-1 flex items-center justify-center text-slate-600 text-sm italic tracking-widest text-center px-12">
-                 请在左侧输入您想要预测的问题，系统将通过火山引擎大模型进行深度理法推演。
+                 请在左侧输入预测问题，系统将通过代理安全访问火山引擎。
               </div>
             )}
           </section>
