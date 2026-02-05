@@ -25,7 +25,6 @@ const App: React.FC = () => {
   const [error, setError] = useState('');
   const [userLocation, setUserLocation] = useState<(LocationData & { city?: string, ip?: string, palaceName?: string }) | null>(null);
   
-  // 对话历史
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
   const [followUpText, setFollowUpText] = useState('');
   
@@ -38,7 +37,6 @@ const App: React.FC = () => {
     }
   }, [prediction, chatHistory]);
 
-  // 根据经纬度计算相对于地理中心的八卦宫位
   const getPalaceFromCoords = (lng: number, lat: number) => {
     const angle = Math.atan2(lat - CHINA_CENTER.lat, lng - CHINA_CENTER.lng);
     let degrees = angle * (180 / Math.PI);
@@ -95,7 +93,7 @@ const App: React.FC = () => {
     fetchGeo();
   }, []);
 
-  const streamResponse = async (messages: ChatMessage[], isFollowUp = false) => {
+  const streamResponse = async (messages: ChatMessage[]) => {
     const response = await fetch('/api/ark-proxy', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -156,21 +154,20 @@ const App: React.FC = () => {
 
     try {
       const systemInstruction = `你是一位精通林毅奇门遁甲体系的“当代实战应用”推演专家。
-系统已自动计算求测者地理位置 (${userLocation?.city || '未知'}) 并映射至【${autoPalace}】。
+当前求测者地理位置 (${userLocation?.city || '未知'})，已自动入局【${autoPalace}】。
 
-【起局核心】：
+【起局参数】：
 - 修正真太阳时：${newBoard.trueSolarTime || '标准时间'}
-- 地理判定宫位：${autoPalace}
+- 判定入局宫位：${autoPalace}
 - 局数理法：${newBoard.isYang ? '阳' : '阴'}遁${newBoard.bureau}局
-- 盘面快照：${JSON.stringify(newBoard.palaces)}
+- 盘面数据：${JSON.stringify(newBoard.palaces)}
 
 【推演要求】：
-1. 深度理法解构：剖析【${autoPalace}】宫内的星、门、神、仪状态及旺衰关系。
-2. 时空博弈：分析该方位相对于值符、值使的能量感应，给出对求测问题的直接定性。
-3. 落地建议：针对实际生活（商业、职场、关系）给出具体、明确的行动方案。
-4. 输出：[审局辨势]、[${autoPalace}深度解析]、[落地指南]、[成算概率]。
+1. 必须针对【${autoPalace}】进行深度解构，分析其中的星门神仪。
+2. 给出当代实战建议。
+3. 如果用户后续进行“追问”或“继续提问”，请保持对当前格局的深度解读，不要脱离本次起局。
 
-注意：禁用Markdown符号，保持纯文本段落。后续如果用户追问，请继续以该格局为核心进行理法深入探讨。`;
+输出格式：[审局辨势]、[${autoPalace}解析]、[实战落地建议]、[最终胜算成算]。禁用Markdown符号。`;
 
       const initialMessages: ChatMessage[] = [
         { role: "system", content: systemInstruction },
@@ -182,7 +179,7 @@ const App: React.FC = () => {
         ...initialMessages,
         { role: "assistant", content: fullResponse }
       ]);
-      setPrediction(''); // 移动到 history 后清空 prediction 用于 AnalysisDisplay 逻辑
+      setPrediction(''); 
 
     } catch (err: any) {
       setError(err.message);
@@ -191,24 +188,24 @@ const App: React.FC = () => {
     }
   }, [userLocation]);
 
-  const handleFollowUp = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!followUpText.trim() || followUpLoading) return;
+  const handleFollowUp = async (e?: React.FormEvent, customText?: string) => {
+    if (e) e.preventDefault();
+    const query = customText || followUpText;
+    if (!query.trim() || followUpLoading) return;
 
-    const currentText = followUpText;
     setFollowUpText('');
     setFollowUpLoading(true);
     setError('');
-    setPrediction(''); // 用于展示正在生成的追问回答
+    setPrediction('');
 
     const newHistory: ChatMessage[] = [
       ...chatHistory,
-      { role: "user", content: currentText }
+      { role: "user", content: query }
     ];
     setChatHistory(newHistory);
 
     try {
-      const fullResponse = await streamResponse(newHistory, true);
+      const fullResponse = await streamResponse(newHistory);
       setChatHistory(prev => [
         ...prev,
         { role: "assistant", content: fullResponse }
@@ -220,6 +217,13 @@ const App: React.FC = () => {
       setFollowUpLoading(false);
     }
   };
+
+  const quickFollowUps = [
+    "针对格局中的不利因素，具体该如何化解？",
+    "此事的关键转机大概在什么时间点？",
+    "目前局中是否有贵人相助，在什么方位？",
+    "根据理法，我当前最不应该做的事情是什么？"
+  ];
 
   if (!isEntered) {
     return (
@@ -241,7 +245,7 @@ const App: React.FC = () => {
           
           {userLocation && (
              <div className="mt-8 text-[10px] text-slate-500 tracking-widest animate-in fade-in duration-1000">
-               已定位：{userLocation.palaceName} ({userLocation.city || '未知城市'})
+               已就绪：{userLocation.palaceName} · {userLocation.city || '未知'}
              </div>
           )}
         </div>
@@ -260,14 +264,13 @@ const App: React.FC = () => {
             方位自动判定：{userLocation?.palaceName || '计算中...'}
           </div>
           <div className="flex items-center gap-4">
-            <span>坐标：{userLocation ? `${userLocation.longitude}°E, ${userLocation.latitude}°N` : 'IP定位中...'}</span>
+            <span>坐标：{userLocation ? `${userLocation.longitude}°E, ${userLocation.latitude}°N` : '定位中...'}</span>
             <span className="text-amber-600/60 font-mono">{new Date().toLocaleTimeString()}</span>
           </div>
         </div>
       </div>
 
       <main className="flex-1 max-w-7xl mx-auto w-full px-6 py-12 grid grid-cols-1 lg:grid-cols-2 gap-12">
-        {/* 左侧：输入与排盘 */}
         <div className="space-y-8">
           <section className="bg-slate-900/40 border border-slate-800 p-8 rounded-3xl backdrop-blur-md">
             <h2 className="text-xl font-bold mb-6 text-amber-500 flex items-center gap-3">
@@ -284,7 +287,6 @@ const App: React.FC = () => {
           )}
         </div>
 
-        {/* 右侧：推演与追问 */}
         <div className="space-y-8 flex flex-col h-full">
           <section className="bg-slate-900/40 border border-slate-800 p-8 rounded-3xl backdrop-blur-md flex-1 flex flex-col relative overflow-hidden max-h-[1200px]">
             <h2 className="text-xl font-bold mb-6 text-amber-500 flex items-center gap-3">
@@ -292,34 +294,30 @@ const App: React.FC = () => {
               专家理法推演
             </h2>
             
-            <div ref={scrollRef} className="flex-1 overflow-y-auto pr-4 space-y-6 scroll-smooth">
-              {/* 展示已有的历史对话 */}
+            <div ref={scrollRef} className="flex-1 overflow-y-auto pr-4 space-y-8 scroll-smooth pb-20">
               {chatHistory.filter(m => m.role !== 'system').map((msg, i) => (
-                <div key={i} className={`animate-in fade-in slide-in-from-bottom-2 duration-500 ${msg.role === 'user' ? 'opacity-60 border-l border-amber-500/20 pl-4 py-2 bg-slate-800/20 rounded' : ''}`}>
-                  {msg.role === 'user' ? (
-                    <p className="text-xs text-amber-500/80 font-bold mb-2 tracking-widest uppercase">追问理法：</p>
-                  ) : null}
+                <div key={i} className={`animate-in fade-in slide-in-from-bottom-2 duration-500 ${msg.role === 'user' ? 'opacity-80 border-l-2 border-amber-500/30 pl-4 py-2 my-4 bg-amber-500/5 rounded' : ''}`}>
+                  {msg.role === 'user' && (
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="text-[10px] text-amber-500 font-black tracking-widest uppercase">追问理法：</span>
+                      <div className="h-px flex-1 bg-amber-500/10"></div>
+                    </div>
+                  )}
                   <AnalysisDisplay prediction={msg.content} />
                 </div>
               ))}
 
-              {/* 展示正在生成的回复 */}
               {prediction && (
-                <div className="border-t border-slate-800/50 pt-4 mt-4">
-                   <p className="text-[10px] text-amber-500 animate-pulse mb-4 tracking-[0.3em] font-black uppercase">正在接收推演流...</p>
+                <div className="border-t border-slate-800/50 pt-6 mt-6 animate-pulse">
+                   <p className="text-[10px] text-amber-500 mb-4 tracking-[0.3em] font-black uppercase">正在深入研讨中...</p>
                    <AnalysisDisplay prediction={prediction} />
                 </div>
               )}
 
               {loading && !prediction && (
                 <div className="flex-1 flex flex-col items-center justify-center gap-6 text-slate-500 min-h-[400px]">
-                  <div className="relative">
-                    <div className="w-16 h-16 border-4 border-amber-500/10 border-t-amber-500 rounded-full animate-spin"></div>
-                  </div>
-                  <div className="flex flex-col items-center gap-2 text-center">
-                    <p className="text-xs tracking-[0.4em] text-amber-500 font-bold">正在针对【{userLocation?.palaceName}】进行深度推演...</p>
-                    <p className="text-[10px] text-slate-600 tracking-widest">时空方位已自动映射</p>
-                  </div>
+                  <div className="w-12 h-12 border-4 border-amber-500/10 border-t-amber-500 rounded-full animate-spin"></div>
+                  <p className="text-xs tracking-[0.4em] text-amber-500 font-bold uppercase">正在针对格局入局推演...</p>
                 </div>
               )}
 
@@ -327,32 +325,44 @@ const App: React.FC = () => {
               
               {!loading && chatHistory.length === 0 && !error && (
                 <div className="flex-1 flex items-center justify-center text-slate-600 text-sm italic tracking-widest text-center px-12 leading-loose min-h-[400px]">
-                   系统已锁定您的地理时空点。输入问题后，将自动根据您的实际方位入局进行推演。
+                   系统已锁定时空坐标。起局后，您可以针对推演结果持续追问。
                 </div>
               )}
             </div>
 
-            {/* 追问输入框 */}
+            {/* 继续提问 UI */}
             {chatHistory.length > 0 && !loading && (
-              <form onSubmit={handleFollowUp} className="mt-8 border-t border-slate-800 pt-6 animate-in slide-in-from-bottom-4">
-                <div className="relative group">
+              <div className="mt-4 border-t border-slate-800 pt-6 bg-slate-900/40 -mx-8 px-8 pb-4">
+                <div className="flex flex-wrap gap-2 mb-4">
+                  {quickFollowUps.map((text, i) => (
+                    <button
+                      key={i}
+                      onClick={() => handleFollowUp(undefined, text)}
+                      disabled={followUpLoading}
+                      className="text-[9px] px-3 py-1.5 bg-slate-800/80 hover:bg-amber-600/20 border border-slate-700 hover:border-amber-500/40 rounded-full text-slate-400 hover:text-amber-500 transition-all disabled:opacity-30"
+                    >
+                      {text}
+                    </button>
+                  ))}
+                </div>
+                
+                <form onSubmit={handleFollowUp} className="relative group">
                    <textarea
                     value={followUpText}
                     onChange={(e) => setFollowUpText(e.target.value)}
-                    placeholder="针对以上理法进一步追问（如：格局中的击刑具体如何化解？）"
+                    placeholder="针对以上理法进一步深入提问..."
                     disabled={followUpLoading}
-                    className="w-full h-20 bg-slate-950/50 border border-slate-800 rounded-2xl p-4 text-slate-200 focus:outline-none focus:ring-2 focus:ring-amber-500/30 transition-all resize-none text-xs leading-relaxed"
+                    className="w-full h-24 bg-slate-950/80 border border-slate-800 rounded-2xl p-4 text-slate-200 focus:outline-none focus:ring-2 focus:ring-amber-500/30 transition-all resize-none text-xs shadow-2xl"
                   />
                   <button
                     type="submit"
                     disabled={followUpLoading || !followUpText.trim()}
-                    className="absolute bottom-3 right-3 bg-amber-600/80 hover:bg-amber-500 text-white px-4 py-1.5 rounded-xl text-[10px] font-bold tracking-widest transition-all disabled:opacity-20"
+                    className="absolute bottom-4 right-4 bg-amber-600 hover:bg-amber-500 text-white px-6 py-2 rounded-xl text-[10px] font-bold tracking-widest transition-all shadow-xl hover:shadow-amber-500/40 disabled:opacity-10"
                   >
-                    {followUpLoading ? '追问中...' : '请教专家'}
+                    {followUpLoading ? '研讨中...' : '继续提问'}
                   </button>
-                </div>
-                <p className="text-[9px] text-slate-700 mt-2 text-center tracking-[0.2em]">追问功能将保持当前奇门格局的理法连续性</p>
-              </form>
+                </form>
+              </div>
             )}
           </section>
         </div>
