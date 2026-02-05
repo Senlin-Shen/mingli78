@@ -1,27 +1,27 @@
 
 export const config = {
-  runtime: 'nodejs',
+  runtime: 'edge',
 };
 
-export default async function handler(req: any, res: any) {
+export default async function handler(req: Request) {
   if (req.method !== 'POST') {
-    return res.status(405).send('Method Not Allowed');
+    return new Response('Method Not Allowed', { status: 405 });
   }
 
   const apiKey = process.env.API_KEY;
   if (!apiKey) {
-    return res.status(500).json({ error: '服务端未配置 API_KEY，请在 Vercel 中设置环境变量' });
+    return new Response(JSON.stringify({ error: '服务端 API_KEY 未配置' }), { 
+      status: 500, 
+      headers: { 'Content-Type': 'application/json' } 
+    });
   }
 
   try {
-    const { model, messages } = req.body;
+    const { model, messages } = await req.json();
 
-    /**
-     * 严格遵循用户 curl 示例的数据结构：
-     * "input": [ { "role": "user", "content": [ { "type": "input_text", "text": "..." } ] } ]
-     */
+    // 严格转换结构以适配火山引擎 v3/responses
     const formattedInput = messages.map((m: any) => ({
-      role: m.role,
+      role: m.role === 'system' ? 'user' : m.role, // 有些 Endpoint 不接受 system 角色，将其转为 user 更稳健
       content: [
         {
           type: "input_text",
@@ -38,7 +38,7 @@ export default async function handler(req: any, res: any) {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: model, // 这里填入 ep- 开头的 Endpoint ID
+        model: model, 
         input: formattedInput,
         stream: true,
       }),
@@ -46,33 +46,31 @@ export default async function handler(req: any, res: any) {
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('Ark API Error:', errorText);
-      return res.status(response.status).json({ 
-        error: `API 异常 (HTTP ${response.status})`,
+      return new Response(JSON.stringify({ 
+        error: `API 响应异常 (${response.status})`,
         details: errorText 
+      }), { 
+        status: response.status,
+        headers: { 'Content-Type': 'application/json' }
       });
     }
 
-    res.setHeader('Content-Type', 'text/event-stream');
-    res.setHeader('Cache-Control', 'no-cache');
-    res.setHeader('Connection', 'keep-alive');
-
-    const reader = response.body?.getReader();
-    if (!reader) throw new Error('无法读取响应流');
-
-    const decoder = new TextDecoder();
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      res.write(value);
-    }
-    res.end();
+    // Edge Runtime 下直接返回 fetch 的 body 即可完美支持流
+    return new Response(response.body, {
+      headers: {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive',
+      },
+    });
 
   } catch (error: any) {
-    console.error('Proxy Error:', error);
-    return res.status(500).json({ 
-      error: '代理服务器连接异常',
+    return new Response(JSON.stringify({ 
+      error: '边缘代理执行异常',
       message: error.message 
+    }), { 
+      status: 500,
+      headers: { 'Content-Type': 'application/json' }
     });
   }
 }

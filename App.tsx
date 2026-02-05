@@ -47,25 +47,16 @@ const App: React.FC = () => {
 
     try {
       const systemPrompt = `你是一位精通林毅老师体系的奇门遁甲实战预测专家。
-      
 【起局参数】：
 - 局势：${type === 'SHI_JU' ? '时事演算' : '命理推演'}
-- 时间：${newBoard.targetTime}
 - 局数：${newBoard.isYang ? '阳' : '阴'}遁${newBoard.bureau}局 (${newBoard.solarTerm})
-- 值符：${newBoard.zhiFuStar}，值使：${newBoard.zhiShiGate}
 - 九宫数据：${JSON.stringify(newBoard.palaces)}
 
-【预测要求】：
-1. 严禁 Markdown 格式符号（如 **, ##, ---, [ ] 等）。
-2. 使用标题引导：第一步：[标题]，第二步：[标题]...
-3. 必须包含【成功概率】或【风险百分比】的具体数值。
-4. 深度引用林毅理法（如：生门克命宫、戊加丁青龙转光等）。`;
+【要求】：严禁 Markdown 符号。必须包含具体概率值。深度引用林毅理法。`;
 
       const response = await fetch('/api/predict', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           model: modelId,
           messages: [
@@ -76,19 +67,12 @@ const App: React.FC = () => {
       });
 
       if (!response.ok) {
-        let errorInfo = '演算请求失败';
-        try {
-          const jsonErr = await response.json();
-          errorInfo = jsonErr.error || jsonErr.message || errorInfo;
-          if (jsonErr.details) errorInfo += `: ${jsonErr.details}`;
-        } catch (e) {
-          errorInfo = await response.text() || errorInfo;
-        }
-        throw new Error(errorInfo);
+        const json = await response.json();
+        throw new Error(json.details || json.error || '连接服务器失败');
       }
 
       const reader = response.body?.getReader();
-      if (!reader) throw new Error('解析流无法建立');
+      if (!reader) throw new Error('流读取器初始化失败');
 
       const decoder = new TextDecoder();
       let accumulated = '';
@@ -101,32 +85,31 @@ const App: React.FC = () => {
         const lines = chunk.split('\n');
 
         for (const line of lines) {
-          const trimmed = line.trim();
-          if (!trimmed || trimmed === 'data: [DONE]') continue;
-
-          // 兼容 'data:' 前缀和原始 JSON
-          const jsonStr = trimmed.startsWith('data:') ? trimmed.slice(5).trim() : trimmed;
+          const l = line.trim();
+          if (!l || l === 'data: [DONE]') continue;
           
+          let dataStr = l;
+          if (l.startsWith('data:')) dataStr = l.slice(5).trim();
+
           try {
-            const json = JSON.parse(jsonStr);
-            // 兼容 v3 接口可能出现的多种数据路径
+            const json = JSON.parse(dataStr);
+            // 兼容火山引擎各种可能的返回路径
             const content = json.choices?.[0]?.delta?.content || 
                            json.choices?.[0]?.message?.content || 
                            json.content || '';
-            
             if (content) {
               accumulated += content;
               setPrediction(accumulated);
             }
           } catch (e) {
-            // 跳过非 JSON 块
+            // 忽略解析失败的 chunk
           }
         }
       }
 
     } catch (err: any) {
-      console.error('Fetch Error:', err);
-      setError(`演算异常：${err.message || '后端连接中断'}`);
+      console.error('Frontend Error:', err);
+      setError(`演算异常：${err.message}`);
     } finally {
       setLoading(false);
     }
@@ -135,29 +118,11 @@ const App: React.FC = () => {
   if (!isEntered) {
     return (
       <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-6 text-center parchment-bg">
-        <div className="max-w-md w-full animate-in fade-in zoom-in duration-1000">
-          <div className="mb-6 flex flex-col items-center">
-            <div className="px-3 py-1 bg-amber-600/10 border border-amber-600/30 rounded-full mb-4">
-              <span className="text-[9px] text-amber-500 tracking-[0.3em] font-bold uppercase">Official Platform</span>
-            </div>
-            <span className="text-[10px] text-slate-500 tracking-[0.5em] font-mono">WWW.QIMENMASTERCLASS.CN</span>
-          </div>
-          <div className="relative w-40 h-40 mx-auto mb-10">
-            <div className="absolute inset-0 border-2 border-amber-600/20 rounded-full animate-[spin_30s_linear_infinite]"></div>
-            <div className="absolute inset-4 border border-amber-500/10 rounded-full animate-[spin_15s_linear_infinite_reverse]"></div>
-            <div className="absolute inset-0 flex items-center justify-center">
-              <span className="text-6xl text-amber-500 qimen-font drop-shadow-[0_0_20px_rgba(245,158,11,0.6)]">易</span>
-            </div>
-          </div>
+        <div className="max-w-md w-full">
           <h1 className="text-4xl font-bold text-slate-100 mb-4 qimen-font tracking-[0.2em]">奇门大师课</h1>
-          <p className="text-amber-700/80 text-xs mb-12 tracking-[0.5em] font-light italic leading-relaxed">基于林毅体系的实战推演系统</p>
-          
-          <button 
-            onClick={handleEnterSystem}
-            className="group relative px-16 py-4 bg-transparent border border-amber-600/40 rounded-full text-amber-500 font-bold overflow-hidden transition-all hover:border-amber-500 hover:shadow-[0_0_20px_rgba(245,158,11,0.2)]"
-          >
-            <span className="relative z-10 tracking-widest">进入演算中心</span>
-            <div className="absolute inset-0 bg-amber-600/10 translate-y-full group-hover:translate-y-0 transition-transform duration-500"></div>
+          <p className="text-amber-700/80 text-xs mb-12 tracking-[0.5em] font-light">WWW.QIMENMASTERCLASS.CN</p>
+          <button onClick={handleEnterSystem} className="px-16 py-4 border border-amber-600/40 rounded-full text-amber-500 font-bold hover:bg-amber-600/10 transition-all">
+            进入系统
           </button>
         </div>
       </div>
@@ -165,81 +130,47 @@ const App: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen parchment-bg p-4 md:p-8 flex flex-col items-center overflow-y-auto">
+    <div className="min-h-screen parchment-bg p-4 md:p-8 flex flex-col items-center">
       <div className="max-w-6xl w-full flex flex-col gap-8">
         <Header />
-        
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start mb-12">
-          <section className="flex flex-col gap-6 lg:sticky lg:top-8">
-            <div className="bg-slate-900/95 rounded-3xl border border-slate-800 p-8 shadow-2xl backdrop-blur-xl">
-              <div className="flex justify-between items-center mb-6">
-                <h2 className="text-amber-500 font-bold text-xs uppercase tracking-widest flex items-center gap-2">
-                  <span className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></span>
-                  演算节点已就绪
-                </h2>
-              </div>
-
-              <div className="mb-8 space-y-2">
-                <label className="text-[10px] text-slate-500 block uppercase tracking-widest font-bold">接入点 (Endpoint ID)</label>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
+          <section className="space-y-6">
+            <div className="bg-slate-900/95 rounded-3xl border border-slate-800 p-8 shadow-2xl">
+              <div className="mb-6">
+                <label className="text-[10px] text-slate-500 block uppercase tracking-widest font-bold mb-2">推理接入点 ID</label>
                 <input 
                   type="text" 
                   value={modelId} 
                   onChange={(e) => saveModelId(e.target.value)}
-                  placeholder="ep-2026xxxxxx-xxxxx"
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-amber-400 focus:ring-1 focus:ring-amber-600 outline-none placeholder:text-slate-700 font-mono transition-all"
+                  placeholder="ep-202xxxx-xxxxx"
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-amber-400 font-mono outline-none"
                 />
               </div>
-
-              <div className="pt-6 border-t border-slate-800">
-                <InputForm onPredict={handlePredict} isLoading={loading} />
-              </div>
+              <InputForm onPredict={handlePredict} isLoading={loading} />
             </div>
-            
-            {board && (
-              <div className="bg-slate-950 rounded-3xl border-2 border-slate-800 p-8 shadow-2xl animate-in fade-in duration-700">
-                <h2 className="text-amber-600 font-bold mb-6 text-center tracking-[0.3em] uppercase text-sm qimen-font">时空盘局显像</h2>
-                <BoardGrid board={board} />
-              </div>
-            )}
+            {board && <BoardGrid board={board} />}
           </section>
 
-          <section className="bg-slate-900/80 rounded-3xl border border-slate-800 p-8 min-h-[700px] shadow-2xl backdrop-blur-md relative overflow-hidden">
+          <section className="bg-slate-900/80 rounded-3xl border border-slate-800 p-8 min-h-[600px] shadow-2xl backdrop-blur-md">
             {loading && !prediction ? (
-              <div className="flex flex-col items-center justify-center h-[600px] gap-8 text-center">
-                <div className="relative">
-                  <div className="w-24 h-24 border-2 border-amber-500/5 rounded-full"></div>
-                  <div className="absolute inset-0 border-t-2 border-amber-500 rounded-full animate-spin"></div>
-                </div>
-                <div className="space-y-2">
-                  <p className="text-amber-500 font-bold text-sm tracking-[0.4em]">正在调取易理中枢...</p>
-                  <p className="text-slate-600 text-[10px] tracking-widest uppercase">Syncing with Ark V3 Responses</p>
-                </div>
+              <div className="flex flex-col items-center justify-center h-[500px] gap-4">
+                <div className="w-12 h-12 border-2 border-amber-500/20 border-t-amber-500 rounded-full animate-spin"></div>
+                <p className="text-amber-500 text-xs tracking-widest">正在拨动时空盘局...</p>
               </div>
             ) : error ? (
-              <div className="p-10 border border-red-900/30 rounded-3xl bg-red-950/10 text-center animate-in shake duration-500">
-                <h4 className="text-red-500 font-bold mb-3 uppercase tracking-widest text-sm">推演受阻</h4>
-                <div className="bg-black/60 p-6 rounded-2xl mb-6 border border-red-900/20">
-                   <p className="text-red-400/90 text-xs leading-relaxed text-left font-sans italic">{error}</p>
-                </div>
-                <button 
-                  onClick={() => setError('')}
-                  className="px-12 py-3 bg-red-900/20 rounded-full text-[10px] text-red-500 hover:bg-red-900/40 border border-red-900/30 transition-all font-bold tracking-widest"
-                >
-                  重置盘局
-                </button>
+              <div className="p-8 border border-red-900/30 rounded-2xl bg-red-950/20 text-center">
+                <p className="text-red-400 text-xs mb-4">{error}</p>
+                <button onClick={() => setError('')} className="text-red-500 text-[10px] font-bold uppercase tracking-widest">重新连接</button>
               </div>
             ) : prediction ? (
-              <div className="animate-in fade-in duration-500">
-                 <AnalysisDisplay prediction={prediction} />
-              </div>
+              <AnalysisDisplay prediction={prediction} />
             ) : (
-              <div className="flex flex-col items-center justify-center h-[600px] text-slate-700 opacity-20">
-                <span className="text-4xl qimen-font tracking-[0.5em] select-none">无极生太极</span>
+              <div className="flex items-center justify-center h-[500px] text-slate-800">
+                <span className="text-2xl qimen-font tracking-[0.5em]">静待天机</span>
               </div>
             )}
           </section>
         </div>
-        
         <Footer />
       </div>
     </div>
