@@ -6,6 +6,10 @@ interface AnalysisDisplayProps {
 }
 
 const PATTERNS = [
+  '【乾坤定局 · 基础信息】',
+  '【核心宫位 · 能量透视】',
+  '【宫位互动 · 纵横博弈】',
+  '【实战理法 · 时空调整】',
   '【命造流转 · 乾坤排定】',
   '【气象格局 · 虚实辨证】',
   '【天人合一 · 景曜调理】',
@@ -55,7 +59,7 @@ const AnalysisDisplay: React.FC<AnalysisDisplayProps> = ({ prediction }) => {
       
       const isThematicHeader = title.includes('·') || title.includes('观照');
       const isSubHeader = /^[ABCD]\./.test(title);
-      const isActionable = title.includes('建议') || title.includes('调理') || title.includes('方案');
+      const isActionable = title.includes('建议') || title.includes('调理') || title.includes('方案') || title.includes('调整');
 
       return { 
         title, 
