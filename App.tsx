@@ -20,7 +20,6 @@ interface ChatMessage {
 const App: React.FC = () => {
   const [mode, setMode] = useState<AppMode>('QIMEN');
   const [board, setBoard] = useState<QiMenBoard | null>(null);
-  const [baziData, setBaziData] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [followUpLoading, setFollowUpLoading] = useState(false);
   const [error, setError] = useState('');
@@ -142,8 +141,13 @@ const App: React.FC = () => {
     let systemInstruction = "";
     let finalUserInput = "";
 
-    // 核心禁令：绝不重复输入数据，绝不出现碧海字眼
-    const baseRule = `你是一位精通正统奇门实战理法的专家。**极端禁令：严禁在输出中重复、引用或复述用户提供的原始起局方位、盘象JSON、出生数据、报数等任何原始输入参数。严禁出现“碧海”字眼。严禁寒暄。** 直接从深度逻辑开始输出。`;
+    // 核心禁令：绝不重复输入数据，绝不出现碧海字眼，奇门板块绝对不能输出方位和盘象描述
+    const baseRule = `你是一位精通正统奇门实战理法的推演专家。
+**极端禁令**：
+1. **严禁在输出中重复、引用或复述用户提供的原始起局方位、盘象参数、JSON 字符串、出生日期、生辰、姓名、地址或报数。**
+2. **严禁出现任何推演提示词（如“基于以上盘象分析如下”等废话）。**
+3. **严禁出现“碧海”字眼。**
+4. 直接、干练地输出核心逻辑与结论。`;
 
     if (mode === 'QIMEN') {
       const targetDate = date ? new Date(date) : new Date();
@@ -153,23 +157,28 @@ const App: React.FC = () => {
       if (userLocation) newBoard.location = { ...userLocation, isAdjusted: true };
       setBoard(newBoard);
 
-      finalUserInput = `起局方位：${autoPalace}。盘象：${JSON.stringify(newBoard)}。诉求：${userInput as string}`;
-      systemInstruction = `${baseRule} 按格式输出：【能量态势透视】、【深度逻辑分析】、【核心判定结论】、【全息理法建议】。`;
+      finalUserInput = `起局方位：${autoPalace}。盘象参数：${JSON.stringify(newBoard)}。诉求：${userInput as string}`;
+      systemInstruction = `${baseRule}
+请直接按以下结构输出，不要有任何前缀文字：
+【能量态势透视】：直击当下核心矛盾与局势。
+【深度逻辑分析】：运用理法进行宫位与能量拆解。
+【核心判定结论】：给出定性、定量或定时的最终结论。
+【全息理法建议】：基于推演结果给出的行动建议。`;
     } else if (mode === 'YI_LOGIC') {
       setBoard(null);
       if (type === 'LIU_YAO') {
         const input = userInput as LiuYaoInput;
         finalUserInput = `【六爻演化】事宜：${input.question}。动数：${input.numbers.join(',')}。`;
-        systemInstruction = `${baseRule} 依据《增删卜易》理法，按四部分结构分析。`;
+        systemInstruction = `${baseRule} 依据《增删卜易》理法进行深度推演。`;
       } else {
         const input = userInput as BaZiInput;
-        finalUserInput = `【四柱气象】性别：${input.gender}，生辰：${input.birthDate} ${input.birthTime || ''}，地点：${input.birthPlace}。诉求：职业发展与气象。`;
-        systemInstruction = `${baseRule} 依据五行气象论，按四部分结构分析。`;
+        finalUserInput = `【四柱气象】姓名：${input.name}，性别：${input.gender}，生辰：${input.birthDate} ${input.birthTime || ''}，出生地点：${input.birthPlace}。诉求：职业发展与全局气象分析。`;
+        systemInstruction = `${baseRule} 依据姜氏五行气象论，针对该生辰进行深度全息解析。`;
       }
     } else if (mode === 'TCM_AI') {
       setBoard(null);
-      finalUserInput = `【全息辨证】主诉与症状：${userInput as string}`;
-      systemInstruction = `${baseRule} 医易同源专家。按【全息失衡判定】、【核心病机】、【核心调理原则】、【全息方案建议】分析。`;
+      finalUserInput = `【全息辨证】${userInput as string}`;
+      systemInstruction = `${baseRule} 你是精通“医易同源”的辨证专家。请按【全息失衡判定】、【核心病机】、【核心调理原则】、【全息方案建议】四个板块进行深度回复。`;
     }
 
     try {
