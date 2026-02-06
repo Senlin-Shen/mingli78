@@ -7,7 +7,6 @@ import Footer from './components/Footer';
 import InputForm from './components/InputForm';
 import { calculateBoard } from './qimenLogic';
 import { QiMenBoard, LocationData, AppMode, LiuYaoInput, BaZiInput } from './types';
-import { GoogleGenAI, GenerateContentResponse } from "@google/genai";
 
 const CHINA_CENTER = { lng: 108.9, lat: 34.2 };
 
@@ -71,30 +70,44 @@ const App: React.FC = () => {
   }, []);
 
   const streamResponse = async (messages: ChatMessage[]) => {
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-    
-    const systemMsg = messages.find(m => m.role === 'system');
-    const userMessages = messages.filter(m => m.role !== 'system');
-    
-    const contents = userMessages.map(m => ({
-      role: m.role === 'assistant' ? 'model' as const : 'user' as const,
-      parts: [{ text: m.content }]
-    }));
-
-    const responseStream = await ai.models.generateContentStream({
-      model: 'gemini-3-pro-preview',
-      contents: contents,
-      config: {
-        systemInstruction: systemMsg?.content,
-        temperature: 0.7,
-      }
+    const response = await fetch('/api/ark-proxy', {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ messages, temperature: 0.7 }),
     });
 
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.error || "推演链路连接失败");
+    }
+
+    const reader = response.body?.getReader();
+    const decoder = new TextDecoder();
     let fullText = "";
-    for await (const chunk of responseStream) {
-      const content = (chunk as GenerateContentResponse).text || "";
-      fullText += content;
-      setPrediction(prev => prev + content);
+
+    if (!reader) throw new Error("无法读取推演流");
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      const chunk = decoder.decode(value, { stream: true });
+      const lines = chunk.split("\n");
+
+      for (const line of lines) {
+        if (line.startsWith("data: ")) {
+          const data = line.slice(6).trim();
+          if (data === "[DONE]") break;
+          try {
+            const parsed = JSON.parse(data);
+            const content = parsed.choices[0]?.delta?.content || "";
+            fullText += content;
+            setPrediction(prev => prev + content);
+          } catch (e) {
+            console.warn("解析块失败", e);
+          }
+        }
+      }
     }
     return fullText;
   };
@@ -192,7 +205,7 @@ const App: React.FC = () => {
           <div className="mb-12 relative inline-block animate-glow">
              <div className="absolute -inset-10 bg-amber-500/10 blur-3xl rounded-full"></div>
              <h1 className="text-7xl font-bold text-slate-100 mb-4 qimen-font tracking-[0.5em] relative">奇门景曜</h1>
-             <p className="text-amber-500/60 text-xs tracking-[0.8em] font-black uppercase text-white/80">Gemini 3 Pro Powered Logic Lab</p>
+             <p className="text-amber-500/60 text-xs tracking-[0.8em] font-black uppercase text-white/80">Volcengine Powered Logic Lab</p>
           </div>
           <button onClick={() => setIsEntered(true)} className="group relative px-12 py-4 bg-amber-600 hover:bg-amber-500 text-white font-bold rounded-2xl transition-all shadow-2xl hover:shadow-amber-500/40">
             <span className="relative z-10 tracking-[1em] pl-4 text-sm font-black text-white">开启推演</span>
