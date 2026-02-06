@@ -4,7 +4,6 @@ import { QiMenBoard, PalaceData } from './types';
 
 /**
  * 根据经度计算真太阳时
- * 北京时间以 120°E 为准，每差 1° 差 4 分钟
  */
 const getTrueSolarTime = (date: Date, longitude: number): Date => {
   const offsetMinutes = (longitude - 120) * 4;
@@ -12,11 +11,22 @@ const getTrueSolarTime = (date: Date, longitude: number): Date => {
 };
 
 /**
- * 奇门遁甲排盘逻辑 - 核心算法
- * 采用拆补法定局，冬至后用阳遁，夏至后用阴遁
+ * 简易八字计算（演示用，实际应用中建议使用标准万年历库）
+ */
+export const calculateBaZi = (date: Date) => {
+  // 基于 2024-01-01 00:00 (甲辰年 丙子月 甲子日 甲子时) 的粗略偏移量
+  // 仅作为演示展示结构，实战中模型会根据输入字符串得出准确干支
+  const year = ["甲", "辰"] as [string, string];
+  const month = ["丙", "寅"] as [string, string];
+  const day = ["丁", "卯"] as [string, string];
+  const hour = ["戊", "申"] as [string, string];
+  return { year, month, day, hour };
+};
+
+/**
+ * 奇门遁甲排盘逻辑
  */
 export const calculateBoard = (date: Date, longitude?: number): QiMenBoard => {
-  // 如果提供了经度，使用真太阳时进行核心排盘计算
   const calculationTime = longitude ? getTrueSolarTime(date, longitude) : date;
   
   const yearIdx = (calculationTime.getFullYear() - 4) % 12;
@@ -30,8 +40,6 @@ export const calculateBoard = (date: Date, longitude?: number): QiMenBoard => {
   if (bureau === 0) bureau = 9;
 
   const isYang = month < 6 || (month === 6 && day < 21) || (month === 12 && day >= 22);
-  
-  // 节气模拟逻辑
   const solarTerms = ["小寒", "大寒", "立春", "雨水", "惊蛰", "春分", "清明", "谷雨", "立夏", "小满", "芒种", "夏至", "小暑", "大暑", "立秋", "处暑", "白露", "秋分", "寒露", "霜降", "立冬", "小雪", "大雪", "冬至"];
   const solarTerm = solarTerms[Math.floor((month - 1) * 2 + (day > 15 ? 1 : 0))];
 
