@@ -43,7 +43,6 @@ export interface PalaceData {
   gua: string;
 }
 
-// 新增易理输入结构
 export interface LiuYaoInput {
   numbers: string[];
   question: string;
@@ -53,5 +52,6 @@ export interface BaZiInput {
   name: string;
   gender: '男' | '女';
   birthDate: string;
+  birthTime?: string;
   birthPlace: string;
 }

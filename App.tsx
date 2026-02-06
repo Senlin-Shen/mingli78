@@ -71,8 +71,8 @@ const App: React.FC = () => {
   }, []);
 
   const streamResponse = async (messages: ChatMessage[]) => {
-    // 统一使用 Google GenAI SDK 进行推演
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    
     const systemMsg = messages.find(m => m.role === 'system');
     const userMessages = messages.filter(m => m.role !== 'system');
     
@@ -81,7 +81,6 @@ const App: React.FC = () => {
       parts: [{ text: m.content }]
     }));
 
-    // 使用 Gemini 3 Pro 模型，适配复杂的传统理法推演
     const responseStream = await ai.models.generateContentStream({
       model: 'gemini-3-pro-preview',
       contents: contents,
@@ -146,8 +145,8 @@ const App: React.FC = () => {
 2. 四柱命理模型：五行气象论。审视寒暖燥湿，调候优先。从气象补缺、格用定岗、体用定式、三才定时给出建议。
 3. 医易同源：分析五行过盈状态及脏腑风险。
 # Workflow
-输出格式必须严格遵循：一、气象与能量态势分析；二、核心逻辑推论；三、详细判定结论；四、行为与环境调理建议。
-健康建议必须备注“仅供参考，请遵医嘱”。`;
+输出格式严格遵循：一、气象与能量态势分析；二、核心逻辑推论；三、详细判定结论；四、行为与环境调理建议。
+健康建议备注“仅供参考，请遵医嘱”。`;
     }
 
     try {
@@ -158,7 +157,11 @@ const App: React.FC = () => {
       const fullResponse = await streamResponse(initialMessages);
       setChatHistory([...initialMessages, { role: "assistant", content: fullResponse }]);
       setPrediction(''); 
-    } catch (err: any) { setError(err.message); } finally { setLoading(false); }
+    } catch (err: any) { 
+      setError(`推演链路异常: ${err.message}`); 
+    } finally { 
+      setLoading(false); 
+    }
   }, [userLocation, mode]);
 
   const handleFollowUp = async (e?: React.FormEvent) => {
@@ -174,7 +177,11 @@ const App: React.FC = () => {
       const fullResponse = await streamResponse(newHistory);
       setChatHistory(prev => [...prev, { role: "assistant", content: fullResponse }]);
       setPrediction('');
-    } catch (err: any) { setError(`追问失败: ${err.message}`); } finally { setFollowUpLoading(false); }
+    } catch (err: any) { 
+      setError(`研讨中断: ${err.message}`); 
+    } finally { 
+      setFollowUpLoading(false); 
+    }
   };
 
   if (!isEntered) {
@@ -185,7 +192,7 @@ const App: React.FC = () => {
           <div className="mb-12 relative inline-block animate-glow">
              <div className="absolute -inset-10 bg-amber-500/10 blur-3xl rounded-full"></div>
              <h1 className="text-7xl font-bold text-slate-100 mb-4 qimen-font tracking-[0.5em] relative">奇门景曜</h1>
-             <p className="text-amber-500/60 text-xs tracking-[0.8em] font-black uppercase">Official AI Inference Lab</p>
+             <p className="text-amber-500/60 text-xs tracking-[0.8em] font-black uppercase text-white/80">Gemini 3 Pro Powered Logic Lab</p>
           </div>
           <button onClick={() => setIsEntered(true)} className="group relative px-12 py-4 bg-amber-600 hover:bg-amber-500 text-white font-bold rounded-2xl transition-all shadow-2xl hover:shadow-amber-500/40">
             <span className="relative z-10 tracking-[1em] pl-4 text-sm font-black text-white">开启推演</span>
