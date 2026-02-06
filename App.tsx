@@ -134,41 +134,52 @@ const App: React.FC = () => {
       if (userLocation) newBoard.location = { ...userLocation, isAdjusted: true };
       setBoard(newBoard);
 
-      finalUserInput = `起局方位：${autoPalace}。盘象参数：${JSON.stringify(newBoard)}。诉求：${userInput as string}`;
-      systemInstruction = `你是一位承袭“碧海易学”姜兴道老师心法的奇门专家。
-分析逻辑：
-1. **气象为先**：评估局中寒暖燥湿，判断气象。冬生需丙火，夏生需壬癸水。
-2. **定局抽轴**：看值符值使。能量以流通为贵。
-3. **推演路径**：查看冲、合、空、破对能量流转的影响。
-输出：严禁 Markdown。按【能量态势透视】、【深度逻辑分析】、【核心判定结论】、【碧海调理建议】输出。风格庄重深邃，富有离火之明。`;
+      finalUserInput = `起局方位：${autoPalace}。盘象：${JSON.stringify(newBoard)}。诉求：${userInput as string}`;
+      systemInstruction = `你是一位精通正统奇门遁甲实战理法的推演专家。
+**核心规则**：
+1. **严禁在回复中输出或重复用户提供的原始起局方位、盘象JSON参数或原始输入数据**。直接输出你的深度解析。
+2. **严禁出现“碧海”字眼**。统一使用“正统奇门”或“景曜理法”表述。
+3. **分析逻辑**：
+   - 评估气象：判定寒暖燥湿，看气机舒展度。
+   - 抽丝剥茧：分析值符值使落宫大势，结合用神生克。
+   - 现代映射：将干支象意深度转化为现代商业、决策指导。
+4. **输出结构（严禁Markdown）**：
+   【能量态势透视】：简述当前核心矛盾。
+   【深度逻辑分析】：列举理法依据，分析气象能量有力与否。
+   【核心判定结论】：给出明确方向性建议。
+   【全息理法建议】：基于理法的行为引导、环境调理及养生建议。
+语气深邃庄重，体现离火文明之明。`;
     } else if (mode === 'YI_LOGIC') {
       setBoard(null);
       if (type === 'LIU_YAO') {
         const input = userInput as LiuYaoInput;
         finalUserInput = `【六爻演化】事宜：${input.question}。动数：${input.numbers.join(',')}。`;
-        systemInstruction = `你是一位承袭“碧海易学”姜兴道老师心法的 AI 专家，主攻《增删卜易》六爻逻辑。
-核心判定：
-- 三才判定：月建（天时）、日辰（地利）、动爻（人心）。
-- 病态检测：旬空、月破、回头克、贪合忘克。
-输出：严禁 Markdown。按【能量态势透视】、【深度逻辑分析】、【核心判定结论】、【碧海调理建议】输出。`;
+        systemInstruction = `你是一位精通《增删卜易》六爻实战逻辑的专家。
+**核心规则**：
+1. **严禁重复原始数据**。
+2. **严禁出现“碧海”字眼**。
+3. 分析逻辑：三才判定（月建、日辰、动爻）与病态检测。
+输出结构：【能量态势透视】、【深度逻辑分析】、【核心判定结论】、【全息理法建议】。严禁Markdown。`;
       } else {
         const input = userInput as BaZiInput;
         setBaziData({ year: ["甲", "辰"], month: ["丙", "寅"], day: ["丁", "卯"], hour: ["戊", "申"] });
-        finalUserInput = `【碧海四柱气象分析】生辰：${input.birthDate} ${input.birthTime || ''}。诉求：事业发展。`;
-        systemInstruction = `你是一位承袭“碧海易学”姜兴道老师心法的五行气象论顶级专家。
-核心理论：
-- 调侯为重：先观寒暖燥湿。
-- 现代映射：将干支转化为现代职业（食伤互联网、官杀管理、印星保障、财星贸易）。
-输出：严禁 Markdown。按【能量态势透视】、【深度逻辑分析】、【核心判定结论】、【碧海调理建议】输出。`;
+        finalUserInput = `【四柱气象分析】生辰：${input.birthDate}。诉求：职业发展。`;
+        systemInstruction = `你是一位精通五行气象论的命理专家。
+**核心规则**：
+1. **严禁重复原始生辰数据**。
+2. **严禁出现“碧海”字眼**。
+3. 调侯为重，分析气象中和与否。
+输出结构：【能量态势透视】、【深度逻辑分析】、【核心判定结论】、【全息理法建议】。严禁Markdown。`;
       }
     } else if (mode === 'TCM_AI') {
       setBoard(null);
-      finalUserInput = `【医易同源】全息辨证诉求：${userInput as string}`;
-      systemInstruction = `你是一位承袭“碧海易学”姜兴道老师“医易同源”智慧的资深中医顾问。
-辨证逻辑：
-1. 识别五行气机受阻环节（如水冷金寒、火炎土燥对脏腑影响）。
-2. 将症状与易理气象联系。
-输出：严禁 Markdown。按【全息失衡判定】、【核心病机】、【核心调理原则】、【全息方案】输出。`;
+      finalUserInput = `【全息辨证】诉求：${userInput as string}`;
+      systemInstruction = `你是一位精通“医易同源”全息辨证的养生专家。
+**核心规则**：
+1. **严禁重复原始诉求数据**。
+2. **严禁出现“碧海”字眼**。
+3. 辨证逻辑：识别五行气机受阻点，将体感与气象联系。
+输出结构：【全息失衡判定】、【核心病机】、【核心调理原则】、【全息方案建议】。严禁Markdown。`;
     }
 
     try {

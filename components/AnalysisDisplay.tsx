@@ -16,7 +16,16 @@ const AnalysisDisplay: React.FC<AnalysisDisplayProps> = ({ prediction }) => {
   };
 
   const processedText = cleanText(prediction);
-  const patterns = ['【能量态势】', '【逻辑发微】', '【核心判定】', '【碧海调理】', '【失衡判定】', '【核心病机】', '【全息方案】'];
+  const patterns = [
+    '【能量态势透视】', 
+    '【深度逻辑分析】', 
+    '【核心判定结论】', 
+    '【全息理法建议】', 
+    '【全息失衡判定】', 
+    '【核心病机】', 
+    '【核心调理原则】', 
+    '【全息方案建议】'
+  ];
   const regex = new RegExp(`(?=${patterns.join('|')})`, 'g');
   const sections = processedText.split(regex).filter(s => s.trim().length > 0);
 
@@ -35,7 +44,7 @@ const AnalysisDisplay: React.FC<AnalysisDisplayProps> = ({ prediction }) => {
         const titleMatch = trimmed.match(/^【([^】]+)】/);
         const title = titleMatch ? titleMatch[1] : '';
         const content = trimmed.replace(/^【[^】]+】/, '').trim();
-        const isHighlight = title.includes('核心') || title.includes('调理') || title.includes('方案');
+        const isHighlight = title.includes('判定') || title.includes('理法') || title.includes('方案') || title.includes('建议');
 
         return (
           <div key={idx} className="animate-in fade-in duration-500">
