@@ -1,5 +1,6 @@
 
 export type PredictionType = 'SHI_JU' | 'MING_JU';
+export type AppMode = 'QIMEN' | 'YI_LOGIC';
 
 export interface LocationData {
   latitude: number;
@@ -22,10 +23,10 @@ export interface QiMenBoard {
   bureauFormula: string;
   startingMethod: string;
   predictionType: PredictionType;
-  targetTime: string; // 原始输入时间
-  trueSolarTime?: string; // 修正后的真太阳时
+  targetTime: string; 
+  trueSolarTime?: string; 
   location?: LocationData;
-  direction?: string; // 用户选择的方位
+  direction?: string; 
 }
 
 export interface PalaceData {
@@ -40,4 +41,17 @@ export interface PalaceData {
   isMaXing: boolean;
   element: string;
   gua: string;
+}
+
+// 新增易理输入结构
+export interface LiuYaoInput {
+  numbers: string[];
+  question: string;
+}
+
+export interface BaZiInput {
+  name: string;
+  gender: '男' | '女';
+  birthDate: string;
+  birthPlace: string;
 }
