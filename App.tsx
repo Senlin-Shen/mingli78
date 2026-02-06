@@ -28,7 +28,7 @@ export interface PredictionHistory {
   status: 'loading' | 'completed' | 'error';
   board?: QiMenBoard | null;
   baziData?: BaziResultData | null;
-  messages?: ChatMessage[]; // 用于后续提问的上下文
+  messages: ChatMessage[]; // 确保 messages 数组始终存在以支持追问
 }
 
 const App: React.FC = () => {
@@ -49,7 +49,7 @@ const App: React.FC = () => {
   const renderAnimationFrame = useRef<number | null>(null);
 
   useEffect(() => {
-    const saved = localStorage.getItem('qimen_history_v8');
+    const saved = localStorage.getItem('qimen_history_v9');
     if (saved) {
       try {
         setHistory(JSON.parse(saved));
@@ -63,7 +63,7 @@ const App: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    localStorage.setItem('qimen_history_v8', JSON.stringify(history));
+    localStorage.setItem('qimen_history_v9', JSON.stringify(history));
   }, [history]);
 
   const handleModeChange = (newMode: AppMode) => {
@@ -81,7 +81,7 @@ const App: React.FC = () => {
   };
 
   const streamResponse = async (messages: ChatMessage[], historyId: string) => {
-    if (isStreamingRef.current) return; 
+    if (isStreamingRef.current) return ""; 
     isStreamingRef.current = true;
     fullTextRef.current = '';
     setDisplayPrediction('');
@@ -99,7 +99,7 @@ const App: React.FC = () => {
         })
       });
 
-      if (!response.ok) throw new Error('时空链路不稳定，请重试');
+      if (!response.ok) throw new Error('时空链路繁忙，请稍后重试');
 
       const reader = response.body?.getReader();
       const decoder = new TextDecoder();
@@ -123,7 +123,7 @@ const App: React.FC = () => {
           
           try {
             const data = JSON.parse(jsonStr);
-            const content = data.choices[0]?.delta?.content || "";
+            const content: string = data.choices[0]?.delta?.content || "";
             
             if (isFirstChunk && content.trim()) {
               setIsAiThinking(false);
@@ -132,6 +132,7 @@ const App: React.FC = () => {
 
             fullTextRef.current += content;
             
+            // 极致流畅渲染：仅在浏览器重绘时更新 UI
             if (!renderAnimationFrame.current) {
               renderAnimationFrame.current = requestAnimationFrame(() => {
                 setDisplayPrediction(fullTextRef.current);
@@ -142,14 +143,20 @@ const App: React.FC = () => {
         }
       }
 
-      // 更新历史记录状态为完成
+      const finalResult = fullTextRef.current;
+      
       setHistory(prev => prev.map(item => 
         item.id === historyId 
-          ? { ...item, result: fullTextRef.current, status: 'completed', messages: [...messages, { role: 'assistant', content: fullTextRef.current }] } 
+          ? { 
+              ...item, 
+              result: finalResult, 
+              status: 'completed', 
+              messages: [...messages, { role: 'assistant', content: finalResult }] 
+            } 
           : item
       ));
 
-      return fullTextRef.current;
+      return finalResult;
     } catch (err: any) {
       setIsAiThinking(false);
       setHistory(prev => prev.map(item => 
@@ -178,20 +185,20 @@ const App: React.FC = () => {
       const targetDate = date ? new Date(date) : new Date();
       activeBoard = calculateBoard(targetDate, 120);
       setBoard(activeBoard);
-      finalUserInput = `[任务：奇门解析]\n盘面数据：${JSON.stringify(activeBoard)}\n诉求：${userInput}`;
-      systemInstruction = `你是一位精通林毅老师体系的奇门专家。严禁使用 Markdown。`;
+      finalUserInput = `[任务：奇门全息解析]\n盘面数据：${JSON.stringify(activeBoard)}\n诉求：${userInput}`;
+      systemInstruction = `你是一位精通林毅老师体系的奇门专家。重点分析气象平衡。严禁使用 Markdown。输出要排版精美。`;
     } else if (mode === 'YI_LOGIC') {
       if (type === 'BA_ZI') {
         const input = userInput as BaZiInput;
         activeBazi = getBaziResult(input.birthDate, input.birthTime || '', input.birthPlace, input.gender);
         setBaziData(activeBazi);
-        systemInstruction = `你是一位精通子平八字与现代优化顾问的专家。严禁使用 Markdown。输出结构：一、基础信息 二、核心诊断 三、优化方案 四、总结建议。`;
+        systemInstruction = `八字命理分析AI专家（生产环境版）。严禁 Markdown 符号。输出结构：一、基础信息 二、核心诊断 三、优化方案 四、总结建议。注重医学、科学、行动建议。`;
         const p = activeBazi.pillars;
-        finalUserInput = `[八字解析] 姓名：${input.name || '命主'} 性别：${input.gender} 公历：${input.birthDate} 时辰：${input.birthTime || '不详'}\n排盘：${p.year.stem}${p.year.branch} ${p.month.stem}${p.month.branch} ${p.day.stem}${p.day.branch} ${p.hour.stem}${p.hour.branch}\n诉求：${input.question || '分析气象。'}`;
+        finalUserInput = `[八字解析] 性别：${input.gender} 公历：${input.birthDate} 时辰：${input.birthTime || '不详'}\n排盘：${p.year.stem}${p.year.branch} ${p.month.stem}${p.month.branch} ${p.day.stem}${p.day.branch} ${p.hour.stem}${p.hour.branch}\n诉求：${input.question || '分析气象特征。'}`;
       } else {
         const input = userInput as LiuYaoInput;
         finalUserInput = `[六爻卦象] 卦数：${input.numbers.join(', ')} 诉求：${input.question}`;
-        systemInstruction = `六爻推演专家。分析月建日辰对用神影响。严禁 Markdown。`;
+        systemInstruction = `六爻推演专家。严禁 Markdown。重点分析动爻与日辰。`;
       }
     } else {
       finalUserInput = userInput;
@@ -200,9 +207,14 @@ const App: React.FC = () => {
 
     const historyInput: string = typeof userInput === 'string' 
       ? userInput 
-      : (userInput.question || userInput.name || '深度全息推演');
+      : ((userInput as any).question || (userInput as any).name || '深度全息推演');
 
-    // 立即加入历史
+    const initialMessages: ChatMessage[] = [
+      { role: 'system', content: systemInstruction },
+      { role: 'user', content: finalUserInput }
+    ];
+
+    // 立即提交至历史，允许用户在 Profile 中即刻查看
     setHistory(prev => [{
       id: historyId,
       timestamp: Date.now(),
@@ -211,23 +223,20 @@ const App: React.FC = () => {
       result: '',
       status: 'loading',
       board: activeBoard,
-      baziData: activeBazi
+      baziData: activeBazi,
+      messages: initialMessages
     }, ...prev].slice(0, 50));
 
     try {
-      await streamResponse([
-        { role: 'system', content: systemInstruction },
-        { role: 'user', content: finalUserInput }
-      ], historyId);
+      await streamResponse(initialMessages, historyId);
     } catch (err: any) {
-      setError(err.message || '系统繁忙');
+      setError(err.message || '推演中断，请重新提交');
     } finally {
       setLoading(false);
       setIsAiThinking(false);
     }
   }, [mode, getBaziResult]);
 
-  // 处理追问功能
   const handleFollowUp = async (question: string) => {
     if (!activeHistoryId || isStreamingRef.current) return;
     
@@ -238,7 +247,6 @@ const App: React.FC = () => {
     const context = currentEntry.messages || [];
     const newMessages: ChatMessage[] = [...context, { role: 'user', content: question }];
 
-    // 更新历史记录中的输入展示，方便在列表页看到最新动态
     setHistory(prev => prev.map(h => 
       h.id === activeHistoryId 
         ? { ...h, status: 'loading' } 
@@ -248,7 +256,7 @@ const App: React.FC = () => {
     try {
       await streamResponse(newMessages, activeHistoryId);
     } catch (err: any) {
-      setError(err.message || '提问失败');
+      setError(err.message || '追问通讯失败');
     } finally {
       setLoading(false);
     }
@@ -267,7 +275,7 @@ const App: React.FC = () => {
       </div>
 
       <main className="flex-1 max-w-4xl mx-auto w-full px-6 py-12 flex flex-col gap-12">
-        {error && <div className="p-4 bg-rose-500/10 border border-rose-500/30 rounded-xl text-rose-500 text-xs text-center font-black">{error}</div>}
+        {error && <div className="p-4 bg-rose-500/10 border border-rose-500/30 rounded-xl text-rose-500 text-xs text-center font-black animate-shake">{error}</div>}
         
         <InputForm onPredict={handlePredict} isLoading={loading} mode={mode} />
         
@@ -285,12 +293,12 @@ const App: React.FC = () => {
               <div className="absolute inset-0 border-t-2 border-emerald-500 rounded-full animate-spin"></div>
               <div className="absolute inset-0 flex items-center justify-center"><span className="text-[10px] text-rose-500 font-black">思</span></div>
             </div>
-            <p className="text-[10px] text-emerald-500 font-black tracking-[0.6em] uppercase">逻辑引擎推演中...</p>
+            <p className="text-[10px] text-emerald-500 font-black tracking-[0.5em] uppercase">逻辑引擎推演中 · Processing</p>
           </section>
         )}
 
         {displayPrediction && (
-          <section className="bg-slate-950/80 border border-rose-900/20 p-8 md:p-14 rounded-[3rem] shadow-2xl relative overflow-hidden">
+          <section className="bg-slate-950/80 border border-rose-900/20 p-8 md:p-14 rounded-[3rem] shadow-[0_40px_100px_rgba(0,0,0,0.6)] relative overflow-hidden">
             <div className="absolute top-0 right-0 w-96 h-96 bg-rose-500/5 blur-[150px] pointer-events-none"></div>
             <AnalysisDisplay prediction={displayPrediction} onFollowUp={handleFollowUp} isFollowUpLoading={loading} />
           </section>
