@@ -94,7 +94,6 @@ const App: React.FC = () => {
   };
 
   const loadFromHistory = (entry: PredictionHistory) => {
-    // 加载历史时强制清空当前流显示，避免双重显示
     setDisplayPrediction('');
     setMode(entry.mode);
     setBoard(entry.board || null);
@@ -123,10 +122,8 @@ const App: React.FC = () => {
     return "巽四宫";
   };
 
-  // 高性能更新函数：首字立即渲染，后续 32ms (约30fps) 节流
   const throttledUpdate = useCallback((isFinal = false) => {
     const now = Date.now();
-    // 如果是第一块数据、或是最后一块、或者距离上次更新超过 32ms
     if (isFinal || lastUpdateTimeRef.current === 0 || now - lastUpdateTimeRef.current > 32) {
       if (rafIdRef.current) cancelAnimationFrame(rafIdRef.current);
       rafIdRef.current = requestAnimationFrame(() => {
@@ -189,7 +186,6 @@ const App: React.FC = () => {
         }
       }
       
-      // 最终确认渲染
       throttledUpdate(true);
       isStreamingRef.current = false;
       return fullTextRef.current;
@@ -205,73 +201,46 @@ const App: React.FC = () => {
     setDisplayPrediction('');
     fullTextRef.current = '';
     setChatHistory([]);
-    setBaziData(null);
-    setBoard(null);
     
     let systemInstruction = "";
     let finalUserInput = "";
     let summaryInput = typeof userInput === 'string' ? userInput : JSON.stringify(userInput);
-    let currentCalculatedPillars: any = null;
+    let currentCalculatedBoard: any = null;
+    let currentCalculatedBazi: any = null;
 
     const baseConstraints = `严禁使用 # 和 * 符号。严禁使用 Markdown 加粗格式。严禁复述用户输入的原始参数。严禁寒暄。语气：专业、中立、逻辑严密，具有慈悲心但拒绝恐吓。`;
 
+    // 第一步：立即生成并展示排盘，让用户先看到准确的数据
     if (mode === 'QIMEN') {
       const targetDate = date ? new Date(date) : new Date();
-      const newBoard = calculateBoard(targetDate, userLocation?.longitude);
+      currentCalculatedBoard = calculateBoard(targetDate, userLocation?.longitude);
       const autoPalace = userLocation?.palaceName || '中五宫';
-      newBoard.direction = autoPalace;
-      if (userLocation) newBoard.location = { ...userLocation, isAdjusted: true };
-      setBoard(newBoard);
+      currentCalculatedBoard.direction = autoPalace;
+      if (userLocation) currentCalculatedBoard.location = { ...userLocation, isAdjusted: true };
+      setBoard(currentCalculatedBoard);
 
-      finalUserInput = `[奇门起局数据] ${JSON.stringify(newBoard)}。\n[用户诉求] ${userInput as string}`;
-      
-      systemInstruction = `你是一名深谙现代应用理念的奇门遁甲专家，擅长将传统术数转化为清晰、可操作的商业与人生决策建议。请根据提供的奇门盘局信息，进行专业、系统、务实的分析。
-
-【核心分析框架与输出要求】：
-
-1. 【乾坤定局 · 基础信息】：
-- 清晰列出起局时间（公历与干支）。
-- 明确用事主题。
-- 明确说明此事项的核心用神选取。
-- 确认局数与阴阳遁。
-
-2. 【核心宫位 · 能量透视】：
-聚焦用神宫、时干宫、值符/值使宫进行分析：
-- 星门神干组合。
-- 五行生克关系。
-- 结合 PDF 实战案例进行意象解读（如死门临震预警风险等）。
-- 十干克应与特殊格局。
-
-3. 【宫位互动 · 纵横博弈】：
-- 分析用神宫与时干宫、值符宫的生克互动。
-- 综合判断吉凶成败。
-
-4. 【实战理法 · 时空调整】：
-- 包含方位选择、时间择吉、行为策略、心态调整。
-
-语言风格：专业严谨，避免玄虚。
-${baseConstraints}`;
-
+      finalUserInput = `[奇门起局数据] ${JSON.stringify(currentCalculatedBoard)}。\n[用户诉求] ${userInput as string}`;
+      systemInstruction = `你是一名深谙现代应用理念的奇门遁甲专家，擅长将传统术数转化为清晰、可操作的决策建议。请根据提供的盘局数据进行分析。分析框架：1.【乾坤定局】；2.【核心能量】；3.【纵横博弈】；4.【实战理法】。${baseConstraints}`;
     } else if (mode === 'YI_LOGIC') {
       if (type === 'LI_YAO') {
         const input = userInput as LiuYaoInput;
         finalUserInput = `[任务：六爻逻辑推演] 占问事项：${input.question}。卦象动数：${input.numbers.join(',')}。`;
-        systemInstruction = `你是一位精通六爻演化与三才判定的易学专家。${baseConstraints} 结构：一、能量态势透视；二、深度逻辑分析；三、核心判定结论；四、综合调理建议。`;
+        systemInstruction = `你是一位精通六爻演化的专家。${baseConstraints}`;
       } else {
         const input = userInput as BaZiInput;
         const hasTime = !!input.birthTime && input.birthTime !== '';
-        currentCalculatedPillars = calculateBaZi(new Date(input.birthDate), hasTime);
-        setBaziData(currentCalculatedPillars);
+        currentCalculatedBazi = calculateBaZi(new Date(input.birthDate + ' ' + (input.birthTime || '00:00')), hasTime);
+        setBaziData(currentCalculatedBazi);
         
-        finalUserInput = `性别：${input.gender}\n公历生日：${input.birthDate}\n出生地点：${input.birthPlace}\n特定问题：${userInput?.question || '深度分析命局特质。'}`;
-        
-        systemInstruction = `你是一位精通命理气象论的专家。${baseConstraints} 结构：开篇诗句、命造流转、气象格局、天人合一调理、整合观照。`;
+        finalUserInput = `性别：${input.gender}\n四柱：${JSON.stringify(currentCalculatedBazi)}\n公历生日：${input.birthDate}\n出生地点：${input.birthPlace}\n诉求：${userInput?.question || '深度分析命局特质。'}`;
+        systemInstruction = `你是一位精通命理气象论的专家。请基于已排定的四柱干支进行深度分析。严禁自行重排。${baseConstraints}`;
       }
     } else if (mode === 'TCM_AI') {
       finalUserInput = `【全息辨证】${userInput as string}`;
-      systemInstruction = `你是精通“医易同源”的中医专家。${baseConstraints} 结构：能量态势、深度分析、核心结论、调理方案。`;
+      systemInstruction = `你是精通“医易同源”的中医专家。${baseConstraints}`;
     }
 
+    // 第二步：开始流式分析
     try {
       const initialMessages: ChatMessage[] = [
         { role: "system", content: systemInstruction },
@@ -279,19 +248,17 @@ ${baseConstraints}`;
       ];
       const fullResponse = await streamResponse(initialMessages);
       
-      // 原子操作：先清空流显示，再存入历史，最后触发历史显示，确保不出现两次结果
+      // 原子切换：清空流显示，更新历史显示，存入历史
       setDisplayPrediction('');
-      const finalChat: ChatMessage[] = [{ role: "assistant", content: fullResponse }];
-      setChatHistory(finalChat);
-      
-      saveToHistory(fullResponse, summaryInput, (mode === 'QIMEN' ? calculateBoard(date ? new Date(date) : new Date(), userLocation?.longitude) : null), (mode === 'YI_LOGIC' ? currentCalculatedPillars : null));
+      setChatHistory([{ role: "assistant", content: fullResponse }]);
+      saveToHistory(fullResponse, summaryInput, currentCalculatedBoard, currentCalculatedBazi);
     } catch (err: any) { 
       setError(err.message); 
       setDisplayPrediction('');
     } finally { 
       setLoading(false); 
     }
-  }, [userLocation, mode, streamResponse, history]);
+  }, [userLocation, mode, streamResponse]);
 
   const handleFollowUp = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -318,7 +285,6 @@ ${baseConstraints}`;
   return (
     <div className="min-h-screen bg-[#020617] text-slate-100 flex flex-col parchment-bg">
       <Header onOpenProfile={() => setIsProfileOpen(true)} />
-      
       <ProfilePanel 
         isOpen={isProfileOpen} 
         onClose={() => setIsProfileOpen(false)} 
@@ -346,91 +312,52 @@ ${baseConstraints}`;
 
       <main className="flex-1 max-w-4xl mx-auto w-full px-6 py-12 flex flex-col gap-12">
         <section className={`bg-slate-950/40 border border-emerald-900/30 p-8 md:p-10 rounded-[2.5rem] backdrop-blur-2xl shadow-2xl ring-1 ring-emerald-500/10`}>
-          <div className="flex items-center justify-between mb-10">
-            <h2 className="text-sm font-black text-emerald-200 flex items-center gap-5">
-              <span className="w-10 h-10 rounded-xl bg-emerald-600/10 border border-emerald-500/30 flex items-center justify-center text-emerald-500 text-xs font-serif">木</span>
-              录入参数
-            </h2>
-            {userLocation && (
-              <div className="text-[10px] text-emerald-500/60 tracking-widest font-mono flex items-center gap-4">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping"></span>
-                {userLocation.palaceName} | {userLocation.city}
-              </div>
-            )}
-          </div>
           <InputForm onPredict={handlePredict} isLoading={loading} mode={mode} />
         </section>
         
-        {mode === 'QIMEN' && board && (
-          <div className="animate-in fade-in slide-in-from-top-6 duration-1000">
-             <BoardGrid board={board} />
-          </div>
-        )}
-
-        {mode === 'YI_LOGIC' && baziData && (
-          <div className="animate-in fade-in slide-in-from-top-6 duration-1000">
-             <BaZiChart pillars={baziData} />
-          </div>
-        )}
+        {mode === 'QIMEN' && board && <BoardGrid board={board} />}
+        {mode === 'YI_LOGIC' && baziData && <BaZiChart pillars={baziData} />}
 
         {(chatHistory.length > 0 || displayPrediction || loading || error) && (
           <section className="bg-slate-950/80 border border-rose-900/20 p-8 md:p-14 rounded-[3rem] backdrop-blur-3xl relative shadow-[0_0_50px_rgba(244,63,94,0.05)]">
-            <div className="relative z-10">
-              <div className="flex items-center justify-between mb-12">
-                <h2 className="text-sm font-black text-rose-100 flex items-center gap-5">
-                  <span className="w-10 h-10 rounded-xl bg-rose-600/10 border border-rose-500/30 flex items-center justify-center text-rose-500 text-xs font-serif shadow-[0_0_15px_rgba(244,63,94,0.3)] animate-fire">火</span>
-                  景曜推演报告
-                </h2>
-              </div>
+            <div className="relative z-10 space-y-20">
+              {chatHistory.filter(m => m.role !== 'system').map((msg, i) => (
+                <div key={i} className={`animate-in fade-in duration-700 ${msg.role === 'user' ? 'opacity-40 border-l-2 border-emerald-500/20 pl-8 py-4 mb-14 italic' : ''}`}>
+                  <AnalysisDisplay prediction={msg.content} />
+                </div>
+              ))}
+              
+              {displayPrediction && (
+                <div className="pt-12 border-t border-rose-950/80">
+                   <p className="text-[11px] mb-10 tracking-[1.2em] font-black uppercase text-rose-500 animate-pulse flex items-center gap-4">
+                     <span className="w-2 h-2 rounded-full bg-rose-500"></span>
+                     解析中...
+                   </p>
+                   <AnalysisDisplay prediction={displayPrediction} />
+                </div>
+              )}
 
-              <div className="space-y-20">
-                {chatHistory.filter(m => m.role !== 'system').map((msg, i) => (
-                  <div key={i} className={`animate-in fade-in duration-700 ${msg.role === 'user' ? 'opacity-40 border-l-2 border-emerald-500/20 pl-8 py-4 mb-14 italic' : ''}`}>
-                    <AnalysisDisplay prediction={msg.content} />
-                  </div>
-                ))}
-                
-                {displayPrediction && (
-                  <div className="pt-12 border-t border-rose-950/80">
-                     <p className="text-[11px] mb-10 tracking-[1.2em] font-black uppercase text-rose-500 animate-pulse flex items-center gap-4">
-                       <span className="w-2 h-2 rounded-full bg-rose-500 shadow-[0_0_12px_#f43f5e]"></span>
-                       离火运化 · 解析中
-                     </p>
-                     <AnalysisDisplay prediction={displayPrediction} />
-                  </div>
-                )}
-
-                {loading && !displayPrediction && (
-                  <div className="flex flex-col items-center justify-center gap-10 py-32 opacity-60">
-                    <div className="w-16 h-16 border-[3px] border-emerald-500/10 border-t-rose-500 rounded-full animate-spin"></div>
-                    <p className="text-[11px] tracking-[1.5em] text-rose-500 font-black">通联时空</p>
-                  </div>
-                )}
-                
-                {error && (
-                  <div className="p-8 bg-red-950/30 border border-red-900/40 rounded-3xl text-red-400 text-[11px] tracking-[0.3em] font-black border-l-8 border-l-red-600 shadow-xl">
-                     <span className="text-red-500 mr-4 text-sm font-black">✕</span> {error}
-                  </div>
-                )}
-              </div>
-
-              {chatHistory.length > 0 && !loading && !error && (
-                <div className="mt-24 pt-12 border-t border-rose-950/80">
-                  <form onSubmit={handleFollowUp} className="relative group max-w-2xl mx-auto">
-                     <div className="absolute -inset-1 bg-gradient-to-r from-emerald-600/10 to-rose-600/10 rounded-[2rem] blur opacity-30 group-focus-within:opacity-100 transition duration-1000"></div>
-                     <textarea 
-                       value={followUpText} 
-                       onChange={(e) => setFollowUpText(e.target.value)} 
-                       placeholder="进一步研讨变数..." 
-                       className="relative w-full h-32 bg-slate-950/95 border border-slate-900 rounded-[2rem] p-7 text-slate-200 focus:outline-none focus:border-rose-500/30 transition-all resize-none text-[13px] leading-loose shadow-inner" 
-                     />
-                     <button type="submit" className="absolute bottom-6 right-6 bg-rose-600 hover:bg-rose-500 text-white px-8 py-3 rounded-2xl text-[10px] font-black tracking-[0.4em] transition-all shadow-2xl shadow-rose-900/60 active:scale-95">
-                       追问研讨
-                     </button>
-                  </form>
+              {loading && !displayPrediction && (
+                <div className="flex flex-col items-center justify-center py-32 opacity-60">
+                  <div className="w-16 h-16 border-[3px] border-emerald-500/10 border-t-rose-500 rounded-full animate-spin"></div>
+                </div>
+              )}
+              
+              {error && (
+                <div className="p-8 bg-red-950/30 border border-red-900/40 rounded-3xl text-red-400 text-[11px] font-black">
+                   ✕ {error}
                 </div>
               )}
             </div>
+
+            {chatHistory.length > 0 && !loading && !error && (
+              <div className="mt-24 pt-12 border-t border-rose-950/80">
+                <form onSubmit={handleFollowUp} className="relative max-w-2xl mx-auto">
+                   <textarea value={followUpText} onChange={(e) => setFollowUpText(e.target.value)} placeholder="进一步研讨..." className="w-full h-32 bg-slate-950 border border-slate-900 rounded-[2rem] p-7 text-slate-200 focus:outline-none resize-none text-[13px]" />
+                   <button type="submit" className="absolute bottom-6 right-6 bg-rose-600 text-white px-8 py-3 rounded-2xl text-[10px] font-black tracking-widest">发送</button>
+                </form>
+              </div>
+            )}
           </section>
         )}
       </main>
