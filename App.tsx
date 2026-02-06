@@ -10,10 +10,10 @@ import InputForm from './components/InputForm';
 import ProfilePanel from './components/ProfilePanel';
 import { calculateBoard } from './qimenLogic';
 import { useBazi } from './hooks/useBazi';
-import { QiMenBoard, LocationData, AppMode, LiuYaoInput, BaZiInput } from './types';
+import { QiMenBoard, AppMode, BaZiInput, LiuYaoInput } from './types';
 import { BaziResultData } from './types/bazi.types';
 
-// 火山引擎 Ark 模型 ID (用户指定的火山API)
+// 火山引擎 Ark 模型 ID
 const UNIFIED_MODEL = "ep-20260206175318-v6cl7";
 
 export interface ChatMessage {
@@ -45,7 +45,6 @@ const App: React.FC = () => {
   const { getBaziResult } = useBazi();
   const fullTextRef = useRef('');
 
-  // 历史记录持久化
   useEffect(() => {
     const saved = localStorage.getItem('qimen_prediction_history_v2');
     if (saved) {
@@ -63,7 +62,6 @@ const App: React.FC = () => {
     }
   }, [history]);
 
-  // 使用火山引擎代理接口进行流式响应
   const streamResponse = async (messages: ChatMessage[]) => {
     fullTextRef.current = '';
     setDisplayPrediction('');
@@ -86,7 +84,6 @@ const App: React.FC = () => {
 
       const reader = response.body?.getReader();
       const decoder = new TextDecoder();
-
       if (!reader) throw new Error('无法读取响应流');
 
       while (true) {
@@ -95,7 +92,6 @@ const App: React.FC = () => {
         
         const chunk = decoder.decode(value);
         const lines = chunk.split('\n');
-        
         for (const line of lines) {
           if (line.trim().startsWith('data: ')) {
             const jsonStr = line.trim().slice(6);
@@ -105,9 +101,7 @@ const App: React.FC = () => {
               const content = data.choices[0]?.delta?.content || "";
               fullTextRef.current += content;
               setDisplayPrediction(fullTextRef.current);
-            } catch (e) {
-              // 忽略解析错误
-            }
+            } catch (e) {}
           }
         }
       }
@@ -131,25 +125,66 @@ const App: React.FC = () => {
     let activeBoard: QiMenBoard | null = null;
     let activeBazi: BaziResultData | null = null;
 
-    // 两步走逻辑：1. 立即计算并展示排盘结果；2. 发起 AI 深度解析
     if (mode === 'QIMEN') {
       const targetDate = date ? new Date(date) : new Date();
       activeBoard = calculateBoard(targetDate, 120);
       setBoard(activeBoard);
       finalUserInput = `[奇门起局数据] ${JSON.stringify(activeBoard)}。\n[诉求] ${userInput}`;
-      systemInstruction = `你是一位精通奇门遁甲的实战预测专家。请基于以上盘局，重点分析星、门、神、干的互动，给出符合易理的专业化推演建议。`;
-    } else if (mode === 'YI_LOGIC' && type === 'BA_ZI') {
-      const input = userInput as BaZiInput;
-      // 第一步：瞬时生成排盘结果
-      activeBazi = getBaziResult(input.birthDate, input.birthTime || '', input.birthPlace, input.gender);
-      setBaziData(activeBazi);
-      
-      // 第二步：构建 AI 提示词
-      finalUserInput = `【排盘结果】${JSON.stringify(activeBazi)}\n【命主诉求】${input.question || '综合运势解析'}`;
-      systemInstruction = `你是一位精通林毅奇门遁甲体系与八字气象论的专家。请基于提供的干支、十神、大运及藏干数据，进行深度全息分析，重点讨论气象平衡与现代职场/生活建议。`;
+      systemInstruction = `你是一位精通奇门遁甲的实战预测专家。请基于以上盘局，重点分析星、门、神、干在九宫中的互动（生克、反吟、伏吟、格局），给出符合易理的专业化推演建议。输出应逻辑严密，避免模棱两可。`;
+    } else if (mode === 'YI_LOGIC') {
+      const baseSystem = `你是一位承袭“医易同源”智慧的深度易学专家。你的分析核心严密遵循“五行气象论”与“三才实战算法”，强调逻辑推演，拒绝一切封建迷信与虚假断语。
+
+一、 核心分析逻辑：
+1. 评估“气象”：首看寒暖燥湿。冬生水冷金寒必用丙火解冻；夏生火炎土燥必用壬癸滋润。气象舒展则吉，偏枯则滞。
+2. 识别“轴心”：寻月令格局、核心用神与忌神。
+3. 推演“路径”：查看冲、合、空、破、回头克对能量流转的影响。旬空代表事未落实，月破代表根基已断，回头克代表内部变质。
+4. 现代语义映射：食神为“创意/流量”，官杀为“压力/管理”，印星为“背书/保障”。
+
+二、 输出约束（强制执行）：
+1. 严禁使用 # 和 * 符号。严禁使用 Markdown 加粗格式。
+2. 结构必须包含以下四大模块：
+   一、 能量态势透视
+   二、 深度逻辑分析
+   三、 核心判定结论
+   四、 综合调理建议`;
+
+      if (type === 'BA_ZI') {
+        const input = userInput as BaZiInput;
+        activeBazi = getBaziResult(input.birthDate, input.birthTime || '', input.birthPlace, input.gender);
+        setBaziData(activeBazi);
+        
+        const p = activeBazi.pillars;
+        finalUserInput = `[任务：深度分析命局]
+用户数据：
+性别：${input.gender}
+出生时间：${input.birthDate} ${input.birthTime || '时辰不详'}
+历法：公历
+姓名：${input.name || '命主'}
+排盘：年柱：${p.year.stem}${p.year.branch} 月柱：${p.month.stem}${p.month.branch} 日柱：${p.day.stem}${p.day.branch} 时柱：${p.hour.stem}${p.hour.branch}
+诉求：${input.question || '综合分析'}
+
+请先进行“五行气象评估”，再判定“核心用神”，最后推演其在现代社会中的流通情况。输出必须包含【命局排盘】和未来五年【流年趋势】（格式如：2025年：内容）。`;
+        systemInstruction = baseSystem;
+      } else {
+        // 六爻逻辑
+        const input = userInput as LiuYaoInput;
+        finalUserInput = `[任务：六爻逻辑推演]
+占问事项：${input.question}
+卦象数据：${input.numbers.join(', ')}
+起卦时间：${new Date().toLocaleString()}
+
+请执行“三才判定”：以月建为天时、日辰为地利、动爻为人心。重点排查是否存在“旬空、月破、回头克”等逻辑缺陷。给出明确的成败判断及应期，并输出【月份趋势】。`;
+        systemInstruction = baseSystem;
+      }
     } else if (mode === 'TCM_AI') {
       finalUserInput = userInput;
-      systemInstruction = `你是一位精通传统中医全息调理的专家。请分析患者描述的症状，判明虚实寒热，并给出病机解析与调理方案。`;
+      systemInstruction = `你是一位精通传统中医全息调理的专家。请基于患者描述的症状，运用中医辨证逻辑（八纲辨证、脏腑辨证），判明虚实寒热，分析病机演变。
+输出必须包含：
+【全息失衡判定】
+【核心病机】
+【核心调理原则】
+【全息方案建议】（包含食疗建议、生活习惯调整、情志调养）。
+语气应专业、严谨且具有人文关怀。`;
     }
 
     try {
@@ -159,7 +194,6 @@ const App: React.FC = () => {
       ]);
       setChatHistory([{ role: 'assistant', content: result }]);
 
-      // 存入历史记录
       const newEntry: PredictionHistory = {
         id: Date.now().toString(),
         timestamp: Date.now(),
@@ -171,7 +205,7 @@ const App: React.FC = () => {
       };
       setHistory(prev => [newEntry, ...prev].slice(0, 50));
     } catch (err: any) {
-      setError(err.message || '推演连接超时或异常，请稍后重试');
+      setError(err.message || '推演连接超时，请重试');
     } finally {
       setLoading(false);
     }
@@ -188,7 +222,7 @@ const App: React.FC = () => {
   };
 
   const handleClearHistory = () => {
-    if (window.confirm('确认清除所有历史推演记录？')) {
+    if (window.confirm('确认清除所有历史记录？')) {
       setHistory([]);
       localStorage.removeItem('qimen_prediction_history_v2');
     }
@@ -215,14 +249,11 @@ const App: React.FC = () => {
         
         <InputForm onPredict={handlePredict} isLoading={loading} mode={mode} />
         
-        {/* 数据可视化层：计算完成后立即展示 */}
         {board && <BoardGrid board={board} />}
         {baziData && <BaziResult data={baziData} />}
 
-        {/* AI 解析显示层 */}
         {(displayPrediction || chatHistory.length > 0) && (
           <section className="bg-slate-950/80 border border-rose-900/20 p-8 rounded-[2rem] shadow-2xl relative overflow-hidden">
-             {/* 装饰性背景 */}
             <div className="absolute top-0 right-0 w-64 h-64 bg-rose-500/5 blur-[100px] pointer-events-none"></div>
             
             <div className="mb-8 border-b border-rose-900/10 pb-4 flex items-center justify-between">
