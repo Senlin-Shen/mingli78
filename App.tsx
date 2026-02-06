@@ -2,6 +2,7 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import AnalysisDisplay from './components/AnalysisDisplay';
 import BoardGrid from './components/BoardGrid';
+import BaZiChart from './components/BaZiChart';
 import Header from './components/Header';
 import Footer from './components/Footer';
 import InputForm from './components/InputForm';
@@ -19,6 +20,7 @@ const App: React.FC = () => {
   const [isEntered, setIsEntered] = useState<boolean>(false);
   const [mode, setMode] = useState<AppMode>('QIMEN');
   const [board, setBoard] = useState<QiMenBoard | null>(null);
+  const [baziData, setBaziData] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [followUpLoading, setFollowUpLoading] = useState(false);
   const [error, setError] = useState('');
@@ -26,7 +28,6 @@ const App: React.FC = () => {
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
   const [followUpText, setFollowUpText] = useState('');
   
-  // 优化流式更新逻辑，使用缓冲区提升感知速度
   const [displayPrediction, setDisplayPrediction] = useState('');
   const predictionBuffer = useRef('');
 
@@ -99,10 +100,11 @@ const App: React.FC = () => {
             const parsed = JSON.parse(data);
             const content = parsed.choices[0]?.delta?.content || "";
             fullText += content;
-            // 批量更新，减少不必要的重绘，视觉上连贯且快速
             predictionBuffer.current += content;
-            if (predictionBuffer.current.length > 20 || done) {
+            // 将更新阈值降低至 2 个字符，大幅提升视觉上的输出速度
+            if (predictionBuffer.current.length > 2 || done) {
               setDisplayPrediction(fullText);
+              predictionBuffer.current = ""; 
             }
           } catch (e) {}
         }
@@ -116,6 +118,7 @@ const App: React.FC = () => {
     setError('');
     setDisplayPrediction('');
     setChatHistory([]);
+    setBaziData(null);
     
     let systemInstruction = "";
     let finalUserInput = "";
@@ -131,14 +134,11 @@ const App: React.FC = () => {
       finalUserInput = userInput as string;
       systemInstruction = `你是一位精通奇门遁甲实战预测的顶级专家。你的回答需要具备极高的法理深度、详尽的象数剖析以及各维度的落地实践建议。
 # 任务目标
-请输出一份篇幅宏大、字数不少于1000字的深度分析报告。严禁使用 Markdown 符号（如 * 或 #）。
+请输出一份篇幅宏大、字数不少于1000字的深度分析报告。严禁使用 Markdown 符号。
 # 核心解析逻辑
-1. 局法依据：深度阐述当前时空干支的能量属性，解析局数背后的阴阳动静关系。
-2. 象数深度解构：针对所入之宫位，深度解剖星、门、神、仪的复杂互动。不仅解释表象，更要推导其隐藏的变数。
-3. 多维度实践建议：
-   - 商业实战：具体的择时、择地、合作伙伴研判、风险规避策略。
-   - 心理/环境：解析气场对个人心态的影响，提供具体的环境调理方位。
-   - 最终应期：分析事情发展的关键节点与转机。
+1. 理法发微：深度阐述当前时空干支的能量属性。
+2. 深度象数解析：深度解剖星、门、神、仪。
+3. 多维度实战策略：商业实战建议、心理/环境调理、应期分析。
 输出分段：理法发微、深度象数解析、多维度实战策略、乾坤断语建议。`;
     } else {
       setBoard(null);
@@ -147,19 +147,23 @@ const App: React.FC = () => {
         finalUserInput = `【六爻演化报数起卦】三组动数：${input.numbers.join(', ')}。求测事宜：${input.question}`;
       } else {
         const input = userInput as BaZiInput;
+        // 模拟一个四柱排盘数据以便 UI 展示 (在真实生产环境中可由后端或更复杂的库计算)
+        setBaziData({
+          year: ["甲", "辰"],
+          month: ["丙", "寅"],
+          day: ["丁", "卯"],
+          hour: ["戊", "申"]
+        });
         finalUserInput = `【四柱气象结构推演】姓名：${input.name}，性别：${input.gender}，出生时空：${input.birthDate}，出生地址：${input.birthPlace}`;
       }
 
       systemInstruction = `你是一位承袭碧海易学精髓、深研《增删卜易》逻辑的资深预测专家。你的分析应结合法理深度与道医结合的人文视角。
 # 任务目标
-请输出一份极具专业厚度且内容详实的推演报告。严禁使用 Markdown 符号（如 * 或 #）。
+请输出一份极具专业厚度且内容详实的推演报告。严禁使用 Markdown 符号。
 # 逻辑架构
-1. 卦理/命理法要：详细推导五行气象的寒暖燥湿，解析月令日辰的生克制化。
-2. 深度象义：解析现代职业、财富、人际在命局中的具体映射。
-3. 实践指导：
-   - 职业定格：基于伤官、七杀、偏印等特殊十神的现代映射，给出具体的赛道建议。
-   - 避坑指南：根据五行过盈状态，给出具体的性格磨炼与行为警示。
-   - 环境方位建议：提供有助于平衡气场的方位、色系及心理修持方案。
+1. 气象/卦理法理：分析月令日辰的生克制化。
+2. 核心命局/卦象解析：解析现代职业、财富在命局中的具体映射。
+3. 深度实践建议：职业建议、避坑指南、心态修持方案。
 输出分段：气象/卦理法理、核心命局/卦象解析、深度实践建议、道学修持方案。`;
     }
 
@@ -225,7 +229,7 @@ const App: React.FC = () => {
         <div className="max-w-4xl mx-auto flex items-center h-16 px-4">
           <button 
             type="button"
-            onClick={() => { setMode('QIMEN'); setChatHistory([]); setDisplayPrediction(''); }} 
+            onClick={() => { setMode('QIMEN'); setChatHistory([]); setDisplayPrediction(''); setBoard(null); setBaziData(null); }} 
             className={`flex-1 h-full text-[11px] tracking-[0.4em] font-black transition-all border-r border-slate-800/50 relative overflow-hidden group ${mode === 'QIMEN' ? 'text-amber-500' : 'text-slate-500 hover:text-slate-300'}`}
           >
             {mode === 'QIMEN' && <div className="absolute bottom-0 left-0 right-0 h-1 bg-amber-500 shadow-[0_0_12px_rgba(245,158,11,0.8)]"></div>}
@@ -233,7 +237,7 @@ const App: React.FC = () => {
           </button>
           <button 
             type="button"
-            onClick={() => { setMode('YI_LOGIC'); setChatHistory([]); setDisplayPrediction(''); }} 
+            onClick={() => { setMode('YI_LOGIC'); setChatHistory([]); setDisplayPrediction(''); setBoard(null); setBaziData(null); }} 
             className={`flex-1 h-full text-[11px] tracking-[0.4em] font-black transition-all relative overflow-hidden group ${mode === 'YI_LOGIC' ? 'text-amber-500' : 'text-slate-500 hover:text-slate-300'}`}
           >
             {mode === 'YI_LOGIC' && <div className="absolute bottom-0 left-0 right-0 h-1 bg-amber-500 shadow-[0_0_12px_rgba(245,158,11,0.8)]"></div>}
@@ -243,7 +247,6 @@ const App: React.FC = () => {
       </div>
 
       <main className="flex-1 max-w-4xl mx-auto w-full px-6 py-12 flex flex-col gap-12">
-        {/* 输入与排盘区 */}
         <section className="bg-slate-900/40 border border-slate-800 p-8 md:p-10 rounded-[2.5rem] backdrop-blur-xl shadow-2xl border-t-amber-500/10">
           <div className="flex items-center justify-between mb-8">
             <h2 className="text-xl font-black text-slate-100 flex items-center gap-5">
@@ -261,7 +264,12 @@ const App: React.FC = () => {
           </div>
         )}
 
-        {/* 结果展示区 - 纵向流式结构 */}
+        {mode === 'YI_LOGIC' && baziData && (
+          <div className="animate-in fade-in zoom-in-95 duration-700">
+            <BaZiChart pillars={baziData} />
+          </div>
+        )}
+
         {(chatHistory.length > 0 || displayPrediction || loading) && (
           <section className="bg-slate-900/20 border border-slate-800/50 p-8 md:p-16 rounded-[2.5rem] backdrop-blur-3xl relative shadow-2xl border-t-amber-500/10">
             <div className="flex items-center justify-between mb-12">
@@ -275,15 +283,15 @@ const App: React.FC = () => {
             <div className="space-y-24">
               {chatHistory.filter(m => m.role !== 'system').map((msg, i) => (
                 <div key={i} className={`animate-in fade-in slide-in-from-bottom-6 duration-700 ${msg.role === 'user' ? 'opacity-70 border-l-2 border-amber-500/30 pl-8 py-6 my-10 bg-amber-500/5 rounded-r-3xl max-w-2xl' : ''}`}>
-                  {msg.role === 'user' && <p className="text-[10px] text-amber-600/80 uppercase tracking-[0.4em] font-black mb-4">访客咨询：</p>}
+                  {msg.role === 'user' && <p className="text-[10px] text-amber-600/80 uppercase tracking-[0.4em] font-black mb-4 accent-font">访客咨询：</p>}
                   <AnalysisDisplay prediction={msg.content} isYiLogic={mode === 'YI_LOGIC'} />
                 </div>
               ))}
               
               {displayPrediction && (
                 <div className="pt-12 border-t border-slate-800/50">
-                   <p className="text-[10px] text-amber-500 mb-8 tracking-[0.6em] font-black uppercase flex items-center gap-4">
-                     <span className="w-2 h-2 rounded-full bg-amber-500 animate-ping"></span>
+                   <p className="text-[10px] text-amber-500 mb-8 tracking-[0.6em] font-black uppercase flex items-center gap-4 animate-pulse">
+                     <span className="w-2 h-2 rounded-full bg-amber-500"></span>
                      时空变数解析中...
                    </p>
                    <AnalysisDisplay prediction={displayPrediction} isYiLogic={mode === 'YI_LOGIC'} />
@@ -294,26 +302,21 @@ const App: React.FC = () => {
                 <div className="flex flex-col items-center justify-center gap-10 text-slate-500 py-32">
                   <div className="relative">
                     <div className="w-20 h-20 border-[4px] border-amber-500/5 border-t-amber-500 rounded-full animate-spin"></div>
-                    <div className="absolute inset-0 flex items-center justify-center">
-                      <div className="w-10 h-10 bg-amber-500/20 rounded-full animate-pulse"></div>
-                    </div>
                   </div>
                   <div className="text-center space-y-3">
-                    <p className="text-sm tracking-[0.8em] text-amber-500 font-black uppercase">时空信息通联中</p>
-                    <p className="text-[10px] text-slate-600 tracking-widest italic">正在解析变数矩阵...</p>
+                    <p className="text-sm tracking-[0.8em] text-amber-500 font-black uppercase">通联中</p>
                   </div>
                 </div>
               )}
               
               {error && (
                 <div className="p-10 bg-red-950/10 border border-red-900/30 rounded-[2.5rem] text-red-400 text-sm leading-relaxed">
-                  <p className="font-black tracking-[0.3em] uppercase mb-4 text-[10px]">链路通联异常</p>
+                  <p className="font-black tracking-[0.3em] uppercase mb-4 text-[10px]">链路异常</p>
                   {error}
                 </div>
               )}
             </div>
 
-            {/* 底部追问 */}
             {chatHistory.length > 0 && !loading && (
               <div className="mt-24 pt-12 border-t border-slate-800/50">
                 <form onSubmit={handleFollowUp} className="relative group max-w-2xl mx-auto">
@@ -322,7 +325,7 @@ const App: React.FC = () => {
                      value={followUpText} 
                      onChange={(e) => setFollowUpText(e.target.value)} 
                      placeholder="关于推演结果，您还有什么需要深入研讨的变数？" 
-                     className="relative w-full h-32 bg-slate-950/90 border border-slate-800 rounded-3xl p-6 text-slate-200 focus:outline-none focus:border-amber-500/50 transition-all resize-none text-xs leading-loose" 
+                     className="relative w-full h-32 bg-slate-950/90 border border-slate-800 rounded-3xl p-6 text-slate-200 focus:outline-none focus:border-amber-500/50 transition-all resize-none text-[13px] leading-loose" 
                    />
                    <button 
                      type="submit" 
