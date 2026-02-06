@@ -210,10 +210,9 @@ const App: React.FC = () => {
 
     const baseConstraints = `严禁使用 # 和 * 符号。严禁使用 Markdown 加粗格式。严禁复述用户输入的原始参数。严禁寒暄。语气：专业、中立、逻辑严密，具有慈悲心但拒绝恐吓。`;
 
-    // 第一步：立即生成并展示排盘，让用户先看到准确的数据
     if (mode === 'QIMEN') {
       const targetDate = date ? new Date(date) : new Date();
-      currentCalculatedBoard = calculateBoard(targetDate, userLocation?.longitude);
+      currentCalculatedBoard = calculateBoard(targetDate, userLocation?.longitude || 120);
       const autoPalace = userLocation?.palaceName || '中五宫';
       currentCalculatedBoard.direction = autoPalace;
       if (userLocation) currentCalculatedBoard.location = { ...userLocation, isAdjusted: true };
@@ -229,15 +228,17 @@ const App: React.FC = () => {
       } else {
         const input = userInput as BaZiInput;
         const hasTime = !!input.birthTime && input.birthTime !== '';
-        currentCalculatedBazi = calculateBaZi(new Date(input.birthDate + ' ' + (input.birthTime || '00:00')), hasTime);
+        // 此处不再直接 new Date，而是交给 calculateBaZi 进行更精密的解析
+        const birthDateObj = new Date(input.birthDate + ' ' + (input.birthTime || '00:00'));
+        currentCalculatedBazi = calculateBaZi(birthDateObj, 120, hasTime);
         setBaziData(currentCalculatedBazi);
         
         const { year, month, day, hour } = currentCalculatedBazi;
         finalUserInput = `【命主全息档案】
-姓名：${input.name || '某君'}
+姓名：${input.name || '匿名客'}
 性别：${input.gender}
-出生日期：${input.birthDate} ${input.birthTime || '(时辰不详)'}
-出生地点：${input.birthPlace}
+出生日期：${input.birthDate} ${input.birthTime || '(不详)'}
+出生地点：${input.birthPlace} (经度修正：120°E)
 
 【四柱乾坤排盘】
 年柱：${year[0]}${year[1]}
@@ -246,16 +247,20 @@ const App: React.FC = () => {
 时柱：${hour[0]}${hour[1]}
 
 【核心分析诉求】
-${input.question || '基于以上四柱格局，进行全息深度分析，涵盖格局高低、五行旺衰及气象定式。'}`;
+${input.question || '暂无特定诉求，请进行综合格局解析。'}
 
-        systemInstruction = `你是一位精通命理气象论的实战专家。请基于已排定的四柱干支进行深度分析。你的任务是将深奥的干支哲学转化为命主易于理解的人生赛道建议。严禁自行重排。${baseConstraints}`;
+【分析要求】
+1. 解析命局的寒暖燥湿气象，论格局之高低，定职业之定式。
+2. 针对命主填写的详细诉求进行深度回应。
+3. 严禁改变以上排定的干支。`;
+
+        systemInstruction = `你是一位精通命理气象论与姜氏实战体系的专家。请基于已排定的四柱干支进行深度全息分析。你的推演应具备高度的实战性，能为命主提供清晰的人生赛道建议。${baseConstraints}`;
       }
     } else if (mode === 'TCM_AI') {
       finalUserInput = `【全息辨证】${userInput as string}`;
       systemInstruction = `你是精通“医易同源”的中医专家。${baseConstraints}`;
     }
 
-    // 第二步：开始流式分析
     try {
       const initialMessages: ChatMessage[] = [
         { role: "system", content: systemInstruction },
@@ -263,7 +268,6 @@ ${input.question || '基于以上四柱格局，进行全息深度分析，涵�
       ];
       const fullResponse = await streamResponse(initialMessages);
       
-      // 原子切换：清空流显示，更新历史显示，存入历史
       setDisplayPrediction('');
       setChatHistory([{ role: "assistant", content: fullResponse }]);
       saveToHistory(fullResponse, summaryInput, currentCalculatedBoard, currentCalculatedBazi);
