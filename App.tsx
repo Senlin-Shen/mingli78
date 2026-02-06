@@ -69,7 +69,6 @@ const App: React.FC = () => {
 
   const updateDisplay = useCallback((text: string, force = false) => {
     const now = performance.now();
-    // 渲染频率控制在 16ms 左右 (60fps)，确保视觉平滑
     if (force || now - lastUpdateTime.current > 16) { 
       setDisplayPrediction(text);
       lastUpdateTime.current = now;
@@ -77,9 +76,8 @@ const App: React.FC = () => {
   }, []);
 
   const streamResponse = async (messages: ChatMessage[]) => {
-    // 确保 API 密钥可用
     const apiKey = process.env.API_KEY;
-    if (!apiKey) throw new Error("API 密钥未配置");
+    if (!apiKey) throw new Error("API 密钥缺失，请检查环境变量配置。");
 
     const ai = new GoogleGenAI({ apiKey });
     const systemMsg = messages.find(m => m.role === 'system')?.content || '';
@@ -96,8 +94,8 @@ const App: React.FC = () => {
         contents: contents as any,
         config: {
           systemInstruction: systemMsg,
-          temperature: 0.8,
-          thinkingConfig: { thinkingBudget: 32768 } // 赋予最大思考容量以支撑碧海定格系统
+          temperature: 0.85,
+          thinkingConfig: { thinkingBudget: 32768 }
         },
       });
 
@@ -111,7 +109,7 @@ const App: React.FC = () => {
       return fullText;
     } catch (err: any) {
       console.error("Gemini API Error:", err);
-      throw new Error(err.message || "时空推演链路中断");
+      throw new Error(err.message || "时空推演链路中断，请检查网络或配置。");
     }
   };
 
@@ -134,21 +132,14 @@ const App: React.FC = () => {
       setBoard(newBoard);
 
       finalUserInput = `起局方位：${autoPalace}。诉求：${userInput as string}`;
-      systemInstruction = `你是一位精通林毅奇门遁甲体系的专家，擅长法理象数四维合一推演。
-# 目标
-输出 2000 字以上的极深度报告。严禁 Markdown。
-# 逻辑
-1. 理法依据：拆解干支动力。
-2. 象数深度：剖析星门神仪。
-3. 实战策略：包含择时、择位、风险对冲。
-段落：理法发微、深度象数解析、多维度实战策略、乾坤断语建议。`;
+      systemInstruction = `你是一位精通林毅奇门遁甲体系的专家，擅长法理象数四维合一推演。输出 2000 字以上的极深度报告。严禁 Markdown。
+内容分段：理法发微、深度象数解析、多维度实战策略、乾坤断语建议。`;
     } else {
       setBoard(null);
       if (type === 'LIU_YAO') {
         const input = userInput as LiuYaoInput;
         finalUserInput = `【六爻演化】动数：${input.numbers.join(', ')}。事宜：${input.question}`;
-        systemInstruction = `你是一位深研《增删卜易》且结合气象论的六爻实战专家。严禁 Markdown。
-重点分析：用神强弱、月建日辰影响、应期判定。`;
+        systemInstruction = `你是一位深研《增删卜易》且结合气象论的六爻实战专家。严禁 Markdown。分析重点：用神强弱、月建日辰影响、应期判定。`;
       } else {
         const input = userInput as BaZiInput;
         setBaziData({
@@ -157,21 +148,10 @@ const App: React.FC = () => {
           day: ["丁", "卯"],
           hour: ["戊", "申"]
         });
-        finalUserInput = `【四柱气象推演】姓名：${input.name}，生辰：${input.birthDate} ${input.birthTime || ''}。
-结合碧海易学定格与姜氏气象论进行全息分析。`;
+        finalUserInput = `【四柱气象推演】姓名：${input.name}，生辰：${input.birthDate} ${input.birthTime || ''}。结合碧海易学定格与姜氏气象论分析。`;
         
-        systemInstruction = `你是一位承袭“碧海易学”定格体系与“姜氏五行气象论”核心精髓的顶级命理专家。
-# 任务目标
-输出一份不低于 2500 字的命理全息解构报告。严禁 Markdown。
-# 核心推演逻辑
-1. 五行气象论：分析“寒暖燥湿”。判定金水寒湿需火调或木火燥烈需水润的调侯逻辑。
-2. 碧海定格分析：通过宾主、体用关系，准确界定“定格”。如食神生财格、伤官佩印格等。
-3. 核心定式判定：依据日元能量，判定“身强财旺”或“身弱财旺”定式。原则：身强财旺宜创业管理，身弱财旺宜平台合伙。
-4. 十神现代映射：
-   - 伤官：流量、自媒体、创新、破坏式研发。
-   - 偏印：冷门技术、AI、深度洞察、玄学。
-   - 七杀：风险控制、重资产运作、开拓精神。
-5. 岁运财富量级：结合盲派做功理论，计算每个大运的社会阶层跨越。
+        systemInstruction = `你是一位承袭“碧海易学”定格体系与“姜氏五行气象论”核心精髓的顶级命理专家。输出不低于 2500 字报告。严禁 Markdown。
+核心逻辑：1.五行气象论(寒暖燥湿)；2.碧海定格分析(宾主体用)；3.核心定式判定(职业定位)；4.十神现代映射；5.岁运财富量级。
 输出分段：五行气象论、碧海定格分析、核心定式判定、十神现代映射、岁运纵横（含财富量级）、诚实铁口评价、道学修持建议。`;
       }
     }
@@ -198,6 +178,7 @@ const App: React.FC = () => {
     setFollowUpText('');
     setFollowUpLoading(true);
     setDisplayPrediction('');
+    setError('');
     const newHistory: ChatMessage[] = [...chatHistory, { role: "user", content: query }];
     setChatHistory(newHistory);
     try {
@@ -230,6 +211,9 @@ const App: React.FC = () => {
     );
   }
 
+  // 计算结果区域是否应该显示的逻辑（增加 error 判定）
+  const shouldShowResults = chatHistory.length > 0 || displayPrediction !== '' || loading || error !== '';
+
   return (
     <div className="min-h-screen bg-[#020617] text-slate-100 flex flex-col selection:bg-amber-500/30">
       <Header />
@@ -238,7 +222,7 @@ const App: React.FC = () => {
         <div className="max-w-4xl mx-auto flex items-center h-16 px-4">
           <button 
             type="button"
-            onClick={() => { setMode('QIMEN'); setChatHistory([]); setDisplayPrediction(''); setBoard(null); setBaziData(null); }} 
+            onClick={() => { setMode('QIMEN'); setChatHistory([]); setDisplayPrediction(''); setBoard(null); setBaziData(null); setError(''); }} 
             className={`flex-1 h-full text-[11px] tracking-[0.4em] font-black transition-all border-r border-slate-800/50 relative overflow-hidden group ${mode === 'QIMEN' ? 'text-amber-500' : 'text-slate-500 hover:text-slate-300'}`}
           >
             {mode === 'QIMEN' && <div className="absolute bottom-0 left-0 right-0 h-1 bg-amber-500 shadow-[0_0_12px_rgba(245,158,11,0.8)]"></div>}
@@ -246,7 +230,7 @@ const App: React.FC = () => {
           </button>
           <button 
             type="button"
-            onClick={() => { setMode('YI_LOGIC'); setChatHistory([]); setDisplayPrediction(''); setBoard(null); setBaziData(null); }} 
+            onClick={() => { setMode('YI_LOGIC'); setChatHistory([]); setDisplayPrediction(''); setBoard(null); setBaziData(null); setError(''); }} 
             className={`flex-1 h-full text-[11px] tracking-[0.4em] font-black transition-all relative overflow-hidden group ${mode === 'YI_LOGIC' ? 'text-amber-500' : 'text-slate-500 hover:text-slate-300'}`}
           >
             {mode === 'YI_LOGIC' && <div className="absolute bottom-0 left-0 right-0 h-1 bg-amber-500 shadow-[0_0_12px_rgba(245,158,11,0.8)]"></div>}
@@ -279,8 +263,8 @@ const App: React.FC = () => {
           </div>
         )}
 
-        {(chatHistory.length > 0 || displayPrediction || loading) && (
-          <section className="bg-slate-900/20 border border-slate-800/50 p-8 md:p-16 rounded-[2.5rem] backdrop-blur-3xl relative shadow-2xl border-t-amber-500/10">
+        {shouldShowResults && (
+          <section id="results-area" className="bg-slate-900/20 border border-slate-800/50 p-8 md:p-16 rounded-[2.5rem] backdrop-blur-3xl relative shadow-2xl border-t-amber-500/10">
             <div className="flex items-center justify-between mb-12">
               <h2 className="text-xl font-black text-slate-100 flex items-center gap-5">
                 <span className="w-12 h-12 rounded-[1.2rem] bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-500 text-sm font-black shadow-inner">02</span>
@@ -319,14 +303,14 @@ const App: React.FC = () => {
               )}
               
               {error && (
-                <div className="p-10 bg-red-950/10 border border-red-900/30 rounded-[2.5rem] text-red-400 text-sm leading-relaxed">
-                  <p className="font-black tracking-[0.3em] uppercase mb-4 text-[10px]">链路异常</p>
+                <div className="p-10 bg-red-950/10 border border-red-900/30 rounded-[2.5rem] text-red-400 text-sm leading-relaxed border-l-4 border-l-red-500">
+                  <p className="font-black tracking-[0.3em] uppercase mb-4 text-[10px] text-red-500">推演链路中断</p>
                   {error}
                 </div>
               )}
             </div>
 
-            {chatHistory.length > 0 && !loading && (
+            {chatHistory.length > 0 && !loading && !error && (
               <div className="mt-24 pt-12 border-t border-slate-800/50">
                 <form onSubmit={handleFollowUp} className="relative group max-w-2xl mx-auto">
                    <div className="absolute -inset-1 bg-gradient-to-r from-amber-500/20 to-blue-500/20 rounded-3xl blur-md opacity-20 group-focus-within:opacity-100 transition duration-700"></div>
