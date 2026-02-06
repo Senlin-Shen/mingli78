@@ -6,69 +6,55 @@ interface AnalysisDisplayProps {
   isYiLogic?: boolean;
 }
 
-const AnalysisDisplay: React.FC<AnalysisDisplayProps> = ({ prediction, isYiLogic }) => {
-  // 如果是多维易理模式，我们允许更丰富的 Markdown 类展示
-  if (isYiLogic) {
-    const sections = prediction.split(/(?=### )|(?=## )/);
-    return (
-      <div className="max-w-none text-slate-300 space-y-6">
-        {sections.map((section, idx) => {
-          const isMainTitle = section.startsWith('## ');
-          const isSubTitle = section.startsWith('### ');
-          const content = section.replace(/^(## |### )/, '').trim();
-          
-          if (!content) return null;
+const AnalysisDisplay: React.FC<AnalysisDisplayProps> = ({ prediction }) => {
+  // 深度清洗：移除所有 Markdown 符号、加粗符号、标题符号、反引号等
+  const cleanText = (text: string) => {
+    return text
+      .replace(/\*{1,}/g, '') // 移除 * 或 **
+      .replace(/#{1,}/g, '') // 移除 #
+      .replace(/`{1,}/g, '') // 移除 `
+      .replace(/-{3,}/g, '') // 移除 ---
+      .replace(/_{1,}/g, '') // 移除 _
+      .replace(/\[/g, '')    // 移除 [
+      .replace(/\]/g, '')    // 移除 ]
+      .replace(/> /g, '')    // 移除引用符号
+      .trim();
+  };
 
-          if (isMainTitle) {
-            return (
-              <div key={idx} className="border-b border-amber-500/20 pb-2 mb-4">
-                <h2 className="text-amber-500 font-black tracking-[0.4em] text-lg qimen-font">{content}</h2>
-              </div>
-            );
-          }
-
-          if (isSubTitle) {
-            return (
-              <div key={idx} className="mt-8 mb-4">
-                <h3 className="text-amber-600/80 font-bold text-xs tracking-widest bg-amber-500/5 px-4 py-1 rounded-full border border-amber-500/10 inline-block">{content}</h3>
-              </div>
-            );
-          }
-
-          return (
-            <div key={idx} className="whitespace-pre-wrap leading-relaxed tracking-widest font-light text-sm pl-4 border-l border-slate-800/50">
-              {content.replace(/\*\*/g, '')}
-            </div>
-          );
-        })}
-      </div>
-    );
-  }
-
-  // 奇门模式保持原有逻辑
-  const cleanPrediction = prediction
-    .replace(/\*{1,}/g, '').replace(/#{1,}/g, '').replace(/-{3,}/g, '').replace(/_{1,}/g, '').replace(/`{1,}/g, '').replace(/\[/g, '').replace(/\]/g, '').replace(/> /g, '').trim();
+  const processedText = cleanText(prediction);
   
-  const sections = cleanPrediction.split(/(?=第[一二三四五六七八九]步[：:])|(?=最终成算[：:])|(?=结论[：:])|(?=建议[：:])/);
+  // 按照预定义的标题或关键词进行分段，匹配：[一、...]，[1....]，[某某解析：]
+  const sections = processedText.split(/(?=[一二三四五六七八九]、)|(?=\d\.)|(?=解析：)|(?=建议：)|(?=结论：)|(?=最终胜算：)|(?=实战建议：)/);
 
   return (
-    <div className="max-w-none text-slate-300 space-y-8">
+    <div className="max-w-none text-slate-300 space-y-8 font-serif">
       {sections.map((section, idx) => {
-        const titleMatch = section.match(/^([^：\n]+[：:])/);
+        const trimmed = section.trim();
+        if (!trimmed) return null;
+
+        // 提取标题逻辑：匹配句首的标题类文字
+        const titleMatch = trimmed.match(/^([^：\n。]+[：:])/);
         const title = titleMatch ? titleMatch[1] : '';
-        const content = section.replace(title, '').trim();
-        if (!title && !content) return null;
-        const isResult = title.includes('最终') || title.includes('结论') || title.includes('成算');
-        const isStep = title.includes('第') && title.includes('步');
+        const content = trimmed.replace(title, '').trim();
+
+        const isHighlight = title.includes('结论') || title.includes('最终') || title.includes('胜算');
+
         return (
-          <div key={idx} className="animate-in fade-in slide-in-from-bottom-4 duration-700 fill-mode-both">
+          <div key={idx} className="animate-in fade-in slide-in-from-bottom-2 duration-500">
             {title && (
-              <div className="flex items-center gap-4 mb-4">
-                <h3 className={`text-[11px] font-black tracking-[0.3em] qimen-font whitespace-nowrap px-4 py-1 rounded-full border shadow-sm ${isResult ? 'text-amber-400 bg-amber-950/40 border-amber-500/40' : isStep ? 'text-amber-600 bg-slate-900/60 border-amber-900/20' : 'text-slate-500 bg-slate-950/30 border-slate-800/50'}`}>{title}</h3>
-                <div className={`h-px flex-1 ${isResult ? 'bg-amber-500/20' : 'bg-slate-800/50'}`}></div>
+              <div className="flex items-center gap-3 mb-3">
+                <div className={`h-1.5 w-1.5 rounded-full ${isHighlight ? 'bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.6)]' : 'bg-slate-700'}`}></div>
+                <h3 className={`text-xs font-black tracking-widest uppercase ${isHighlight ? 'text-amber-500' : 'text-slate-500'}`}>
+                  {title.replace(/[：:]/g, '')}
+                </h3>
+                <div className="h-px flex-1 bg-gradient-to-r from-slate-800 to-transparent"></div>
               </div>
             )}
-            <div className={`whitespace-pre-wrap leading-relaxed tracking-widest font-light pl-4 border-l-2 ${isResult ? 'text-amber-100 text-base border-amber-500/40 font-normal italic bg-amber-500/5 p-4 rounded-r-xl' : 'text-slate-300 text-sm border-slate-800/50'}`}>{content}</div>
+            <div className={`leading-relaxed tracking-widest font-light text-sm md:text-base border-l border-slate-800/50 pl-5 py-1
+              ${isHighlight ? 'text-amber-100 bg-amber-500/5 rounded-r-lg border-l-amber-500/40 p-4 font-normal italic' : 'text-slate-300'}
+            `}>
+              {content}
+            </div>
           </div>
         );
       })}

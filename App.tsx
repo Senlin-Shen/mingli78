@@ -134,7 +134,7 @@ const App: React.FC = () => {
 当前求测者入局【${autoPalace}】。
 【起局参数】：修正时间：${newBoard.trueSolarTime}, 局数：${newBoard.isYang ? '阳' : '阴'}遁${newBoard.bureau}局。
 【推演要求】：深入分析【${autoPalace}】宫内的星门神仪，给出实战落地建议。
-输出格式：[审局辨势]、[${autoPalace}解析]、[实战建议]、[最终胜算]。禁用Markdown符号。`;
+输出格式要求：严禁使用 Markdown 符号（如 * 或 #）。直接输出段落。分阶段分析：1. 审局辨势；2. 核心解析；3. 实战建议；4. 最终胜算。`;
     } else {
       setBoard(null);
       if (type === 'LIU_YAO') {
@@ -154,12 +154,10 @@ const App: React.FC = () => {
       systemInstruction = `# Role
 你是一位精通传统易学（四柱命理、六爻预测）与道家智慧的资深专家。
 # Core Analysis Logic
-1. 六爻演化模型：基于《增删卜易》，关注用神旺衰、回头生克。合处逢冲必散，冲处逢合必成。
-2. 四柱命理模型：五行气象论。审视寒暖燥湿，调候优先。从气象补缺、格用定岗、体用定式、三才定时给出建议。
-3. 医易同源：分析五行过盈状态及脏腑风险。
+1. 六爻：关注用神旺衰、生克。2. 四柱：五行气象论，寒暖燥湿。
 # Workflow
-输出格式严格遵循：一、气象与能量态势分析；二、核心逻辑推论；三、详细判定结论；四、行为与环境调理建议。
-健康建议备注“仅供参考，请遵医嘱”。`;
+输出要求：严禁使用任何 Markdown 符号（如 * 或 #）。
+格式：一、气象态势分析；二、逻辑推论；三、判定结论；四、调理建议。`;
     }
 
     try {
@@ -204,11 +202,12 @@ const App: React.FC = () => {
         <div className="max-w-md w-full relative z-10 text-center">
           <div className="mb-12 relative inline-block animate-glow">
              <div className="absolute -inset-10 bg-amber-500/10 blur-3xl rounded-full"></div>
-             <h1 className="text-7xl font-bold text-slate-100 mb-4 qimen-font tracking-[0.5em] relative">奇门景曜</h1>
-             <p className="text-amber-500/60 text-xs tracking-[0.8em] font-black uppercase text-white/80">Volcengine Powered Logic Lab</p>
+             <h1 className="text-7xl md:text-8xl font-bold text-slate-100 mb-6 qimen-font tracking-[0.5em] relative">奇门景曜</h1>
+             <p className="text-amber-500/60 text-xs tracking-[1em] font-black uppercase text-white/80">Volcengine Powered Logic Lab</p>
           </div>
-          <button onClick={() => setIsEntered(true)} className="group relative px-12 py-4 bg-amber-600 hover:bg-amber-500 text-white font-bold rounded-2xl transition-all shadow-2xl hover:shadow-amber-500/40">
-            <span className="relative z-10 tracking-[1em] pl-4 text-sm font-black text-white">开启推演</span>
+          <button onClick={() => setIsEntered(true)} className="group relative px-16 py-5 bg-amber-600 hover:bg-amber-500 text-white font-black rounded-2xl transition-all shadow-2xl hover:shadow-amber-500/50 hover:scale-105 active:scale-95">
+            <span className="relative z-10 tracking-[1.5em] pl-6 text-sm font-black text-white">开启推演</span>
+            <div className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity rounded-2xl"></div>
           </button>
         </div>
       </div>
@@ -216,66 +215,121 @@ const App: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-[#020617] text-slate-100 flex flex-col">
+    <div className="min-h-screen bg-[#020617] text-slate-100 flex flex-col selection:bg-amber-500/30">
       <Header />
-      <div className="bg-slate-900/80 border-y border-slate-800 backdrop-blur-md sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto flex items-center h-12">
+      
+      {/* 顶部导航切换 */}
+      <div className="bg-slate-900/95 border-y border-slate-800 backdrop-blur-xl sticky top-0 z-50 shadow-2xl">
+        <div className="max-w-7xl mx-auto flex items-center h-14">
           <button 
             type="button"
             onClick={() => { setMode('QIMEN'); setChatHistory([]); }} 
-            className={`flex-1 h-full text-[10px] tracking-[0.3em] font-black transition-all border-r border-slate-800 ${mode === 'QIMEN' ? 'bg-amber-600/20 text-amber-500 shadow-inner' : 'text-slate-500'}`}
+            className={`flex-1 h-full text-[11px] tracking-[0.4em] font-black transition-all border-r border-slate-800/50 relative overflow-hidden group ${mode === 'QIMEN' ? 'text-amber-500' : 'text-slate-500 hover:text-slate-300'}`}
           >
+            {mode === 'QIMEN' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.6)] animate-in slide-in-from-left duration-300"></div>}
             奇门时空推演
           </button>
           <button 
             type="button"
             onClick={() => { setMode('YI_LOGIC'); setChatHistory([]); }} 
-            className={`flex-1 h-full text-[10px] tracking-[0.3em] font-black transition-all ${mode === 'YI_LOGIC' ? 'bg-amber-600/20 text-amber-500 shadow-inner' : 'text-slate-500'}`}
+            className={`flex-1 h-full text-[11px] tracking-[0.4em] font-black transition-all relative overflow-hidden group ${mode === 'YI_LOGIC' ? 'text-amber-500' : 'text-slate-500 hover:text-slate-300'}`}
           >
+            {mode === 'YI_LOGIC' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.6)] animate-in slide-in-from-left duration-300"></div>}
             多维易理实验室
           </button>
         </div>
       </div>
 
-      <main className="flex-1 max-w-7xl mx-auto w-full px-6 py-12 grid grid-cols-1 lg:grid-cols-2 gap-12">
-        <div className="space-y-8">
-          <section className="bg-slate-900/40 border border-slate-800 p-8 rounded-3xl backdrop-blur-md shadow-xl border-t-amber-500/10">
-            <h2 className="text-xl font-bold mb-6 text-amber-500 flex items-center gap-3">
-              <span className="w-8 h-8 rounded-full bg-amber-500/10 flex items-center justify-center text-sm font-black">01</span>
-              {mode === 'QIMEN' ? '时空基准录入' : '演化模型构建'}
-            </h2>
+      <main className="flex-1 max-w-7xl mx-auto w-full px-6 py-12 grid grid-cols-1 lg:grid-cols-2 gap-12 items-start">
+        {/* 左侧录入区 */}
+        <div className="space-y-10 sticky top-24">
+          <section className="bg-slate-900/40 border border-slate-800 p-8 rounded-[2rem] backdrop-blur-xl shadow-2xl border-t-amber-500/10">
+            <div className="flex items-center justify-between mb-8">
+              <h2 className="text-xl font-black text-slate-100 flex items-center gap-4">
+                <span className="w-10 h-10 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-500 text-sm font-black shadow-inner">01</span>
+                {mode === 'QIMEN' ? '时空基准录入' : '演化模型构建'}
+              </h2>
+              <div className="h-px flex-1 bg-slate-800 ml-6 opacity-30"></div>
+            </div>
             <InputForm onPredict={handlePredict} isLoading={loading} mode={mode} />
           </section>
-          {mode === 'QIMEN' && board && <BoardGrid board={board} />}
+          
+          {mode === 'QIMEN' && board && (
+            <div className="animate-in fade-in zoom-in-95 duration-700">
+               <BoardGrid board={board} />
+            </div>
+          )}
         </div>
 
-        <div className="space-y-8 flex flex-col h-full">
-          <section className="bg-slate-900/40 border border-slate-800 p-8 rounded-3xl backdrop-blur-md flex-1 flex flex-col relative overflow-hidden max-h-[1200px] shadow-xl">
-            <h2 className="text-xl font-bold mb-6 text-amber-500 flex items-center gap-3">
-              <span className="w-8 h-8 rounded-full bg-amber-500/10 flex items-center justify-center text-sm font-black">02</span>
-              {mode === 'QIMEN' ? '格局逻辑解构' : '深度理法报告'}
-            </h2>
-            <div ref={scrollRef} className="flex-1 overflow-y-auto pr-4 space-y-8 scroll-smooth pb-20">
+        {/* 右侧解析区 */}
+        <div className="space-y-10 h-full">
+          <section className="bg-slate-900/40 border border-slate-800 p-8 md:p-10 rounded-[2rem] backdrop-blur-xl flex flex-col relative overflow-hidden min-h-[600px] max-h-[1400px] shadow-2xl border-t-amber-500/10">
+            <div className="flex items-center justify-between mb-8">
+              <h2 className="text-xl font-black text-slate-100 flex items-center gap-4">
+                <span className="w-10 h-10 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-500 text-sm font-black shadow-inner">02</span>
+                {mode === 'QIMEN' ? '格局逻辑解构' : '深度理法报告'}
+              </h2>
+              <div className="h-px flex-1 bg-slate-800 ml-6 opacity-30"></div>
+            </div>
+
+            <div ref={scrollRef} className="flex-1 overflow-y-auto pr-4 space-y-12 scroll-smooth pb-32">
               {chatHistory.filter(m => m.role !== 'system').map((msg, i) => (
-                <div key={i} className={`animate-in fade-in slide-in-from-bottom-2 duration-500 ${msg.role === 'user' ? 'opacity-80 border-l-2 border-amber-500/30 pl-4 py-2 my-4 bg-amber-500/5 rounded-xl' : ''}`}>
+                <div key={i} className={`animate-in fade-in slide-in-from-bottom-4 duration-700 ${msg.role === 'user' ? 'opacity-70 border-l-2 border-amber-500/20 pl-6 py-4 my-8 bg-amber-500/5 rounded-r-2xl' : ''}`}>
+                  {msg.role === 'user' && <p className="text-[10px] text-amber-600/60 uppercase tracking-widest font-black mb-2">问询：</p>}
                   <AnalysisDisplay prediction={msg.content} isYiLogic={mode === 'YI_LOGIC'} />
                 </div>
               ))}
+              
               {prediction && (
-                <div className="border-t border-slate-800/50 pt-6 mt-6 animate-pulse">
-                   <p className="text-[10px] text-amber-500 mb-4 tracking-[0.3em] font-black uppercase">正在解构理法数据...</p>
+                <div className="border-t border-slate-800/50 pt-10 mt-10 animate-pulse">
+                   <p className="text-[10px] text-amber-500 mb-6 tracking-[0.5em] font-black uppercase flex items-center gap-3">
+                     <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-ping"></span>
+                     正在解构理法数据...
+                   </p>
                    <AnalysisDisplay prediction={prediction} isYiLogic={mode === 'YI_LOGIC'} />
                 </div>
               )}
-              {loading && !prediction && <div className="flex-1 flex flex-col items-center justify-center gap-6 text-slate-500 min-h-[400px]"><div className="w-12 h-12 border-4 border-amber-500/10 border-t-amber-500 rounded-full animate-spin"></div><p className="text-xs tracking-[0.4em] text-amber-500 font-bold uppercase">正在解析变数...</p></div>}
-              {error && <div className="p-6 bg-red-950/20 border border-red-900/40 rounded-2xl text-red-400 text-sm italic">{error}</div>}
+
+              {loading && !prediction && (
+                <div className="flex-1 flex flex-col items-center justify-center gap-8 text-slate-500 min-h-[400px]">
+                  <div className="relative">
+                    <div className="w-16 h-16 border-[3px] border-amber-500/5 border-t-amber-500 rounded-full animate-spin"></div>
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <div className="w-8 h-8 bg-amber-500/20 rounded-full animate-pulse"></div>
+                    </div>
+                  </div>
+                  <div className="text-center space-y-2">
+                    <p className="text-xs tracking-[0.6em] text-amber-500 font-black uppercase">正在连接时空枢纽</p>
+                    <p className="text-[9px] text-slate-600 tracking-widest italic">同步干支能量流中...</p>
+                  </div>
+                </div>
+              )}
+              
+              {error && (
+                <div className="p-8 bg-red-950/10 border border-red-900/30 rounded-[2rem] text-red-400 text-sm leading-relaxed animate-in shake duration-500">
+                  <p className="font-black tracking-widest uppercase mb-2 text-[10px]">链路异常</p>
+                  {error}
+                </div>
+              )}
             </div>
 
+            {/* 追问区域 */}
             {chatHistory.length > 0 && !loading && (
-              <div className="mt-4 border-t border-slate-800 pt-6 bg-slate-900/40 -mx-8 px-8 pb-4">
+              <div className="absolute bottom-0 left-0 right-0 p-8 pt-0 bg-gradient-to-t from-slate-900 via-slate-900/95 to-transparent backdrop-blur-sm">
                 <form onSubmit={handleFollowUp} className="relative group">
-                   <textarea value={followUpText} onChange={(e) => setFollowUpText(e.target.value)} placeholder="进一步研讨理法变数..." className="w-full h-24 bg-slate-950/80 border border-slate-800 rounded-2xl p-4 text-slate-200 focus:outline-none focus:ring-2 focus:ring-amber-500/30 transition-all resize-none text-xs" />
-                   <button type="submit" className="absolute bottom-4 right-4 bg-amber-600 hover:bg-amber-500 text-white px-6 py-2 rounded-xl text-[10px] font-bold tracking-widest transition-all shadow-lg">继续探讨</button>
+                   <div className="absolute -inset-0.5 bg-gradient-to-r from-amber-500/20 to-blue-500/20 rounded-2xl blur opacity-30 group-focus-within:opacity-100 transition duration-500"></div>
+                   <textarea 
+                     value={followUpText} 
+                     onChange={(e) => setFollowUpText(e.target.value)} 
+                     placeholder="进一步探讨变数细节..." 
+                     className="relative w-full h-20 bg-slate-950/90 border border-slate-800 rounded-2xl p-4 text-slate-200 focus:outline-none focus:border-amber-500/50 transition-all resize-none text-xs leading-relaxed" 
+                   />
+                   <button 
+                     type="submit" 
+                     className="absolute bottom-4 right-4 bg-amber-600 hover:bg-amber-500 text-white px-6 py-2 rounded-xl text-[10px] font-black tracking-widest transition-all shadow-lg shadow-amber-900/40 hover:scale-105 active:scale-95"
+                   >
+                     研讨
+                   </button>
                 </form>
               </div>
             )}
