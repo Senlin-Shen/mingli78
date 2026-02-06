@@ -3,25 +3,25 @@ import React from 'react';
 
 const Header: React.FC = () => {
   return (
-    <header className="text-center py-12 border-b border-amber-900/20 relative">
-      <div className="absolute inset-0 bg-gradient-to-b from-amber-500/5 to-transparent pointer-events-none"></div>
-      <div className="inline-block px-6 py-1.5 mb-6 border border-amber-600/20 rounded-full bg-slate-950/50 backdrop-blur-md">
-        <span className="text-[10px] text-amber-500/80 tracking-[0.4em] font-black uppercase">
-          Contemporary Application · qimenjingyao.cn
+    <header className="text-center py-16 border-b border-orange-900/20 relative">
+      <div className="absolute inset-0 bg-gradient-to-b from-orange-500/5 to-transparent pointer-events-none"></div>
+      <div className="inline-block px-5 py-1 mb-8 border border-orange-600/20 rounded-full bg-slate-950/50 backdrop-blur-md">
+        <span className="text-[9px] text-orange-500/80 tracking-[0.5em] font-black uppercase">
+          Bi Hai Framework · Contemporary Application
         </span>
       </div>
-      <h1 className="text-6xl md:text-8xl qimen-font text-amber-500 mb-6 drop-shadow-[0_0_25px_rgba(245,158,11,0.4)] animate-glow">
+      <h1 className="text-7xl md:text-9xl qimen-font text-orange-500 mb-8 drop-shadow-[0_0_35px_rgba(245,158,11,0.5)] animate-glow">
         奇门景曜
       </h1>
-      <div className="flex items-center justify-center gap-4 mb-6">
-        <div className="h-px w-12 bg-amber-900/40"></div>
-        <p className="text-amber-700/60 text-[10px] tracking-[0.5em] font-bold uppercase">正统奇门当代实战推演</p>
-        <div className="h-px w-12 bg-amber-900/40"></div>
+      <div className="flex items-center justify-center gap-5 mb-8">
+        <div className="h-px w-10 bg-orange-900/40"></div>
+        <p className="text-orange-700/60 text-[9px] tracking-[0.6em] font-black uppercase">正统奇门当代实战推演</p>
+        <div className="h-px w-10 bg-orange-900/40"></div>
       </div>
-      <p className="text-slate-400 max-w-2xl mx-auto text-sm md:text-base leading-loose px-6 tracking-widest font-light italic">
-        基于天、地、人、神四盘深度模型，
-        <br className="hidden md:block" />
-        提供全方位的当代决策建议与时空策略。
+      <p className="text-slate-500 max-w-xl mx-auto text-xs md:text-sm leading-loose px-8 tracking-[0.2em] font-light italic opacity-80">
+        “景者，明也；曜者，辉也。”
+        <br />
+        以离火之明照破时空迷雾，辅君理性决策。
       </p>
     </header>
   );
