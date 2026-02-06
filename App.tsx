@@ -1,5 +1,6 @@
 
 import React, { useState, useCallback, useEffect, useRef } from 'react';
+import { GoogleGenAI } from "@google/genai";
 import AnalysisDisplay from './components/AnalysisDisplay';
 import BoardGrid from './components/BoardGrid';
 import BaZiChart from './components/BaZiChart';
@@ -29,7 +30,7 @@ const App: React.FC = () => {
   const [followUpText, setFollowUpText] = useState('');
   
   const [displayPrediction, setDisplayPrediction] = useState('');
-  const predictionBuffer = useRef('');
+  const lastUpdateTime = useRef(0);
 
   const getPalaceFromCoords = (lng: number, lat: number) => {
     const angle = Math.atan2(lat - CHINA_CENTER.lat, lng - CHINA_CENTER.lng);
@@ -66,51 +67,48 @@ const App: React.FC = () => {
     fetchGeo();
   }, []);
 
+  const updateDisplay = useCallback((text: string, force = false) => {
+    const now = performance.now();
+    if (force || now - lastUpdateTime.current > 20) { 
+      setDisplayPrediction(text);
+      lastUpdateTime.current = now;
+    }
+  }, []);
+
   const streamResponse = async (messages: ChatMessage[]) => {
-    const response = await fetch('/api/ark-proxy', {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ messages, temperature: 0.8 }), 
-    });
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
+    const systemMsg = messages.find(m => m.role === 'system')?.content || '';
+    const userMsgs = messages.filter(m => m.role !== 'system');
+    
+    // 构造 Gemini 格式的 contents
+    const contents = userMsgs.map(m => ({
+      role: m.role === 'user' ? 'user' : 'model',
+      parts: [{ text: m.content }]
+    }));
 
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.error || "推演链路连接失败");
-    }
+    try {
+      const result = await ai.models.generateContentStream({
+        model: 'gemini-3-pro-preview',
+        contents: contents as any,
+        config: {
+          systemInstruction: systemMsg,
+          temperature: 0.85,
+          thinkingConfig: { thinkingBudget: 16384 } // 开启思考模式以处理复杂的理法推导
+        },
+      });
 
-    const reader = response.body?.getReader();
-    const decoder = new TextDecoder();
-    let fullText = "";
-    predictionBuffer.current = "";
-
-    if (!reader) throw new Error("无法读取推演流");
-
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-
-      const chunk = decoder.decode(value, { stream: true });
-      const lines = chunk.split("\n");
-
-      for (const line of lines) {
-        if (line.startsWith("data: ")) {
-          const data = line.slice(6).trim();
-          if (data === "[DONE]") break;
-          try {
-            const parsed = JSON.parse(data);
-            const content = parsed.choices[0]?.delta?.content || "";
-            fullText += content;
-            predictionBuffer.current += content;
-            // 将更新阈值降低至 2 个字符，大幅提升视觉上的输出速度
-            if (predictionBuffer.current.length > 2 || done) {
-              setDisplayPrediction(fullText);
-              predictionBuffer.current = ""; 
-            }
-          } catch (e) {}
-        }
+      let fullText = "";
+      for await (const chunk of result) {
+        const content = chunk.text || "";
+        fullText += content;
+        updateDisplay(fullText);
       }
+      updateDisplay(fullText, true);
+      return fullText;
+    } catch (err: any) {
+      console.error("Gemini API Error:", err);
+      throw new Error(err.message || "通联时空链路异常");
     }
-    return fullText;
   };
 
   const handlePredict = useCallback(async (userInput: string | any, type: string, date?: string) => {
@@ -131,40 +129,47 @@ const App: React.FC = () => {
       if (userLocation) newBoard.location = { ...userLocation, isAdjusted: true };
       setBoard(newBoard);
 
-      finalUserInput = userInput as string;
-      systemInstruction = `你是一位精通奇门遁甲实战预测的顶级专家。你的回答需要具备极高的法理深度、详尽的象数剖析以及各维度的落地实践建议。
+      finalUserInput = `起局方位：${autoPalace}。事宜：${userInput as string}`;
+      systemInstruction = `你是一位精通林毅奇门遁甲体系的顶级专家。
 # 任务目标
-请输出一份篇幅宏大、字数不少于1000字的深度分析报告。严禁使用 Markdown 符号。
-# 核心解析逻辑
-1. 理法发微：深度阐述当前时空干支的能量属性。
-2. 深度象数解析：深度解剖星、门、神、仪。
-3. 多维度实战策略：商业实战建议、心理/环境调理、应期分析。
+输出1500字以上深度分析。严禁使用 Markdown。
+# 核心逻辑
+1. 理法依据：拆解干支五行、生克合化、旬空、马星。
+2. 象数深度：分析星门神仪能量。
+3. 实践建议：定应期、择地方位、商业决策路径。
 输出分段：理法发微、深度象数解析、多维度实战策略、乾坤断语建议。`;
     } else {
       setBoard(null);
       if (type === 'LIU_YAO') {
         const input = userInput as LiuYaoInput;
-        finalUserInput = `【六爻演化报数起卦】三组动数：${input.numbers.join(', ')}。求测事宜：${input.question}`;
+        finalUserInput = `【六爻推演】动数：${input.numbers.join(', ')}。事宜：${input.question}`;
+        systemInstruction = `你是一位精通《增删卜易》逻辑并承袭姜氏气象论的六爻专家。字数1200字以上。严禁 Markdown。
+内容包含：卦理法要、象义深度解构、应期分析。`;
       } else {
         const input = userInput as BaZiInput;
-        // 模拟一个四柱排盘数据以便 UI 展示 (在真实生产环境中可由后端或更复杂的库计算)
         setBaziData({
           year: ["甲", "辰"],
           month: ["丙", "寅"],
           day: ["丁", "卯"],
           hour: ["戊", "申"]
         });
-        finalUserInput = `【四柱气象结构推演】姓名：${input.name}，性别：${input.gender}，出生时空：${input.birthDate}，出生地址：${input.birthPlace}`;
-      }
-
-      systemInstruction = `你是一位承袭碧海易学精髓、深研《增删卜易》逻辑的资深预测专家。你的分析应结合法理深度与道医结合的人文视角。
+        finalUserInput = `【四柱气象全息推演】姓名：${input.name}，生辰：${input.birthDate} ${input.birthTime || ''}。地点：${input.birthPlace}。
+请结合盲派、碧海易学体系进行深度剖析。`;
+        
+        systemInstruction = `你是一位承袭“碧海易学”定格体系与“姜氏五行气象论”精髓的顶级命理实战专家。
 # 任务目标
-请输出一份极具专业厚度且内容详实的推演报告。严禁使用 Markdown 符号。
-# 逻辑架构
-1. 气象/卦理法理：分析月令日辰的生克制化。
-2. 核心命局/卦象解析：解析现代职业、财富在命局中的具体映射。
-3. 深度实践建议：职业建议、避坑指南、心态修持方案。
-输出分段：气象/卦理法理、核心命局/卦象解析、深度实践建议、道学修持方案。`;
+输出不少于2000字的极深度命理报告。严禁使用 Markdown。
+# 核心理法
+1. 五行气象论：深度分析全局的“寒暖燥湿”。分析金水之寒、木火之暖、燥土与湿土的交互，以此定下人生底色。
+2. 碧海定格分析：通过宾主、体用关系，准确输出“定格”名称。分析此命造是属于“食神生财”的商业格，还是“杀印相生”的权贵格，亦或是“伤官配印”的才华格。
+3. 核心定式判定：判定身强、身弱、从格等能量结构。依据“身强财旺宜创业，身弱财旺宜平台”原则给出职业基调。
+4. 十神现代映射：
+   - 伤官：现代代表流量、短视频、创新能力、破坏式革新。
+   - 偏印：代表冷门技术、深度洞察、心理学、AI算法等。
+   - 七杀：代表开拓精神、风险管理、重资产运作。
+5. 岁运财富量级：基于盲派做功理论，计算各大运的财富吸纳能力。
+输出分段：五行气象论、碧海定格分析、核心定式判定、十神现代映射、岁运纵横（含财富量级）、诚实铁口评价。`;
+      }
     }
 
     try {
@@ -180,7 +185,7 @@ const App: React.FC = () => {
     } finally { 
       setLoading(false); 
     }
-  }, [userLocation, mode]);
+  }, [userLocation, mode, streamResponse]);
 
   const handleFollowUp = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -210,7 +215,7 @@ const App: React.FC = () => {
           <div className="mb-12 relative inline-block animate-glow">
              <div className="absolute -inset-10 bg-amber-500/10 blur-3xl rounded-full"></div>
              <h1 className="text-7xl md:text-8xl font-bold text-slate-100 mb-6 qimen-font tracking-[0.5em] relative">奇门景曜</h1>
-             <p className="text-amber-500/60 text-xs tracking-[1em] font-black uppercase text-white/80">Volcengine Powered Logic Lab</p>
+             <p className="text-amber-500/60 text-xs tracking-[1em] font-black uppercase text-white/80">Qi Men Jing Yao Lab</p>
           </div>
           <button onClick={() => setIsEntered(true)} className="group relative px-16 py-5 bg-amber-600 hover:bg-amber-500 text-white font-black rounded-2xl transition-all shadow-2xl hover:shadow-amber-500/50 hover:scale-105 active:scale-95">
             <span className="relative z-10 tracking-[1.5em] pl-6 text-sm font-black text-white">开启推演</span>
