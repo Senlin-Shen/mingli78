@@ -12,7 +12,6 @@ import { useBazi } from './hooks/useBazi';
 import { QiMenBoard, AppMode, BaZiInput, LiuYaoInput } from './types';
 import { BaziResultData } from './types/bazi.types';
 
-// 火山引擎 Ark 模型 ID
 const UNIFIED_MODEL = "ep-20260206175318-v6cl7";
 
 export interface ChatMessage {
@@ -43,10 +42,11 @@ const App: React.FC = () => {
   
   const { getBaziResult } = useBazi();
   const fullTextRef = useRef('');
+  const isStreamingRef = useRef(false);
   const renderAnimationFrame = useRef<number | null>(null);
 
   useEffect(() => {
-    const saved = localStorage.getItem('qimen_history_v5');
+    const saved = localStorage.getItem('qimen_history_v6');
     if (saved) {
       try {
         setHistory(JSON.parse(saved));
@@ -61,7 +61,7 @@ const App: React.FC = () => {
 
   useEffect(() => {
     if (history.length > 0) {
-      localStorage.setItem('qimen_history_v5', JSON.stringify(history));
+      localStorage.setItem('qimen_history_v6', JSON.stringify(history));
     }
   }, [history]);
 
@@ -75,10 +75,13 @@ const App: React.FC = () => {
     setLoading(false);
     setIsAiThinking(false);
     fullTextRef.current = '';
+    isStreamingRef.current = false;
   };
 
-  // 极速流式传输与即时渲染引擎
+  // 极致流畅流式渲染引擎
   const streamResponse = async (messages: ChatMessage[]) => {
+    if (isStreamingRef.current) return; // 物理层防止并发导致的“重复结果”
+    isStreamingRef.current = true;
     fullTextRef.current = '';
     setDisplayPrediction('');
     setIsAiThinking(true); 
@@ -95,7 +98,7 @@ const App: React.FC = () => {
         })
       });
 
-      if (!response.ok) throw new Error('因果链传导中断，请稍后重试');
+      if (!response.ok) throw new Error('星盘能量传导中断，请刷新重试');
 
       const reader = response.body?.getReader();
       const decoder = new TextDecoder();
@@ -128,7 +131,7 @@ const App: React.FC = () => {
 
             fullTextRef.current += content;
             
-            // 优化：仅在主线程空闲时更新 UI，防止高频触发导致的卡顿
+            // 使用单帧渲染锁，确保在高频流式输入下 UI 依然丝滑且不会出现状态回溯
             if (!renderAnimationFrame.current) {
               renderAnimationFrame.current = requestAnimationFrame(() => {
                 setDisplayPrediction(fullTextRef.current);
@@ -142,6 +145,8 @@ const App: React.FC = () => {
     } catch (err: any) {
       setIsAiThinking(false);
       throw err;
+    } finally {
+      isStreamingRef.current = false;
     }
   };
 
@@ -152,29 +157,20 @@ const App: React.FC = () => {
     setBoard(null);
     setBaziData(null);
 
-    const EXPERT_SYSTEM_PROMPT = `你是一位承袭“医易同源”智慧的深度易学实战专家。你的分析严密遵循“五行气象论”与“三才实战算法”，强调逻辑推演，拒绝迷信，拥抱科学。
+    // 基准专家指令（不含 markdown）
+    const EXPERT_BASE = `你是一位精通传统命理与现代实战的深度咨询顾问。严禁使用 # 或 * 等 Markdown 符号，严禁加粗。
 
 一、 核心分析逻辑：
 1. 评估“气象”：凡命局与卦象，首看寒暖燥湿。
 2. 识别“轴心”：寻月令格局、核心用神与忌神。
 3. 推演“路径”：查看冲、合、空、破、回头克。
 
-二、 实战建议维度（强制包含）：
-你的建议必须打破单一玄学范畴，实现跨维度落地：
-1. 【医学/生理】：根据五行偏枯提供具体的脏腑调理、饮食结构（如：避开生冷、增加优质蛋白）及睡眠作息建议。
-2. 【现代科学/商业逻辑】：针对求测事项，融入风险管理（止损位设置）、概率评估或博弈论视角，提供理性的物理层操作建议。
-3. 【切实行动】：给出“明天就可以开始做”的一件小事，确保能量从虚入实。
+二、 实战建议维度（强制包含且不重复）：
+1. 【医学/生理】：根据五行偏枯提供具体的脏腑调理、饮食结构。
+2. 【现代科学/商业逻辑】：融入风险管理、概率评估或博弈论视角。
+3. 【切实行动】：给出“明天就可以开始做”的一件物理层小事。`;
 
-三、 输出约束：
-1. 严禁使用 # 和 * 符号。严禁 Markdown 粗体。
-2. 模块化结构：
-   一、 能量态势透视
-   二、 深度逻辑分析（气象与流通）
-   三、 核心判定结论
-   四、 综合调理与实操建议（包含医学、科学、行动指南）
-3. 涉及流年或月份趋势时，必须按照“年份/月份：内容”的规范格式逐条列出，严禁排版混乱。`;
-
-    let systemInstruction = EXPERT_SYSTEM_PROMPT;
+    let systemInstruction = EXPERT_BASE;
     let finalUserInput = "";
     let activeBoard: QiMenBoard | null = null;
     let activeBazi: BaziResultData | null = null;
@@ -183,26 +179,36 @@ const App: React.FC = () => {
       const targetDate = date ? new Date(date) : new Date();
       activeBoard = calculateBoard(targetDate, 120);
       setBoard(activeBoard);
-      finalUserInput = `[任务：奇门全息解析]\n数据：${JSON.stringify(activeBoard)}\n诉求：${userInput}`;
+      finalUserInput = `[任务：奇门解析]\n盘面：${JSON.stringify(activeBoard)}\n诉求：${userInput}`;
     } else if (mode === 'YI_LOGIC') {
       if (type === 'BA_ZI') {
         const input = userInput as BaZiInput;
         activeBazi = getBaziResult(input.birthDate, input.birthTime || '', input.birthPlace, input.gender);
         setBaziData(activeBazi);
+        
+        systemInstruction = `你是一位精通子平八字与现代优化顾问的专家。严禁使用 Markdown 符号。输出结构强制如下：
+一、 命盘基础信息
+二、 命格核心诊断（包含日主旺衰、五行分布、病药分析、用神判定、格局特征）
+三、 多维优化方案（环境能量调整、事业财富策略、情感关系指导、健康养生要点、近期运势节奏）
+四、 综合建议总结（150字左右）
+
+建议原则：
+- 医学：结合五行提供脏腑调理建议。
+- 科学：提供风险概率、行为心理方面的现代视角。
+- 行动：必须有一个立即执行的物理动作。`;
+
         const p = activeBazi.pillars;
-        finalUserInput = `[任务：深度分析命局]\n姓名：${input.name || '命主'}\n排盘：${p.year.stem}${p.year.branch} ${p.month.stem}${p.month.branch} ${p.day.stem}${p.day.branch} ${p.hour.stem}${p.hour.branch}\n诉求：${input.question || '综合气象评估'}`;
+        finalUserInput = `[命局分析]
+性别：${input.gender} | 公历：${input.birthDate} | 时辰：${input.birthTime || '不详'}
+排盘：${p.year.stem}${p.year.branch} ${p.month.stem}${p.month.branch} ${p.day.stem}${p.day.branch} ${p.hour.stem}${p.hour.branch}
+诉求：${input.question || '全局深度推演'}`;
       } else {
         const input = userInput as LiuYaoInput;
-        finalUserInput = `[任务：六爻推演]\n卦象：${input.numbers.join(', ')}\n诉求：${input.question}`;
+        finalUserInput = `[六爻推演]\n卦象：${input.numbers.join(', ')}\n诉求：${input.question}`;
       }
     } else if (mode === 'TCM_AI') {
       finalUserInput = userInput;
-      systemInstruction = `你是一位精通传统中医全息调理与现代预防医学的专家。
-一、 全息失衡判定
-二、 核心病机解析
-三、 临床调理原则
-四、 综合方案建议（包含食疗、物理锻炼、现代医学参考）
-严禁使用 Markdown 符号。`;
+      systemInstruction = `中医全息调理专家。一、失衡判定 二、病机解析 三、调理原则 四、方案建议。严禁 Markdown。`;
     }
 
     try {
@@ -242,12 +248,7 @@ const App: React.FC = () => {
       </div>
 
       <main className="flex-1 max-w-4xl mx-auto w-full px-6 py-12 flex flex-col gap-12">
-        {error && (
-          <div className="p-4 bg-rose-500/10 border border-rose-500/30 rounded-xl text-rose-500 text-xs text-center font-black">
-            {error}
-          </div>
-        )}
-        
+        {error && <div className="p-4 bg-rose-500/10 border border-rose-500/30 rounded-xl text-rose-500 text-xs text-center font-black">{error}</div>}
         <InputForm onPredict={handlePredict} isLoading={loading} mode={mode} />
         
         {(board || baziData) && (
@@ -262,13 +263,11 @@ const App: React.FC = () => {
             <div className="relative">
               <div className="w-20 h-20 border-2 border-rose-500/20 rounded-full animate-ping"></div>
               <div className="absolute inset-0 border-t-2 border-emerald-500 rounded-full animate-spin"></div>
-              <div className="absolute inset-0 flex items-center justify-center">
-                <span className="text-[10px] text-rose-500 font-black animate-pulse">思</span>
-              </div>
+              <div className="absolute inset-0 flex items-center justify-center"><span className="text-[10px] text-rose-500 font-black animate-pulse">思</span></div>
             </div>
             <div className="text-center space-y-3">
-              <p className="text-[10px] text-emerald-500 font-black tracking-[0.6em] uppercase">逻辑解析中 · Logic Processing</p>
-              <p className="text-[12px] text-slate-500 italic font-serif">正在链接医学、科学与实证数据库，为您生成多维分析报告...</p>
+              <p className="text-[10px] text-emerald-500 font-black tracking-[0.6em] uppercase">逻辑引擎构思中 · Processing</p>
+              <p className="text-[12px] text-slate-500 italic font-serif">正在根据“气象论”审视寒暖燥湿，权衡五行能量流通...</p>
             </div>
           </section>
         )}
@@ -280,7 +279,6 @@ const App: React.FC = () => {
           </section>
         )}
       </main>
-      
       <Footer />
       <ProfilePanel 
         isOpen={isProfileOpen} 
