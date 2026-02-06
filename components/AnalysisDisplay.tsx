@@ -5,13 +5,18 @@ interface AnalysisDisplayProps {
   prediction: string;
 }
 
-// 预定义常量与正则，避免在渲染循环中重复创建
+// 预定义常量与正则，增加对最新 Prompt 结构的标题识别支持
 const PATTERNS = [
   '一、\\s*能量态势透视', 
   '二、\\s*深度逻辑分析', 
   '三、\\s*核心判定结论', 
   '四、\\s*综合调理建议',
   '四、\\s*全息理法建议',
+  '第一步：\\s*核验与排盘',
+  '第二步：\\s*命格核心诊断',
+  '第三步：\\s*多维度优化方案生成',
+  '第四步：\\s*生成整合总结与开篇诗句',
+  '[ABCD]\\.\\s*[^\\n]+',
   '【能量态势透视】', 
   '【深度逻辑分析】', 
   '【核心判定结论】', 
@@ -23,15 +28,18 @@ const PATTERNS = [
   '【命局排盘】',
   '【定格分析】',
   '【定式分析】',
-  '【流年趋势】'
+  '【流年趋势】',
+  '【定格点睛】',
+  '【辨旺衰】',
+  '【找病药】',
+  '【论调候与通关】'
 ];
 
 const SECTION_SPLIT_REGEX = new RegExp(`(?=${PATTERNS.join('|')})`, 'g');
-const TITLE_MATCH_REGEX = /^([一二三四]、\s*[^\\n]+|【[^】]+】)/;
+const TITLE_MATCH_REGEX = /^([一二三四]、\s*[^\\n]+|第[一二三四]步：\s*[^\\n]+|[ABCD]\.\s*[^\\n]+|【[^】]+】)/;
 const CLEAN_MARKDOWN_REGEX = /[\*#`\-]{2,}/g;
 
 const AnalysisDisplay: React.FC<AnalysisDisplayProps> = ({ prediction }) => {
-  // 使用 useMemo 缓存解析结果，仅当推演内容变化时重算
   const sections = useMemo(() => {
     if (!prediction) return [];
     
@@ -46,7 +54,16 @@ const AnalysisDisplay: React.FC<AnalysisDisplayProps> = ({ prediction }) => {
       const titleMatch = trimmed.match(TITLE_MATCH_REGEX);
       const title = titleMatch ? titleMatch[0].replace(/[【】]/g, '').trim() : '';
       const content = trimmed.replace(TITLE_MATCH_REGEX, '').trim();
-      const isHighlight = title.includes('判定') || title.includes('理法') || title.includes('建议') || title.includes('结论') || title.includes('趋势') || title.includes('定格') || title.includes('定式');
+      const isHighlight = 
+        title.includes('判定') || 
+        title.includes('理法') || 
+        title.includes('建议') || 
+        title.includes('结论') || 
+        title.includes('趋势') || 
+        title.includes('定格') || 
+        title.includes('定式') ||
+        title.includes('第三步') ||
+        /^[ABCD]\./.test(title);
       
       return { title, content, isHighlight };
     });

@@ -9,6 +9,12 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@300;400;700&family=Zhi+Mang+Xing&family=Ma+Shan+Zheng&family=Long+Cang&display=swap" rel="stylesheet">
     <style>
+        :root {
+            --wood-green: #10b981;
+            --fire-red: #f43f5e;
+            --fire-purple: #8b5cf6;
+            --fire-amber: #f59e0b;
+        }
         body {
             background-color: #020617;
             color: #f8fafc;
@@ -22,18 +28,37 @@
         .accent-font {
             font-family: 'Long Cang', cursive;
         }
+        /* 木火能量场背景 */
         .parchment-bg {
-            background: radial-gradient(circle at center, rgba(30, 41, 59, 0.4) 0%, rgba(2, 6, 23, 1) 100%), 
-                        url('https://www.transparenttextures.com/patterns/natural-paper.png');
+            background: 
+                radial-gradient(circle at 20% 30%, rgba(16, 185, 129, 0.05) 0%, transparent 40%),
+                radial-gradient(circle at 80% 70%, rgba(244, 63, 94, 0.05) 0%, transparent 40%),
+                radial-gradient(circle at center, rgba(30, 41, 59, 0.4) 0%, rgba(2, 6, 23, 1) 100%), 
+                url('https://www.transparenttextures.com/patterns/natural-paper.png');
             background-attachment: fixed;
         }
         
-        @keyframes subtle-glow {
-          0%, 100% { filter: drop-shadow(0 0 5px rgba(245, 158, 11, 0.2)); }
-          50% { filter: drop-shadow(0 0 15px rgba(245, 158, 11, 0.4)); }
+        /* 烛光摇曳动画 */
+        @keyframes fire-flicker {
+          0%, 100% { filter: drop-shadow(0 0 8px rgba(244, 63, 94, 0.3)) brightness(1); transform: scale(1); }
+          50% { filter: drop-shadow(0 0 20px rgba(245, 158, 11, 0.5)) brightness(1.2); transform: scale(1.02); }
         }
-        .animate-glow {
-          animation: subtle-glow 3s ease-in-out infinite;
+        .animate-fire {
+          animation: fire-flicker 4s ease-in-out infinite;
+        }
+
+        /* 向上升腾的生机动画 */
+        @keyframes rising-energy {
+          0% { transform: translateY(0); opacity: 0.3; }
+          100% { transform: translateY(-20px); opacity: 0; }
+        }
+        .energy-particle {
+          position: absolute;
+          width: 2px;
+          height: 2px;
+          border-radius: 50%;
+          background: var(--fire-amber);
+          animation: rising-energy 3s linear infinite;
         }
 
         ::-webkit-scrollbar {

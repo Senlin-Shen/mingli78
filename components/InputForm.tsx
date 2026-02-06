@@ -50,7 +50,7 @@ const InputForm: React.FC<InputFormProps> = ({ onPredict, isLoading, mode }) => 
       if (text.trim()) onPredict(text, qimenType, qimenType === 'MING_JU' ? customDate : '');
     } else if (mode === 'YI_LOGIC') {
       if (activeCategory === 'liuyao') {
-        onPredict({ numbers: liuYaoNumbers, question: liuYaoQuestion || text }, 'LIU_YAO');
+        onPredict({ numbers: liuYaoNumbers, question: liuYaoQuestion || text }, 'LI_YAO');
       } else {
         if (!baziBirthDate || !baziBirthPlace) {
           alert('请完善出生日期与地点');
@@ -73,14 +73,23 @@ const InputForm: React.FC<InputFormProps> = ({ onPredict, isLoading, mode }) => 
   const currentScenarios = mode === 'QIMEN' ? SCENARIOS : (mode === 'YI_LOGIC' ? YI_LOGIC_SCENARIOS : TCM_SCENARIOS);
   const activeTemplates = currentScenarios.find(s => s.id === activeCategory)?.templates || [];
 
-  const inputStyle = "bg-slate-950/50 border border-orange-950/30 rounded-xl p-4 text-slate-200 text-xs focus:outline-none focus:border-orange-500/50 transition-all placeholder:text-slate-700";
+  const inputStyle = "bg-slate-950/60 border border-slate-900 rounded-xl p-4 text-slate-200 text-xs focus:outline-none focus:border-emerald-500/50 transition-all placeholder:text-slate-700 shadow-inner";
 
   return (
     <form onSubmit={handleSubmit} className="space-y-10 animate-in fade-in duration-700">
       {/* 顶部二级模式切换 */}
       <div className="flex flex-wrap gap-3">
         {currentScenarios.map((cat) => (
-          <button key={cat.id} type="button" onClick={() => setActiveCategory(cat.id)} className={`px-5 py-2.5 text-[10px] rounded-full font-black tracking-widest transition-all border ${activeCategory === cat.id ? 'bg-orange-600 text-white border-orange-500 shadow-lg shadow-orange-900/20' : 'bg-slate-900/50 border-slate-800/50 text-slate-500 hover:text-slate-300'}`}>
+          <button 
+            key={cat.id} 
+            type="button" 
+            onClick={() => setActiveCategory(cat.id)} 
+            className={`px-6 py-2.5 text-[10px] rounded-full font-black tracking-widest transition-all border ${
+              activeCategory === cat.id 
+              ? 'bg-emerald-600 text-white border-emerald-500 shadow-lg shadow-emerald-900/20' 
+              : 'bg-slate-900/50 border-slate-800/50 text-slate-500 hover:text-emerald-300'
+            }`}
+          >
             {cat.label}
           </button>
         ))}
@@ -90,13 +99,13 @@ const InputForm: React.FC<InputFormProps> = ({ onPredict, isLoading, mode }) => 
       {mode === 'QIMEN' && (
         <div className="space-y-6">
           <div className="flex gap-4">
-            <button type="button" onClick={() => setQimenType('SHI_JU')} className={`flex-1 py-3.5 text-[10px] font-black rounded-xl transition-all tracking-[0.4em] ${qimenType === 'SHI_JU' ? 'bg-orange-600 text-white shadow-xl shadow-orange-900/40' : 'bg-slate-900 text-slate-500'}`}>事局分析</button>
-            <button type="button" onClick={() => setQimenType('MING_JU')} className={`flex-1 py-3.5 text-[10px] font-black rounded-xl transition-all tracking-[0.4em] ${qimenType === 'MING_JU' ? 'bg-orange-600 text-white shadow-xl' : 'bg-slate-900 text-slate-500'}`}>终身命局</button>
+            <button type="button" onClick={() => setQimenType('SHI_JU')} className={`flex-1 py-4 text-[11px] font-black rounded-xl transition-all tracking-[0.4em] ${qimenType === 'SHI_JU' ? 'bg-rose-600 text-white shadow-xl shadow-rose-900/40' : 'bg-slate-900 text-slate-500'}`}>事局分析</button>
+            <button type="button" onClick={() => setQimenType('MING_JU')} className={`flex-1 py-4 text-[11px] font-black rounded-xl transition-all tracking-[0.4em] ${qimenType === 'MING_JU' ? 'bg-rose-600 text-white shadow-xl' : 'bg-slate-900 text-slate-500'}`}>终身命局</button>
           </div>
           {qimenType === 'MING_JU' && (
              <div className="animate-in slide-in-from-top-2">
                <input type="datetime-local" value={customDate} onChange={(e) => setCustomDate(e.target.value)} className={`w-full ${inputStyle}`} />
-               <p className="mt-2 text-[9px] text-orange-900/60 pl-2">※ 请准确输入出生时分</p>
+               <p className="mt-2 text-[10px] text-emerald-800 pl-2">※ 请准确输入出生时分</p>
              </div>
           )}
           <textarea
@@ -111,9 +120,12 @@ const InputForm: React.FC<InputFormProps> = ({ onPredict, isLoading, mode }) => 
       {/* 2. 易理 - 六爻 UI */}
       {mode === 'YI_LOGIC' && activeCategory === 'liuyao' && (
         <div className="space-y-6">
-          <div className="bg-slate-950/30 p-6 rounded-2xl border border-orange-900/20">
-            <h4 className="text-[10px] text-orange-800 font-black mb-5 tracking-[0.3em] uppercase">报数起卦（请输入三个 1-999 的数字）</h4>
-            <div className="grid grid-cols-3 gap-5">
+          <div className="bg-slate-950/40 p-6 rounded-2xl border border-rose-950/30">
+            <h4 className="text-[11px] text-rose-800 font-black mb-6 tracking-[0.3em] uppercase flex items-center gap-2">
+              <span className="w-1 h-3 bg-rose-600 rounded-full"></span>
+              报数起卦（请输入三个 1-999 的数字）
+            </h4>
+            <div className="grid grid-cols-3 gap-6">
               {liuYaoNumbers.map((num, i) => (
                 <input 
                   key={i} 
@@ -139,52 +151,56 @@ const InputForm: React.FC<InputFormProps> = ({ onPredict, isLoading, mode }) => 
         </div>
       )}
 
-      {/* 2. 易理 - 八字 UI (深度还原) */}
+      {/* 2. 易理 - 八字 UI */}
       {mode === 'YI_LOGIC' && activeCategory === 'bazi' && (
         <div className="space-y-6">
-          <div className="grid grid-cols-2 gap-5">
+          <div className="grid grid-cols-2 gap-6">
             <div className="space-y-2">
-              <label className="text-[9px] text-orange-900 font-black ml-2 uppercase tracking-widest">姓名 / 称号</label>
+              <label className="text-[10px] text-emerald-800 font-black ml-2 uppercase tracking-widest">姓名 / 称号</label>
               <input type="text" value={baziName} onChange={(e) => setBaziName(e.target.value)} className={`w-full ${inputStyle}`} placeholder="如：张先生" />
             </div>
             <div className="space-y-2">
-              <label className="text-[9px] text-orange-900 font-black ml-2 uppercase tracking-widest">命造属性</label>
-              <div className="flex gap-2 bg-slate-950/50 border border-orange-950/20 rounded-xl p-1 h-[50px] items-center">
-                <button type="button" onClick={() => setBaziGender('男')} className={`flex-1 h-full text-[10px] font-black rounded-lg transition-all ${baziGender === '男' ? 'bg-orange-600 text-white shadow-md' : 'text-slate-600'}`}>乾造 (男)</button>
-                <button type="button" onClick={() => setBaziGender('女')} className={`flex-1 h-full text-[10px] font-black rounded-lg transition-all ${baziGender === '女' ? 'bg-orange-600 text-white shadow-md' : 'text-slate-600'}`}>坤造 (女)</button>
+              <label className="text-[10px] text-emerald-800 font-black ml-2 uppercase tracking-widest">命造属性</label>
+              <div className="flex gap-2 bg-slate-950/60 border border-slate-900 rounded-xl p-1.5 h-[54px] items-center">
+                <button type="button" onClick={() => setBaziGender('男')} className={`flex-1 h-full text-[11px] font-black rounded-lg transition-all ${baziGender === '男' ? 'bg-rose-600 text-white shadow-md' : 'text-slate-600'}`}>乾造 (男)</button>
+                <button type="button" onClick={() => setBaziGender('女')} className={`flex-1 h-full text-[11px] font-black rounded-lg transition-all ${baziGender === '女' ? 'bg-rose-600 text-white shadow-md' : 'text-slate-600'}`}>坤造 (女)</button>
               </div>
             </div>
             <div className="space-y-2">
-              <label className="text-[9px] text-orange-900 font-black ml-2 uppercase tracking-widest">公历日期</label>
+              <label className="text-[10px] text-emerald-800 font-black ml-2 uppercase tracking-widest">公历日期</label>
               <input type="date" value={baziBirthDate} onChange={(e) => setBaziBirthDate(e.target.value)} className={`w-full ${inputStyle}`} />
             </div>
             <div className="space-y-2">
-              <label className="text-[9px] text-orange-900 font-black ml-2 uppercase tracking-widest">出生时分</label>
+              <label className="text-[10px] text-emerald-800 font-black ml-2 uppercase tracking-widest">出生时分</label>
               <input type="time" value={baziBirthTime} onChange={(e) => setBaziBirthTime(e.target.value)} className={`w-full ${inputStyle}`} />
             </div>
             <div className="col-span-2 space-y-2">
-              <label className="text-[9px] text-orange-900 font-black ml-2 uppercase tracking-widest">出生地点（定位真太阳时）</label>
+              <label className="text-[10px] text-emerald-800 font-black ml-2 uppercase tracking-widest">出生地点（定位真太阳时）</label>
               <input type="text" value={baziBirthPlace} onChange={(e) => setBaziBirthPlace(e.target.value)} className={`w-full ${inputStyle}`} placeholder="省份 - 城市 - 区县（如：广东省广州市天河区）" />
             </div>
           </div>
-          <p className="text-[9px] text-slate-600 italic pl-2">※ 八字解析将结合姜氏五行气象论，通过地理位置修正时空偏差。</p>
+          <p className="text-[10px] text-emerald-700/60 italic pl-2">※ 结合气象论与碧海体系，通过地理位置修正时空偏差。</p>
         </div>
       )}
 
-      {/* 3. 中医板块 UI (全面选项界面) */}
+      {/* 3. 中医板块 UI */}
       {mode === 'TCM_AI' && (
         <div className="space-y-8 animate-in slide-in-from-bottom-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {TCM_SYMPTOM_OPTIONS.map((group, i) => (
-              <div key={i} className="bg-slate-950/40 p-5 rounded-2xl border border-slate-900/50 hover:border-orange-900/30 transition-colors">
-                <h4 className="text-[10px] text-orange-700 font-black mb-4 tracking-[0.2em] uppercase border-b border-orange-950/30 pb-2">{group.category}</h4>
+              <div key={i} className="bg-slate-950/50 p-6 rounded-2xl border border-slate-900/50 hover:border-emerald-900/30 transition-colors shadow-xl">
+                <h4 className="text-[11px] text-emerald-700 font-black mb-5 tracking-[0.2em] uppercase border-b border-emerald-950/40 pb-2">{group.category}</h4>
                 <div className="flex flex-wrap gap-2.5">
                   {group.items.map(item => (
                     <button 
                       key={item} 
                       type="button" 
                       onClick={() => toggleSymptom(item)}
-                      className={`px-3 py-1.5 text-[10px] rounded-lg border transition-all ${selectedSymptoms.includes(item) ? 'bg-orange-500/20 border-orange-500/60 text-orange-400 shadow-[0_0_10px_rgba(249,115,22,0.15)]' : 'bg-slate-900/50 border-slate-800 text-slate-500 hover:border-slate-700'}`}
+                      className={`px-3.5 py-1.5 text-[10px] rounded-lg border transition-all ${
+                        selectedSymptoms.includes(item) 
+                        ? 'bg-rose-500/10 border-rose-500/60 text-rose-400 shadow-[0_0_12px_rgba(244,63,94,0.15)]' 
+                        : 'bg-slate-900/50 border-slate-800 text-slate-500 hover:border-emerald-700'
+                      }`}
                     >
                       {item}
                     </button>
@@ -194,7 +210,7 @@ const InputForm: React.FC<InputFormProps> = ({ onPredict, isLoading, mode }) => 
             ))}
           </div>
           <div className="space-y-3">
-            <label className="text-[10px] text-orange-900 font-black ml-2 uppercase tracking-widest">补充描述 / 详细诉求</label>
+            <label className="text-[10px] text-emerald-900 font-black ml-2 uppercase tracking-widest">补充描述 / 详细诉求</label>
             <textarea
               value={tcmContext}
               onChange={(e) => setTcmContext(e.target.value)}
@@ -202,8 +218,8 @@ const InputForm: React.FC<InputFormProps> = ({ onPredict, isLoading, mode }) => 
               className={`w-full h-32 resize-none ${inputStyle}`}
             />
           </div>
-          <div className="bg-orange-500/5 border border-orange-950/20 p-4 rounded-xl">
-             <p className="text-[9px] text-orange-800 leading-relaxed italic">
+          <div className="bg-emerald-500/5 border border-emerald-950/20 p-5 rounded-2xl">
+             <p className="text-[10px] text-emerald-800 leading-relaxed italic">
                温馨提示：本推演仅供学术参考与调理建议。若症状严重，请及时前往正规医疗机构就诊。
              </p>
           </div>
@@ -211,23 +227,28 @@ const InputForm: React.FC<InputFormProps> = ({ onPredict, isLoading, mode }) => 
       )}
 
       {/* 快捷模板 */}
-      <div className="flex flex-col gap-3 pt-4 border-t border-slate-900/50">
-         <span className="text-[9px] text-slate-700 font-black uppercase tracking-widest ml-1">推荐推演范例</span>
-         <div className="flex flex-wrap gap-2">
+      <div className="flex flex-col gap-4 pt-6 border-t border-slate-900/50">
+         <span className="text-[10px] text-slate-700 font-black uppercase tracking-widest ml-1">推荐推演范例</span>
+         <div className="flex flex-wrap gap-2.5">
            {activeTemplates.map((t, i) => (
              <button key={i} type="button" onClick={() => {
                if (mode === 'QIMEN') setText(t);
                else if (mode === 'YI_LOGIC' && activeCategory === 'liuyao') setLiuYaoQuestion(t);
                else if (mode === 'TCM_AI') setTcmContext(t);
-             }} className="text-[10px] bg-slate-900/50 hover:bg-orange-950/20 text-slate-500 hover:text-orange-400 border border-slate-800 hover:border-orange-900/50 px-3 py-1.5 rounded-lg transition-all text-left max-w-full truncate">
+             }} className="text-[10px] bg-slate-950/40 hover:bg-rose-950/20 text-slate-500 hover:text-rose-400 border border-slate-900 hover:border-rose-900/50 px-4 py-2 rounded-xl transition-all text-left max-w-full truncate">
                {t}
              </button>
            ))}
          </div>
       </div>
 
-      <button type="submit" disabled={isLoading} className="w-full bg-orange-600 hover:bg-orange-500 text-white font-black py-6 rounded-2xl text-[11px] tracking-[1.2em] transition-all shadow-2xl shadow-orange-900/50 disabled:opacity-50 active:scale-[0.98]">
-        {isLoading ? '解析运化中 · 景曜临宫' : '开启全息时空解析'}
+      <button 
+        type="submit" 
+        disabled={isLoading} 
+        className="w-full bg-gradient-to-r from-rose-600 to-rose-500 hover:from-rose-500 hover:to-orange-500 text-white font-black py-7 rounded-2xl text-xs tracking-[1.2em] transition-all shadow-2xl shadow-rose-900/40 disabled:opacity-50 active:scale-[0.98] group relative overflow-hidden"
+      >
+        <div className="absolute inset-0 bg-white/10 translate-y-full group-hover:translate-y-0 transition-transform duration-500"></div>
+        <span className="relative">{isLoading ? '解析运化中 · 景曜临宫' : '开启全息时空解析'}</span>
       </button>
     </form>
   );
