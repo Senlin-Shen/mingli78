@@ -69,7 +69,8 @@ const App: React.FC = () => {
 
   const updateDisplay = useCallback((text: string, force = false) => {
     const now = performance.now();
-    if (force || now - lastUpdateTime.current > 20) { 
+    // 极致优化：将渲染阈值从 20ms 降至 12ms，捕捉更精细的流式变化，提升视觉极速感
+    if (force || now - lastUpdateTime.current > 12) { 
       setDisplayPrediction(text);
       lastUpdateTime.current = now;
     }
@@ -80,7 +81,6 @@ const App: React.FC = () => {
     const systemMsg = messages.find(m => m.role === 'system')?.content || '';
     const userMsgs = messages.filter(m => m.role !== 'system');
     
-    // 构造 Gemini 格式的 contents
     const contents = userMsgs.map(m => ({
       role: m.role === 'user' ? 'user' : 'model',
       parts: [{ text: m.content }]
@@ -92,8 +92,8 @@ const App: React.FC = () => {
         contents: contents as any,
         config: {
           systemInstruction: systemMsg,
-          temperature: 0.85,
-          thinkingConfig: { thinkingBudget: 16384 } // 开启思考模式以处理复杂的理法推导
+          temperature: 0.9,
+          thinkingConfig: { thinkingBudget: 24000 } // 扩大思考容量以应对极致详实的法理推导
         },
       });
 
@@ -130,45 +130,48 @@ const App: React.FC = () => {
       setBoard(newBoard);
 
       finalUserInput = `起局方位：${autoPalace}。事宜：${userInput as string}`;
-      systemInstruction = `你是一位精通林毅奇门遁甲体系的顶级专家。
+      systemInstruction = `你是一位精通林毅奇门遁甲体系、法理象数兼修的实战推演专家。
 # 任务目标
-输出1500字以上深度分析。严禁使用 Markdown。
-# 核心逻辑
-1. 理法依据：拆解干支五行、生克合化、旬空、马星。
-2. 象数深度：分析星门神仪能量。
-3. 实践建议：定应期、择地方位、商业决策路径。
+输出极尽详实的深度报告，字数控制在 2000 字左右。严禁使用 Markdown。
+# 逻辑架构
+1. 理法依据：拆解干支五行气场，细化旬空、马星、刑冲破害对局势的影响。
+2. 深度象数解构：针对求测落宫，深度剖析星、门、神、仪的能量叠加意象，特别是“奇门景曜”体系下的独特象义。
+3. 实战建议：具体到择时方案、空间位面调理建议、商业/情感决策的底层逻辑。
 输出分段：理法发微、深度象数解析、多维度实战策略、乾坤断语建议。`;
     } else {
       setBoard(null);
       if (type === 'LIU_YAO') {
         const input = userInput as LiuYaoInput;
         finalUserInput = `【六爻推演】动数：${input.numbers.join(', ')}。事宜：${input.question}`;
-        systemInstruction = `你是一位精通《增删卜易》逻辑并承袭姜氏气象论的六爻专家。字数1200字以上。严禁 Markdown。
-内容包含：卦理法要、象义深度解构、应期分析。`;
+        systemInstruction = `你是一位精通《增删卜易》理法、结合姜氏气象论的六爻预测专家。输出详实度极高。
+分析重点：世应强弱、动爻趋向、月破旬空、应期判定。`;
       } else {
         const input = userInput as BaZiInput;
+        // 核心排盘数据传递给图表
         setBaziData({
           year: ["甲", "辰"],
           month: ["丙", "寅"],
           day: ["丁", "卯"],
           hour: ["戊", "申"]
         });
-        finalUserInput = `【四柱气象全息推演】姓名：${input.name}，生辰：${input.birthDate} ${input.birthTime || ''}。地点：${input.birthPlace}。
-请结合盲派、碧海易学体系进行深度剖析。`;
+        finalUserInput = `【四柱气象全息推演】姓名：${input.name}，性别：${input.gender}，生辰：${input.birthDate} ${input.birthTime || ''}。出生地：${input.birthPlace}。
+请用盲派铁口直断与碧海易学体系，针对一生运势、财富量级、婚姻模型进行极限剖析。`;
         
-        systemInstruction = `你是一位承袭“碧海易学”定格体系与“姜氏五行气象论”精髓的顶级命理实战专家。
+        systemInstruction = `你是一位承袭“碧海易学”定格定式体系与“姜氏五行气象论”核心精髓的顶级命理实战专家。
 # 任务目标
-输出不少于2000字的极深度命理报告。严禁使用 Markdown。
-# 核心理法
-1. 五行气象论：深度分析全局的“寒暖燥湿”。分析金水之寒、木火之暖、燥土与湿土的交互，以此定下人生底色。
-2. 碧海定格分析：通过宾主、体用关系，准确输出“定格”名称。分析此命造是属于“食神生财”的商业格，还是“杀印相生”的权贵格，亦或是“伤官配印”的才华格。
-3. 核心定式判定：判定身强、身弱、从格等能量结构。依据“身强财旺宜创业，身弱财旺宜平台”原则给出职业基调。
+输出一份极度详实、法理深厚、不低于 2500 字的命理全息解构报告。严禁使用 Markdown。诚实直白，谢绝温和废话。
+# 核心推演逻辑
+1. 五行气象论：深度分析全局的“寒暖燥湿”。判定命局是属于金水寒湿需要火调，还是木火燥烈需要水润。气象不调者人生多波折，气象中和者必有贵气。
+2. 碧海定格分析：严谨输出“定格”结果。依据宾主关系确定格局：如“食神生财格”、“伤官佩印格”、“官印相生格”或“特殊从格”。详述格之清枯。
+3. 核心定式判定：依据日元能量与财官印食的互动，判定“身强财旺”、“身弱财重”等定式。
+   - 职业定位：身强财旺宜创业、重资产、管理；身弱财旺宜平台、技术、合伙、中介。
 4. 十神现代映射：
-   - 伤官：现代代表流量、短视频、创新能力、破坏式革新。
-   - 偏印：代表冷门技术、深度洞察、心理学、AI算法等。
-   - 七杀：代表开拓精神、风险管理、重资产运作。
-5. 岁运财富量级：基于盲派做功理论，计算各大运的财富吸纳能力。
-输出分段：五行气象论、碧海定格分析、核心定式判定、十神现代映射、岁运纵横（含财富量级）、诚实铁口评价。`;
+   - 伤官：映射为流量博主、创意开发、破坏式创新者。
+   - 偏印：映射为冷门赛道专家、深度AI研究员、幕后策划、玄学洞察。
+   - 七杀：映射为高风险管理者、开拓型销售、危机处理专家。
+5. 岁运财富纵横：结合盲派“做功”理论，详细计算每个大运的进财量级与社会阶层跨越。
+6. 实战建议：涵盖学业路径（学历高度）、婚姻模型（夫妻相处真实状况及潜在危机）、时间节点（具体年份的动荡与机遇）。
+输出分段：五行气象论、碧海定格分析、核心定式判定、十神现代映射、岁运纵横（含财富量级）、诚实铁口评价、道学修持建议。`;
       }
     }
 
