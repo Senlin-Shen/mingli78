@@ -171,7 +171,7 @@ const InputForm: React.FC<InputFormProps> = ({ onPredict, isLoading, mode }) => 
               <input type="date" value={baziBirthDate} onChange={(e) => setBaziBirthDate(e.target.value)} className={`w-full ${inputStyle}`} />
             </div>
             <div className="space-y-2">
-              <label className="text-[10px] text-emerald-800 font-black ml-2 uppercase tracking-widest">出生时分</label>
+              <label className="text-[10px] text-emerald-800 font-black ml-2 uppercase tracking-widest">出生时分 (选填)</label>
               <input type="time" value={baziBirthTime} onChange={(e) => setBaziBirthTime(e.target.value)} className={`w-full ${inputStyle}`} />
             </div>
             <div className="col-span-2 space-y-2">
@@ -179,7 +179,7 @@ const InputForm: React.FC<InputFormProps> = ({ onPredict, isLoading, mode }) => 
               <input type="text" value={baziBirthPlace} onChange={(e) => setBaziBirthPlace(e.target.value)} className={`w-full ${inputStyle}`} placeholder="省份 - 城市 - 区县（如：广东省广州市天河区）" />
             </div>
           </div>
-          <p className="text-[10px] text-emerald-700/60 italic pl-2">※ 结合气象论与碧海体系，通过地理位置修正时空偏差。</p>
+          <p className="text-[10px] text-emerald-700/60 italic pl-2">※ 结合气象论与景曜体系，若不确定时辰，系统将进行精细的“三柱气象”推演。</p>
         </div>
       )}
 

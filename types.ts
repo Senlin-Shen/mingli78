@@ -52,6 +52,6 @@ export interface BaZiInput {
   name: string;
   gender: '男' | '女';
   birthDate: string;
-  birthTime?: string;
+  birthTime?: string; // 可选时辰
   birthPlace: string;
 }

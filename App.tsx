@@ -217,7 +217,7 @@ const App: React.FC = () => {
       setBoard(newBoard);
 
       finalUserInput = `[奇门起局] 方位：${autoPalace}。参数：${JSON.stringify(newBoard)}。诉求：${userInput as string}`;
-      systemInstruction = `你是一位精通正统奇门实战理法的推演专家。${baseConstraints} 结构：一、能量态势透视；二、深度逻辑分析；三、核心判定结论；四、全息理法建议。`;
+      systemInstruction = `你是一位精通正统奇门实战理法（景曜体系）的推演专家。${baseConstraints} 结构：一、能量态势透视；二、深度逻辑分析；三、核心判定结论；四、全息理法建议。`;
     } else if (mode === 'YI_LOGIC') {
       if (type === 'LI_YAO') {
         const input = userInput as LiuYaoInput;
@@ -225,7 +225,8 @@ const App: React.FC = () => {
         systemInstruction = `你是一位精通六爻演化与三才判定的易学专家。${baseConstraints} 结构：一、能量态势透视；二、深度逻辑分析；三、核心判定结论；四、综合调理建议。`;
       } else {
         const input = userInput as BaZiInput;
-        currentCalculatedPillars = calculateBaZi(new Date(input.birthDate));
+        const hasTime = !!input.birthTime && input.birthTime !== '';
+        currentCalculatedPillars = calculateBaZi(new Date(input.birthDate), hasTime);
         setBaziData(currentCalculatedPillars);
         
         finalUserInput = `性别：${input.gender}\n公历生日：${input.birthDate}\n出生时间：${input.birthTime || '不详'}\n出生地点：${input.birthPlace}\n特定问题：${userInput?.question || '深度分析命局特质及全方位优化方案。'}`;
@@ -235,9 +236,12 @@ const App: React.FC = () => {
 核心任务：
 生成一份高美感、高逻辑性的全息人生优化报告。
 
+【关键策略】：
+若出生时间（时辰）为“不详”，请进行专业的“三柱推演”，侧重于年、月、日之气象互动，并明确告知由于缺失时柱，在晚年归宿及子女缘分等维度的判定仅供参考，但性格特质与核心财富/事业大方向依然具有极高参考价值。
+
 输出要求（严禁使用“第一步”、“第二步”等字眼）：
 1. 开篇诗句：以一首七律或古诗点睛，展现命局宏观气象。
-2. 【命造流转 · 乾坤排定】：简要排盘与起运描述。
+2. 【命造流转 · 乾坤排定】：简要排盘与起运描述。若时辰缺失请在此说明。
 3. 【气象格局 · 虚实辨证】：辨旺衰、找病药。用定格定式逻辑分析命局运作。
 4. 【天人合一 · 景曜调理】：涵盖空间场能（风水）、行为策略（商业）、心智调频（心理）、时空节奏（流年）四维度。
 5. 【整合观照】：最后总结一个系统化的人生成长公式。

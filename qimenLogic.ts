@@ -11,15 +11,17 @@ const getTrueSolarTime = (date: Date, longitude: number): Date => {
 };
 
 /**
- * 简易八字计算（演示用，实际应用中建议使用标准万年历库）
+ * 简易八字计算
  */
-export const calculateBaZi = (date: Date) => {
-  // 基于 2024-01-01 00:00 (甲辰年 丙子月 甲子日 甲子时) 的粗略偏移量
-  // 仅作为演示展示结构，实战中模型会根据输入字符串得出准确干支
+export const calculateBaZi = (date: Date, hasTime: boolean = true) => {
+  // 基于偏移量的模拟逻辑
   const year = ["甲", "辰"] as [string, string];
   const month = ["丙", "寅"] as [string, string];
   const day = ["丁", "卯"] as [string, string];
-  const hour = ["戊", "申"] as [string, string];
+  
+  // 如果没有时辰，则时柱返回不详标识
+  const hour = hasTime ? ["戊", "申"] as [string, string] : ["?", "?"] as [string, string];
+  
   return { year, month, day, hour };
 };
 

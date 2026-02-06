@@ -20,6 +20,7 @@ const BaZiChart: React.FC<BaZiChartProps> = ({ pillars }) => {
     if ("戊己辰戌丑未".includes(char)) return "text-amber-600";
     if ("庚辛申酉".includes(char)) return "text-yellow-100/80";
     if ("壬癸亥子".includes(char)) return "text-blue-500";
+    if (char === "?") return "text-slate-800 animate-pulse";
     return "text-slate-500";
   };
 
@@ -42,12 +43,21 @@ const BaZiChart: React.FC<BaZiChartProps> = ({ pillars }) => {
           <div key={i} className="flex flex-col items-center gap-5">
             <span className="text-[10px] text-emerald-800 font-black tracking-widest uppercase">{label}</span>
             <div className="flex flex-col items-center bg-slate-900/40 border border-slate-800/50 w-full py-8 rounded-3xl shadow-inner group-hover:border-rose-500/20 transition-all duration-500 relative">
-              <span className={`text-3xl font-black mb-3 ${getElementColor(data[i][0])}`}>
-                {data[i][0]}
-              </span>
-              <span className={`text-3xl font-black ${getElementColor(data[i][1])}`}>
-                {data[i][1]}
-              </span>
+              {data[i][0] === "?" ? (
+                <div className="flex flex-col items-center py-4">
+                  <span className="text-slate-700 text-[10px] mb-2 font-black">时辰</span>
+                  <span className="text-slate-800 text-xl font-black">不详</span>
+                </div>
+              ) : (
+                <>
+                  <span className={`text-3xl font-black mb-3 ${getElementColor(data[i][0])}`}>
+                    {data[i][0]}
+                  </span>
+                  <span className={`text-3xl font-black ${getElementColor(data[i][1])}`}>
+                    {data[i][1]}
+                  </span>
+                </>
+              )}
             </div>
           </div>
         ))}

@@ -5,7 +5,6 @@ interface AnalysisDisplayProps {
   prediction: string;
 }
 
-// Optimized patterns for a more fluid report structure
 const PATTERNS = [
   '【命造流转 · 乾坤排定】',
   '【气象格局 · 虚实辨证】',
@@ -70,52 +69,51 @@ const AnalysisDisplay: React.FC<AnalysisDisplayProps> = ({ prediction }) => {
 
   if (sections.length === 0) {
     return (
-      <div className="text-[14px] text-slate-300 leading-relaxed tracking-widest font-serif pl-8 border-l border-emerald-500/20 animate-in fade-in duration-300">
+      <div className="text-[12px] md:text-[13px] text-slate-300 leading-relaxed tracking-wider font-serif pl-4 border-l border-emerald-500/20 animate-in fade-in duration-300">
         {prediction.split('\n').map((line, i) => (
-          <p key={i} className="mb-5">{line.trim()}</p>
+          <p key={i} className="mb-3">{line.trim()}</p>
         ))}
       </div>
     );
   }
 
   return (
-    <div className="space-y-16 font-serif leading-loose tracking-[0.1em]">
+    <div className="space-y-10 md:space-y-16 font-serif leading-relaxed tracking-normal">
       {sections.map((sec, idx) => (
-        <div key={idx} className="animate-in slide-in-from-bottom-4 fade-in duration-700">
+        <div key={idx} className="animate-in slide-in-from-bottom-2 fade-in duration-700">
           {sec.title && (
-            <div className={`flex items-center gap-4 mb-8 ${sec.isThematicHeader ? 'justify-center flex-col' : ''}`}>
+            <div className={`flex items-center gap-3 mb-4 md:mb-8 ${sec.isThematicHeader ? 'justify-center flex-col' : ''}`}>
               {sec.isThematicHeader && (
-                 <div className="w-12 h-px bg-gradient-to-r from-transparent to-rose-500 mb-2"></div>
+                 <div className="w-8 h-px bg-gradient-to-r from-transparent via-rose-500 to-transparent mb-1 opacity-60"></div>
               )}
-              <h3 className={`font-black tracking-[0.4em] uppercase transition-all
-                ${sec.isThematicHeader ? 'text-lg text-transparent bg-clip-text bg-gradient-to-r from-rose-400 to-amber-400' : ''}
-                ${sec.isSubHeader ? 'text-[11px] text-emerald-500 border-b border-emerald-900/30 pb-1 w-full' : ''}
-                ${!sec.isThematicHeader && !sec.isSubHeader ? 'text-[12px] text-rose-500 flex items-center gap-3' : ''}
+              <h3 className={`font-black tracking-[0.2em] md:tracking-[0.4em] uppercase transition-all
+                ${sec.isThematicHeader ? 'text-sm md:text-lg text-transparent bg-clip-text bg-gradient-to-r from-rose-400 to-amber-400 text-center' : ''}
+                ${sec.isSubHeader ? 'text-[10px] md:text-[11px] text-emerald-500 border-b border-emerald-900/20 pb-1 w-full' : ''}
+                ${!sec.isThematicHeader && !sec.isSubHeader ? 'text-[11px] md:text-[12px] text-rose-500 flex items-center gap-2' : ''}
               `}>
                 {!sec.isThematicHeader && !sec.isSubHeader && (
-                  <span className="w-1 h-3 bg-rose-600 rounded-full shadow-[0_0_8px_#f43f5e]"></span>
+                  <span className="w-1 h-2.5 bg-rose-600 rounded-full shadow-[0_0_5px_#f43f5e]"></span>
                 )}
                 {sec.title}
               </h3>
             </div>
           )}
           
-          <div className={`text-[14px] transition-all duration-1000 
-            ${sec.isThematicHeader ? 'text-center italic text-slate-200' : 'pl-7'}
-            ${sec.isActionable ? 'bg-rose-500/5 p-8 rounded-[2rem] border-l-2 border-rose-500/40 shadow-xl shadow-rose-950/20' : 'text-slate-400'}
-            ${sec.isSubHeader ? 'bg-emerald-500/5 p-6 rounded-2xl border-l-2 border-emerald-500/30 mb-4' : ''}
+          <div className={`text-[12px] md:text-[14px] transition-all duration-1000 
+            ${sec.isThematicHeader ? 'text-center italic text-slate-300' : 'pl-4 md:pl-7'}
+            ${sec.isActionable ? 'bg-rose-500/5 p-4 md:p-8 rounded-2xl md:rounded-[2rem] border-l border-rose-500/30 shadow-lg' : 'text-slate-400'}
+            ${sec.isSubHeader ? 'bg-emerald-500/5 p-4 md:p-6 rounded-xl md:rounded-2xl border-l border-emerald-500/20 mb-2' : ''}
           `}>
             {sec.content.split('\n').map((line, lidx) => {
               const trimmedLine = line.trim();
               if (!trimmedLine) return null;
               
-              // Detect specific poetic patterns or key labels within text
-              const isPoetry = trimmedLine.length > 15 && trimmedLine.includes('，') && trimmedLine.includes('。');
+              const isPoetry = trimmedLine.length > 10 && trimmedLine.includes('，') && trimmedLine.includes('。');
               
               return (
                 <p key={lidx} className={`
-                  ${lidx > 0 ? 'mt-5' : ''}
-                  ${isPoetry ? 'text-center text-rose-300 font-medium italic text-base py-4 leading-[2.5]' : ''}
+                  ${lidx > 0 ? 'mt-3 md:mt-5' : ''}
+                  ${isPoetry ? 'text-center text-rose-300/90 font-medium italic text-sm md:text-base py-3 md:py-4 leading-loose' : ''}
                 `}>
                   {trimmedLine}
                 </p>
