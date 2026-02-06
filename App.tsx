@@ -126,7 +126,7 @@ const App: React.FC = () => {
       }
       
       const finalResult = fullTextRef.current;
-      setDisplayPrediction(''); // 立即清除临时状态防止重复渲染
+      setDisplayPrediction(''); 
       return finalResult;
     } catch (err: any) {
       throw new Error(err.message || "推演中断");
@@ -145,12 +145,8 @@ const App: React.FC = () => {
     let systemInstruction = "";
     let finalUserInput = "";
 
-    const baseRule = `你是一位精通正统奇门实战理法的推演专家。
-**极端禁令**：
-1. **严禁在输出中重复、引用或复述用户提供的原始参数（如JSON、日期、姓名、报数等）。**
-2. **严禁出现任何推演提示词（如“基于以上分析如下”等废话）。**
-3. **严禁出现“碧海”字眼。**
-4. 直接输出核心逻辑与结论。`;
+    // 核心通用规则（禁止 Markdown 加粗、符号、复述输入）
+    const baseConstraints = `严禁使用 # 和 * 符号。严禁使用 Markdown 加粗格式。严禁复述用户输入的原始参数。严禁寒暄。严禁出现“碧海”字眼。语气：专业、中立、逻辑严密，具有慈悲心但拒绝恐吓。`;
 
     if (mode === 'QIMEN') {
       const targetDate = date ? new Date(date) : new Date();
@@ -160,30 +156,40 @@ const App: React.FC = () => {
       if (userLocation) newBoard.location = { ...userLocation, isAdjusted: true };
       setBoard(newBoard);
 
-      finalUserInput = `起局方位：${autoPalace}。盘象参数：${JSON.stringify(newBoard)}。诉求：${userInput as string}`;
-      systemInstruction = `${baseRule}
-请直接按以下结构输出：
-【能量态势透视】
-【深度逻辑分析】
-【核心判定结论】
-【全息理法建议】`;
+      finalUserInput = `[奇门起局] 方位：${autoPalace}。参数：${JSON.stringify(newBoard)}。诉求：${userInput as string}`;
+      systemInstruction = `你是一位精通正统奇门实战理法的推演专家。${baseConstraints} 结构必须包含：一、能量态势透视；二、深度逻辑分析；三、核心判定结论；四、全息理法建议。`;
     } else if (mode === 'YI_LOGIC') {
+      // 命理板块：应用提供的 txt 核心逻辑
+      const yiSystemBase = `你是一位承袭“医易同源”智慧的深度易学专家。你的分析核心严密遵循“五行气象论”与“三才实战算法”，强调逻辑推演，拒绝一切封建迷信与虚假断语。
+核心分析逻辑：
+1. 评估“气象”：凡命局与卦象，首看寒暖燥湿。
+2. 识别“轴心”：寻月令格局、核心用神与忌神；看月建日辰量级。
+3. 推演“路径”：查看冲、合、空、破、回头克的影响。
+4. 现代语义映射。
+${baseConstraints}
+结构必须包含以下四大模块：
+一、 能量态势透视
+【命局排盘】（或卦象排盘）
+二、 深度逻辑分析（分析气象平衡、流通病药）
+三、 核心判定结论（给出方向性的断语，不模棱两可）
+【流年趋势】（格式：2025年：内容 \\n 2026年：内容 ...）
+四、 综合调理建议（涵盖行为逻辑与环境调节）`;
+
       if (type === 'LIU_YAO') {
         const input = userInput as LiuYaoInput;
-        finalUserInput = `【六爻演化】事宜：${input.question}。动数：${input.numbers.join(',')}。`;
-        systemInstruction = `${baseRule} 依据《增删卜易》进行深度推演。`;
+        finalUserInput = `[任务：六爻逻辑推演] 占问事项：${input.question}。卦象动数：${input.numbers.join(',')}。起卦时间：${new Date().toLocaleString()}。请执行“三才判定”：以月建为天时、日辰为地利、动爻为人心。重点排查是否存在“旬空、月破、回头克”等逻辑缺陷。`;
+        systemInstruction = yiSystemBase;
       } else {
         const input = userInput as BaZiInput;
-        // 计算并设置八字图表数据
         const calculatedPillars = calculateBaZi(new Date(input.birthDate));
         setBaziData(calculatedPillars);
         
-        finalUserInput = `【四柱气象】姓名：${input.name}，性别：${input.gender}，生辰：${input.birthDate} ${input.birthTime || ''}，地点：${input.birthPlace}。`;
-        systemInstruction = `${baseRule} 依据姜氏五行气象论进行解析。`;
+        finalUserInput = `[任务：深度分析命局] 用户数据：姓名：${input.name}，性别：${input.gender}，出生时间：${input.birthDate} ${input.birthTime || ''}，出生地点：${input.birthPlace}。请根据系统逻辑，先进行“五行气象评估”，再判定“核心用神”，最后推演其在现代社会（职场、财运、情感）中的流通情况。`;
+        systemInstruction = yiSystemBase;
       }
     } else if (mode === 'TCM_AI') {
       finalUserInput = `【全息辨证】${userInput as string}`;
-      systemInstruction = `${baseRule} 中医辨证专家。按【全息失衡判定】、【核心病机】、【核心调理原则】、【全息方案建议】分析。`;
+      systemInstruction = `你是精通“医易同源”的中医全息调理专家。${baseConstraints} 结构必须包含：一、能量态势透视；二、深度逻辑分析；三、核心判定结论；四、综合调理建议。`;
     }
 
     try {
@@ -192,7 +198,6 @@ const App: React.FC = () => {
         { role: "user", content: finalUserInput }
       ];
       const fullResponse = await streamResponse(initialMessages);
-      // 这里的 setChatHistory 会包含用户看到的最终内容
       setChatHistory([{ role: "assistant", content: fullResponse }]);
     } catch (err: any) { 
       setError(err.message); 
@@ -208,7 +213,6 @@ const App: React.FC = () => {
     setFollowUpText('');
     setFollowUpLoading(true);
     
-    // 把用户的问题先放进历史
     const newHistory: ChatMessage[] = [...chatHistory, { role: "user", content: query }];
     setChatHistory(newHistory);
     
