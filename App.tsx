@@ -11,6 +11,7 @@ import { calculateBoard, calculateBaZi } from './qimenLogic';
 import { QiMenBoard, LocationData, AppMode, LiuYaoInput, BaZiInput } from './types';
 
 const CHINA_CENTER = { lng: 108.9, lat: 34.2 };
+// 火山引擎 Ark 终点 ID
 const UNIFIED_MODEL = "ep-20260206175318-v6cl7";
 
 export interface PredictionHistory {
@@ -139,6 +140,7 @@ const App: React.FC = () => {
     isStreamingRef.current = true;
     
     try {
+      // 统一使用火山引擎 Ark Proxy
       const response = await fetch('/api/ark-proxy', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -232,8 +234,8 @@ const App: React.FC = () => {
 聚焦用神宫、时干宫（代表事体）、值符/值使宫（代表大势）进行分析：
 - 星门神干组合：逐一列出元素。
 - 五行生克：分析星宫、门宫的生克关系（如星克宫主外部压力，门生宫主吉气泄）。
-- 意象解读：结合 PDF 实战案例，如“死门临震宫”预警供应链中断，“开门与戊关系”把握融资窗口等。
-- 十干克应与特殊格局：如“刑、冲、合、空亡、马星”的现实映射（如合作宫空亡主虚浮）。
+- 意象解读：结合实战案例（如死门临震宫预警供应链中断，开门与戊关系把握融资窗口等）。
+- 十干克应与特殊格局：如刑、冲、合、空亡、马星的现实映射。
 
 3. 【宫位互动 · 纵横博弈】：
 - 分析用神宫与时干宫、值符宫的生克互动。
