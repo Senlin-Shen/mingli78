@@ -70,7 +70,6 @@ const App: React.FC = () => {
   const requestUpdate = useCallback(() => {
     if (updatePending.current) return;
     updatePending.current = true;
-    // 使用 requestAnimationFrame 确保 UI 更新与屏幕刷新同步，减少丢帧感
     requestAnimationFrame(() => {
       setDisplayPrediction(fullTextRef.current);
       updatePending.current = false;
@@ -88,7 +87,7 @@ const App: React.FC = () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           messages: messages.map(m => ({ role: m.role, content: m.content })),
-          temperature: 0.3, // 进一步降低温度，减少模型发散思考的时间
+          temperature: 0.3,
           model: UNIFIED_MODEL
         })
       });
@@ -120,7 +119,6 @@ const App: React.FC = () => {
               fullTextRef.current += content;
               requestUpdate();
             } catch (e) {
-              // 聚合不完整的 JSON 分片
               buffer = line + "\n" + buffer;
             }
           }
@@ -144,8 +142,8 @@ const App: React.FC = () => {
     let systemInstruction = "";
     let finalUserInput = "";
 
-    // 通用极致优化指令：减少模型啰嗦，直接出干货
-    const swiftRule = `你是一位精通正统奇门实战理法的推演专家。**极端禁令：严禁重复任何输入参数、起局方位、JSON数据。严禁出现“碧海”字眼。严禁任何寒暄。**直接按四部分结构输出分析，追求高密度信息。格式：【能量态势透视】、【深度逻辑分析】、【核心判定结论】、【全息理法建议】。严禁Markdown。`;
+    // 核心禁令：绝不重复输入数据，绝不出现碧海字眼
+    const baseRule = `你是一位精通正统奇门实战理法的专家。**极端禁令：严禁在输出中重复、引用或复述用户提供的原始起局方位、盘象JSON、出生数据、报数等任何原始输入参数。严禁出现“碧海”字眼。严禁寒暄。** 直接从深度逻辑开始输出。`;
 
     if (mode === 'QIMEN') {
       const targetDate = date ? new Date(date) : new Date();
@@ -156,22 +154,22 @@ const App: React.FC = () => {
       setBoard(newBoard);
 
       finalUserInput = `起局方位：${autoPalace}。盘象：${JSON.stringify(newBoard)}。诉求：${userInput as string}`;
-      systemInstruction = swiftRule;
+      systemInstruction = `${baseRule} 按格式输出：【能量态势透视】、【深度逻辑分析】、【核心判定结论】、【全息理法建议】。`;
     } else if (mode === 'YI_LOGIC') {
       setBoard(null);
       if (type === 'LIU_YAO') {
         const input = userInput as LiuYaoInput;
         finalUserInput = `【六爻演化】事宜：${input.question}。动数：${input.numbers.join(',')}。`;
-        systemInstruction = `六爻推演专家。禁重复、禁碧海、直接分析。按四部分结构。严禁Markdown。`;
+        systemInstruction = `${baseRule} 依据《增删卜易》理法，按四部分结构分析。`;
       } else {
         const input = userInput as BaZiInput;
-        finalUserInput = `【四柱气象】生辰：${input.birthDate}。诉求：职业发展。`;
-        systemInstruction = `五行气象论专家。禁重复、禁碧海、直接分析。按四部分结构。严禁Markdown。`;
+        finalUserInput = `【四柱气象】性别：${input.gender}，生辰：${input.birthDate} ${input.birthTime || ''}，地点：${input.birthPlace}。诉求：职业发展与气象。`;
+        systemInstruction = `${baseRule} 依据五行气象论，按四部分结构分析。`;
       }
     } else if (mode === 'TCM_AI') {
       setBoard(null);
-      finalUserInput = `【全息辨证】诉求：${userInput as string}`;
-      systemInstruction = `中医养生全息专家。禁重复、禁碧海、直接分析。按【全息失衡判定】、【核心病机】、【核心调理原则】、【全息方案建议】四部分结构输出。严禁Markdown。`;
+      finalUserInput = `【全息辨证】主诉与症状：${userInput as string}`;
+      systemInstruction = `${baseRule} 医易同源专家。按【全息失衡判定】、【核心病机】、【核心调理原则】、【全息方案建议】分析。`;
     }
 
     try {
@@ -232,7 +230,7 @@ const App: React.FC = () => {
         <section className={`bg-slate-900/70 border border-orange-800/40 p-8 md:p-10 rounded-[2.5rem] backdrop-blur-xl shadow-2xl ring-1 ring-orange-500/20`}>
           <div className="flex items-center justify-between mb-10">
             <h2 className="text-sm font-black text-orange-200 flex items-center gap-5">
-              <span className="w-10 h-10 rounded-xl bg-orange-600/20 border border-orange-500/40 flex items-center justify-center text-orange-500 text-xs shadow-[0_0_10px_rgba(249,115,22,0.3)]">甲</span>
+              <span className="w-10 h-10 rounded-xl bg-orange-600/20 border border-orange-500/40 flex items-center justify-center text-orange-500 text-xs">甲</span>
               录入参数
             </h2>
             {userLocation && (
@@ -252,10 +250,7 @@ const App: React.FC = () => {
         )}
 
         {(chatHistory.length > 0 || displayPrediction || loading || error) && (
-          <section className="bg-slate-950/60 border border-orange-900/30 p-8 md:p-14 rounded-[3rem] backdrop-blur-3xl relative overflow-hidden">
-            <div className="absolute -top-24 -right-24 w-64 h-64 bg-orange-600/10 rounded-full blur-[80px] pointer-events-none"></div>
-            <div className="absolute -bottom-24 -left-24 w-64 h-64 bg-orange-900/10 rounded-full blur-[80px] pointer-events-none"></div>
-
+          <section className="bg-slate-950/60 border border-orange-900/30 p-8 md:p-14 rounded-[3rem] backdrop-blur-3xl relative">
             <div className="relative z-10">
               <div className="flex items-center justify-between mb-12">
                 <h2 className="text-sm font-black text-orange-100 flex items-center gap-5">
