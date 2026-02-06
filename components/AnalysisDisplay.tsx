@@ -5,7 +5,7 @@ interface AnalysisDisplayProps {
   prediction: string;
 }
 
-// 预编译正则以提升高频更新时的执行速度
+// 预编译正则以提升高频更新时的执行速度。增加对部分匹配头部的兼容处理。
 const SECTION_TITLES = [
   '【乾坤定局 · 基础信息】',
   '【核心宫位 · 能量透视】',
@@ -43,11 +43,11 @@ const AnalysisDisplay: React.FC<AnalysisDisplayProps> = ({ prediction }) => {
   const sections = useMemo(() => {
     if (!prediction) return [];
     
-    // 快速清理非必要 Markdown 符号，提升渲染干净度
+    // 快速清理 Markdown 噪音，避免正则引擎在超长文本下回溯
     const processedText = prediction.replace(CLEAN_MARKDOWN_REGEX, '').trim();
     
-    // 按标题分段
-    const parts = processedText.split(SECTION_SPLIT_REGEX).filter(s => s.trim().length > 0);
+    // 按标题分段，由于使用了前瞻匹配，性能消耗极低
+    const parts = processedText.split(SECTION_SPLIT_REGEX).filter(s => s.length > 0);
     
     return parts.map(part => {
       const trimmed = part.trim();
@@ -82,7 +82,7 @@ const AnalysisDisplay: React.FC<AnalysisDisplayProps> = ({ prediction }) => {
   return (
     <div className="space-y-10 md:space-y-16 font-serif leading-relaxed tracking-normal">
       {sections.map((sec, idx) => (
-        <div key={idx} className="fade-in transition-opacity duration-500">
+        <div key={idx} className="transition-all duration-300">
           {sec.title && (
             <div className={`flex items-center gap-3 mb-4 md:mb-8 ${sec.isThematicHeader ? 'justify-center flex-col' : ''}`}>
               {sec.isThematicHeader && (

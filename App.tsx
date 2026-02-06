@@ -11,7 +11,6 @@ import { calculateBoard, calculateBaZi } from './qimenLogic';
 import { QiMenBoard, LocationData, AppMode, LiuYaoInput, BaZiInput } from './types';
 
 const CHINA_CENTER = { lng: 108.9, lat: 34.2 };
-// 火山引擎 Ark 终点 ID
 const UNIFIED_MODEL = "ep-20260206175318-v6cl7";
 
 export interface PredictionHistory {
@@ -47,6 +46,7 @@ const App: React.FC = () => {
   const fullTextRef = useRef('');
   const lastUpdateTimeRef = useRef(0);
   const isStreamingRef = useRef(false);
+  const rafIdRef = useRef<number | null>(null);
 
   useEffect(() => {
     const saved = localStorage.getItem('qimen_history_v1');
@@ -94,11 +94,12 @@ const App: React.FC = () => {
   };
 
   const loadFromHistory = (entry: PredictionHistory) => {
+    // 加载历史时强制清空当前流显示，避免双重显示
+    setDisplayPrediction('');
     setMode(entry.mode);
     setBoard(entry.board || null);
     setBaziData(entry.bazi || null);
     setChatHistory([{ role: 'assistant', content: entry.result }]);
-    setDisplayPrediction('');
     setIsProfileOpen(false);
     window.scrollTo({ top: 400, behavior: 'smooth' });
   };
@@ -122,13 +123,16 @@ const App: React.FC = () => {
     return "巽四宫";
   };
 
-  // 优化后的节流更新函数，提升渲染性能
+  // 高性能更新函数：首字立即渲染，后续 32ms (约30fps) 节流
   const throttledUpdate = useCallback((isFinal = false) => {
     const now = Date.now();
-    // 约 40ms 更新一次（25fps），在视觉连贯性与 CPU 消耗间取得最佳平衡
-    if (isFinal || now - lastUpdateTimeRef.current > 40) {
-      setDisplayPrediction(fullTextRef.current);
-      lastUpdateTimeRef.current = now;
+    // 如果是第一块数据、或是最后一块、或者距离上次更新超过 32ms
+    if (isFinal || lastUpdateTimeRef.current === 0 || now - lastUpdateTimeRef.current > 32) {
+      if (rafIdRef.current) cancelAnimationFrame(rafIdRef.current);
+      rafIdRef.current = requestAnimationFrame(() => {
+        setDisplayPrediction(fullTextRef.current);
+        lastUpdateTimeRef.current = now;
+      });
     }
   }, []);
 
@@ -179,14 +183,14 @@ const App: React.FC = () => {
                 throttledUpdate();
               }
             } catch (e) {
-              // 容错：将不完整的行存回 buffer
               buffer = line + "\n" + buffer;
             }
           }
         }
       }
       
-      throttledUpdate(true); // 确保最后一次全量更新
+      // 最终确认渲染
+      throttledUpdate(true);
       isStreamingRef.current = false;
       return fullTextRef.current;
     } catch (err: any) {
@@ -227,32 +231,31 @@ const App: React.FC = () => {
 
 1. 【乾坤定局 · 基础信息】：
 - 清晰列出起局时间（公历与干支）。
-- 明确用事主题（如项目启动、投资决策、感情发展）。
-- 明确说明此事项的核心用神选取（如求财看生门，事业看开门，感情看乙庚/六合，资本看戊等）。
+- 明确用事主题。
+- 明确说明此事项的核心用神选取。
 - 确认局数与阴阳遁。
 
 2. 【核心宫位 · 能量透视】：
-聚焦用神宫、时干宫（代表事体）、值符/值使宫（代表大势）进行分析：
-- 星门神干组合：逐一列出元素。
-- 五行生克：分析星宫、门宫的生克关系（如星克宫主外部压力，门生宫主吉气泄）。
-- 意象解读：结合实战案例（如死门临震宫预警供应链中断，开门与戊关系把握融资窗口等）。
-- 十干克应与特殊格局：如刑、冲、合、空亡、马星的现实映射。
+聚焦用神宫、时干宫、值符/值使宫进行分析：
+- 星门神干组合。
+- 五行生克关系。
+- 结合 PDF 实战案例进行意象解读（如死门临震预警风险等）。
+- 十干克应与特殊格局。
 
 3. 【宫位互动 · 纵横博弈】：
 - 分析用神宫与时干宫、值符宫的生克互动。
 - 综合判断吉凶成败。
 
 4. 【实战理法 · 时空调整】：
-- 建议需紧扣五行逻辑：为何选择该方位/时间？（如：金属物品因为金能制木/泄水）。
 - 包含方位选择、时间择吉、行为策略、心态调整。
 
-语言风格：专业严谨，避免玄虚。解释象意时务必关联现实商业或生活场景。
+语言风格：专业严谨，避免玄虚。
 ${baseConstraints}`;
 
     } else if (mode === 'YI_LOGIC') {
       if (type === 'LI_YAO') {
         const input = userInput as LiuYaoInput;
-        finalUserInput = `[任务：六爻逻辑推演] 占问事项：${input.question}。卦象动数：${input.numbers.join(',')}。起卦时间：${new Date().toLocaleString()}。`;
+        finalUserInput = `[任务：六爻逻辑推演] 占问事项：${input.question}。卦象动数：${input.numbers.join(',')}。`;
         systemInstruction = `你是一位精通六爻演化与三才判定的易学专家。${baseConstraints} 结构：一、能量态势透视；二、深度逻辑分析；三、核心判定结论；四、综合调理建议。`;
       } else {
         const input = userInput as BaZiInput;
@@ -260,13 +263,13 @@ ${baseConstraints}`;
         currentCalculatedPillars = calculateBaZi(new Date(input.birthDate), hasTime);
         setBaziData(currentCalculatedPillars);
         
-        finalUserInput = `性别：${input.gender}\n公历生日：${input.birthDate}\n出生时间：${input.birthTime || '不详'}\n出生地点：${input.birthPlace}\n特定问题：${userInput?.question || '深度分析命局特质及全方位优化方案。'}`;
+        finalUserInput = `性别：${input.gender}\n公历生日：${input.birthDate}\n出生地点：${input.birthPlace}\n特定问题：${userInput?.question || '深度分析命局特质。'}`;
         
-        systemInstruction = `你是一位精通中国古典命理学（姜氏五行气象论与景曜全息演化体系）的专家。${baseConstraints} 结构：开篇诗句、命造流转、气象格局、天人合一调理、整合观照。`;
+        systemInstruction = `你是一位精通命理气象论的专家。${baseConstraints} 结构：开篇诗句、命造流转、气象格局、天人合一调理、整合观照。`;
       }
     } else if (mode === 'TCM_AI') {
       finalUserInput = `【全息辨证】${userInput as string}`;
-      systemInstruction = `你是精通“医易同源”的中医全息调理专家。${baseConstraints} 结构：能量态势、深度分析、核心结论、调理方案。`;
+      systemInstruction = `你是精通“医易同源”的中医专家。${baseConstraints} 结构：能量态势、深度分析、核心结论、调理方案。`;
     }
 
     try {
@@ -275,8 +278,11 @@ ${baseConstraints}`;
         { role: "user", content: finalUserInput }
       ];
       const fullResponse = await streamResponse(initialMessages);
+      
+      // 原子操作：先清空流显示，再存入历史，最后触发历史显示，确保不出现两次结果
       setDisplayPrediction('');
-      setChatHistory([{ role: "assistant", content: fullResponse }]);
+      const finalChat: ChatMessage[] = [{ role: "assistant", content: fullResponse }];
+      setChatHistory(finalChat);
       
       saveToHistory(fullResponse, summaryInput, (mode === 'QIMEN' ? calculateBoard(date ? new Date(date) : new Date(), userLocation?.longitude) : null), (mode === 'YI_LOGIC' ? currentCalculatedPillars : null));
     } catch (err: any) { 
@@ -379,7 +385,7 @@ ${baseConstraints}`;
 
               <div className="space-y-20">
                 {chatHistory.filter(m => m.role !== 'system').map((msg, i) => (
-                  <div key={i} className={`animate-in fade-in duration-1000 ${msg.role === 'user' ? 'opacity-40 border-l-2 border-emerald-500/20 pl-8 py-4 mb-14 italic' : ''}`}>
+                  <div key={i} className={`animate-in fade-in duration-700 ${msg.role === 'user' ? 'opacity-40 border-l-2 border-emerald-500/20 pl-8 py-4 mb-14 italic' : ''}`}>
                     <AnalysisDisplay prediction={msg.content} />
                   </div>
                 ))}
