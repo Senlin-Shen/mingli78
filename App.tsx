@@ -232,8 +232,23 @@ const App: React.FC = () => {
         currentCalculatedBazi = calculateBaZi(new Date(input.birthDate + ' ' + (input.birthTime || '00:00')), hasTime);
         setBaziData(currentCalculatedBazi);
         
-        finalUserInput = `性别：${input.gender}\n四柱：${JSON.stringify(currentCalculatedBazi)}\n公历生日：${input.birthDate}\n出生地点：${input.birthPlace}\n诉求：${userInput?.question || '深度分析命局特质。'}`;
-        systemInstruction = `你是一位精通命理气象论的专家。请基于已排定的四柱干支进行深度分析。严禁自行重排。${baseConstraints}`;
+        const { year, month, day, hour } = currentCalculatedBazi;
+        finalUserInput = `【命主全息档案】
+姓名：${input.name || '某君'}
+性别：${input.gender}
+出生日期：${input.birthDate} ${input.birthTime || '(时辰不详)'}
+出生地点：${input.birthPlace}
+
+【四柱乾坤排盘】
+年柱：${year[0]}${year[1]}
+月柱：${month[0]}${month[1]}
+日柱：${day[0]}${day[1]}
+时柱：${hour[0]}${hour[1]}
+
+【核心分析诉求】
+${input.question || '基于以上四柱格局，进行全息深度分析，涵盖格局高低、五行旺衰及气象定式。'}`;
+
+        systemInstruction = `你是一位精通命理气象论的实战专家。请基于已排定的四柱干支进行深度分析。你的任务是将深奥的干支哲学转化为命主易于理解的人生赛道建议。严禁自行重排。${baseConstraints}`;
       }
     } else if (mode === 'TCM_AI') {
       finalUserInput = `【全息辨证】${userInput as string}`;

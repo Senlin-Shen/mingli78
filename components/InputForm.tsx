@@ -25,6 +25,7 @@ const InputForm: React.FC<InputFormProps> = ({ onPredict, isLoading, mode }) => 
   const [baziBirthDate, setBaziBirthDate] = useState('');
   const [baziBirthTime, setBaziBirthTime] = useState('');
   const [baziBirthPlace, setBaziBirthPlace] = useState('');
+  const [baziQuestion, setBaziQuestion] = useState('');
 
   // 中医
   const [selectedSymptoms, setSelectedSymptoms] = useState<string[]>([]);
@@ -61,7 +62,8 @@ const InputForm: React.FC<InputFormProps> = ({ onPredict, isLoading, mode }) => 
           gender: baziGender,
           birthDate: baziBirthDate,
           birthTime: baziBirthTime,
-          birthPlace: baziBirthPlace
+          birthPlace: baziBirthPlace,
+          question: baziQuestion || text // 优先使用八字专属问题框，兼容快捷模板
         } as BaZiInput, 'BA_ZI');
       }
     } else if (mode === 'TCM_AI') {
@@ -179,6 +181,15 @@ const InputForm: React.FC<InputFormProps> = ({ onPredict, isLoading, mode }) => 
               <input type="text" value={baziBirthPlace} onChange={(e) => setBaziBirthPlace(e.target.value)} className={`w-full ${inputStyle}`} placeholder="省份 - 城市 - 区县（如：广东省广州市天河区）" />
             </div>
           </div>
+          <div className="space-y-2">
+            <label className="text-[10px] text-emerald-800 font-black ml-2 uppercase tracking-widest">详细诉求 (选填)</label>
+            <textarea
+              value={baziQuestion}
+              onChange={(e) => setBaziQuestion(e.target.value)}
+              placeholder="请输入您想重点咨询的问题（如：今年财运趋势、职业变动建议、健康注意等）..."
+              className={`w-full h-24 resize-none leading-loose ${inputStyle}`}
+            />
+          </div>
           <p className="text-[10px] text-emerald-700/60 italic pl-2">※ 结合气象论与景曜体系，若不确定时辰，系统将进行精细的“三柱气象”推演。</p>
         </div>
       )}
@@ -234,6 +245,7 @@ const InputForm: React.FC<InputFormProps> = ({ onPredict, isLoading, mode }) => 
              <button key={i} type="button" onClick={() => {
                if (mode === 'QIMEN') setText(t);
                else if (mode === 'YI_LOGIC' && activeCategory === 'liuyao') setLiuYaoQuestion(t);
+               else if (mode === 'YI_LOGIC' && activeCategory === 'bazi') setBaziQuestion(t);
                else if (mode === 'TCM_AI') setTcmContext(t);
              }} className="text-[10px] bg-slate-950/40 hover:bg-rose-950/20 text-slate-500 hover:text-rose-400 border border-slate-900 hover:border-rose-900/50 px-4 py-2 rounded-xl transition-all text-left max-w-full truncate">
                {t}

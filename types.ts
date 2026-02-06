@@ -54,4 +54,5 @@ export interface BaZiInput {
   birthDate: string;
   birthTime?: string; // 可选时辰
   birthPlace: string;
+  question?: string; // 新增：详细诉求
 }
