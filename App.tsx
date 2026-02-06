@@ -70,6 +70,7 @@ const App: React.FC = () => {
   const requestUpdate = useCallback(() => {
     if (updatePending.current) return;
     updatePending.current = true;
+    // 采用更密集的帧同步，配合更轻量的组件渲染
     requestAnimationFrame(() => {
       setDisplayPrediction(fullTextRef.current);
       updatePending.current = false;
@@ -116,18 +117,19 @@ const App: React.FC = () => {
             try {
               const data = JSON.parse(trimmedLine.slice(6));
               const content = data.choices[0]?.delta?.content || "";
-              fullTextRef.current += content;
-              requestUpdate();
+              if (content) {
+                fullTextRef.current += content;
+                requestUpdate();
+              }
             } catch (e) {
+              // 遇到不完整JSON行时存回buffer等待
               buffer = line + "\n" + buffer;
             }
           }
         }
       }
       
-      const finalResult = fullTextRef.current;
-      setDisplayPrediction(''); 
-      return finalResult;
+      return fullTextRef.current;
     } catch (err: any) {
       throw new Error(err.message || "推演中断");
     }
@@ -145,8 +147,7 @@ const App: React.FC = () => {
     let systemInstruction = "";
     let finalUserInput = "";
 
-    // 核心通用规则（禁止 Markdown 加粗、符号、复述输入）
-    const baseConstraints = `严禁使用 # 和 * 符号。严禁使用 Markdown 加粗格式。严禁复述用户输入的原始参数。严禁寒暄。严禁出现“碧海”字眼。语气：专业、中立、逻辑严密，具有慈悲心但拒绝恐吓。`;
+    const baseConstraints = `严禁使用 # 和 * 符号。严禁使用 Markdown 加粗格式。严禁复述用户输入的原始参数。严禁寒暄。语气：专业、中立、逻辑严密，具有慈悲心但拒绝恐吓。`;
 
     if (mode === 'QIMEN') {
       const targetDate = date ? new Date(date) : new Date();
@@ -157,39 +158,42 @@ const App: React.FC = () => {
       setBoard(newBoard);
 
       finalUserInput = `[奇门起局] 方位：${autoPalace}。参数：${JSON.stringify(newBoard)}。诉求：${userInput as string}`;
-      systemInstruction = `你是一位精通正统奇门实战理法的推演专家。${baseConstraints} 结构必须包含：一、能量态势透视；二、深度逻辑分析；三、核心判定结论；四、全息理法建议。`;
+      systemInstruction = `你是一位精通正统奇门实战理法的推演专家。${baseConstraints} 结构：一、能量态势透视；二、深度逻辑分析；三、核心判定结论；四、全息理法建议。`;
     } else if (mode === 'YI_LOGIC') {
-      // 命理板块：应用提供的 txt 核心逻辑
-      const yiSystemBase = `你是一位承袭“医易同源”智慧的深度易学专家。你的分析核心严密遵循“五行气象论”与“三才实战算法”，强调逻辑推演，拒绝一切封建迷信与虚假断语。
-核心分析逻辑：
-1. 评估“气象”：凡命局与卦象，首看寒暖燥湿。
-2. 识别“轴心”：寻月令格局、核心用神与忌神；看月建日辰量级。
-3. 推演“路径”：查看冲、合、空、破、回头克的影响。
-4. 现代语义映射。
+      const yiSystemBase = `你是一位承袭“医易同源”智慧的深度易学专家。分析核心遵循“五行气象论”与“三才实战算法”，应用“碧海易学”分析体系。
+分析模型：
+1. 寒暖燥湿：判定命局气象。冬生冷寒需丙火解冻，夏生燥烈需壬癸滋润。
+2. 十神现代映射：
+   - 伤官：流量、创新、表达、破局能力。
+   - 偏印：冷门技术、深度洞察、学术背书、防御性思维。
+   - 官杀：管理能力、社会压力、公职属性。
+3. 职业逻辑：遵循“身强财旺宜创业（自主权、扩张性），身弱财旺宜平台（借势、稳定支撑）”。
+4. 碧海体系：输出必须包含清晰的【定格】（格局能量）与【定式】（核心运作模型）分析。
 ${baseConstraints}
-结构必须包含以下四大模块：
+结构必须包含：
 一、 能量态势透视
-【命局排盘】（或卦象排盘）
-二、 深度逻辑分析（分析气象平衡、流通病药）
-三、 核心判定结论（给出方向性的断语，不模棱两可）
-【流年趋势】（格式：2025年：内容 \\n 2026年：内容 ...）
-四、 综合调理建议（涵盖行为逻辑与环境调节）`;
+【命局排盘】（年柱：XX 月柱：XX 日柱：XX 时柱：XX）
+【定格分析】（碧海定格）
+二、 深度逻辑分析（气象平衡、流通病药、定式推演）
+三、 核心判定结论
+【流年趋势】（2025年：内容 \\n 2026年：内容 ...）
+四、 综合调理建议`;
 
       if (type === 'LIU_YAO') {
         const input = userInput as LiuYaoInput;
-        finalUserInput = `[任务：六爻逻辑推演] 占问事项：${input.question}。卦象动数：${input.numbers.join(',')}。起卦时间：${new Date().toLocaleString()}。请执行“三才判定”：以月建为天时、日辰为地利、动爻为人心。重点排查是否存在“旬空、月破、回头克”等逻辑缺陷。`;
+        finalUserInput = `[任务：六爻逻辑推演] 占问事项：${input.question}。卦象动数：${input.numbers.join(',')}。起卦时间：${new Date().toLocaleString()}。`;
         systemInstruction = yiSystemBase;
       } else {
         const input = userInput as BaZiInput;
         const calculatedPillars = calculateBaZi(new Date(input.birthDate));
         setBaziData(calculatedPillars);
         
-        finalUserInput = `[任务：深度分析命局] 用户数据：姓名：${input.name}，性别：${input.gender}，出生时间：${input.birthDate} ${input.birthTime || ''}，出生地点：${input.birthPlace}。请根据系统逻辑，先进行“五行气象评估”，再判定“核心用神”，最后推演其在现代社会（职场、财运、情感）中的流通情况。`;
+        finalUserInput = `[任务：深度分析命局] 姓名：${input.name}，性别：${input.gender}，出生：${input.birthDate} ${input.birthTime || ''}，地点：${input.birthPlace}。请依气象论、碧海定格定式及职业逻辑进行解析。`;
         systemInstruction = yiSystemBase;
       }
     } else if (mode === 'TCM_AI') {
       finalUserInput = `【全息辨证】${userInput as string}`;
-      systemInstruction = `你是精通“医易同源”的中医全息调理专家。${baseConstraints} 结构必须包含：一、能量态势透视；二、深度逻辑分析；三、核心判定结论；四、综合调理建议。`;
+      systemInstruction = `你是精通“医易同源”的中医全息调理专家。${baseConstraints} 结构：一、能量态势透视；二、深度逻辑分析；三、核心判定结论；四、综合调理建议。`;
     }
 
     try {
@@ -198,7 +202,9 @@ ${baseConstraints}
         { role: "user", content: finalUserInput }
       ];
       const fullResponse = await streamResponse(initialMessages);
+      // 批量处理状态更新，确保清空流式结果与展示正式结果在同一个渲染周期内，防止闪烁或重复
       setChatHistory([{ role: "assistant", content: fullResponse }]);
+      setDisplayPrediction('');
     } catch (err: any) { 
       setError(err.message); 
     } finally { 
@@ -219,6 +225,7 @@ ${baseConstraints}
     try {
       const fullResponse = await streamResponse(newHistory);
       setChatHistory(prev => [...prev, { role: "assistant", content: fullResponse }]);
+      setDisplayPrediction('');
     } catch (err: any) { 
       setError(err.message); 
     } finally { 
