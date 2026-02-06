@@ -5,7 +5,8 @@ interface AnalysisDisplayProps {
   prediction: string;
 }
 
-const PATTERNS = [
+// 预编译正则以提升高频更新时的执行速度
+const SECTION_TITLES = [
   '【乾坤定局 · 基础信息】',
   '【核心宫位 · 能量透视】',
   '【宫位互动 · 纵横博弈】',
@@ -30,32 +31,29 @@ const PATTERNS = [
   '【辨旺衰】',
   '【找病药】',
   '【论调候与通关】',
-  '一、\\s*[^\\n]+',
-  '二、\\s*[^\\n]+',
-  '三、\\s*[^\\n]+',
-  '四、\\s*[^\\n]+',
-  '[ABCD]\\.\\s*[^\\n]+'
+  '一、', '二、', '三、', '四、',
+  'A\\.', 'B\\.', 'C\\.', 'D\\.'
 ];
 
-const SECTION_SPLIT_REGEX = new RegExp(`(?=${PATTERNS.join('|')})`, 'g');
-const TITLE_MATCH_REGEX = /^([【一二三四].+?[】、]|[ABCD]\.\s*[^\\n]+)/;
+const SECTION_SPLIT_REGEX = new RegExp(`(?=${SECTION_TITLES.join('|')})`, 'g');
+const TITLE_EXTRACT_REGEX = /^([【一二三四].+?[】、]|[ABCD]\.\s*[^\\n]+)/;
 const CLEAN_MARKDOWN_REGEX = /[\*#`\-]{2,}/g;
 
 const AnalysisDisplay: React.FC<AnalysisDisplayProps> = ({ prediction }) => {
   const sections = useMemo(() => {
     if (!prediction) return [];
     
-    const processedText = prediction
-      .replace(CLEAN_MARKDOWN_REGEX, '')
-      .trim();
+    // 快速清理非必要 Markdown 符号，提升渲染干净度
+    const processedText = prediction.replace(CLEAN_MARKDOWN_REGEX, '').trim();
     
+    // 按标题分段
     const parts = processedText.split(SECTION_SPLIT_REGEX).filter(s => s.trim().length > 0);
     
     return parts.map(part => {
       const trimmed = part.trim();
-      const titleMatch = trimmed.match(TITLE_MATCH_REGEX);
+      const titleMatch = trimmed.match(TITLE_EXTRACT_REGEX);
       const title = titleMatch ? titleMatch[0].replace(/[【】]/g, '').trim() : '';
-      const content = trimmed.replace(TITLE_MATCH_REGEX, '').trim();
+      const content = trimmed.replace(TITLE_EXTRACT_REGEX, '').trim();
       
       const isThematicHeader = title.includes('·') || title.includes('观照');
       const isSubHeader = /^[ABCD]\./.test(title);
@@ -73,7 +71,7 @@ const AnalysisDisplay: React.FC<AnalysisDisplayProps> = ({ prediction }) => {
 
   if (sections.length === 0) {
     return (
-      <div className="text-[12px] md:text-[13px] text-slate-300 leading-relaxed tracking-wider font-serif pl-4 border-l border-emerald-500/20 animate-in fade-in duration-300">
+      <div className="text-[12px] md:text-[13px] text-slate-300 leading-relaxed tracking-wider font-serif pl-4 border-l border-emerald-500/20">
         {prediction.split('\n').map((line, i) => (
           <p key={i} className="mb-3">{line.trim()}</p>
         ))}
@@ -84,13 +82,13 @@ const AnalysisDisplay: React.FC<AnalysisDisplayProps> = ({ prediction }) => {
   return (
     <div className="space-y-10 md:space-y-16 font-serif leading-relaxed tracking-normal">
       {sections.map((sec, idx) => (
-        <div key={idx} className="animate-in slide-in-from-bottom-2 fade-in duration-700">
+        <div key={idx} className="fade-in transition-opacity duration-500">
           {sec.title && (
             <div className={`flex items-center gap-3 mb-4 md:mb-8 ${sec.isThematicHeader ? 'justify-center flex-col' : ''}`}>
               {sec.isThematicHeader && (
                  <div className="w-8 h-px bg-gradient-to-r from-transparent via-rose-500 to-transparent mb-1 opacity-60"></div>
               )}
-              <h3 className={`font-black tracking-[0.2em] md:tracking-[0.4em] uppercase transition-all
+              <h3 className={`font-black tracking-[0.2em] md:tracking-[0.4em] uppercase
                 ${sec.isThematicHeader ? 'text-sm md:text-lg text-transparent bg-clip-text bg-gradient-to-r from-rose-400 to-amber-400 text-center' : ''}
                 ${sec.isSubHeader ? 'text-[10px] md:text-[11px] text-emerald-500 border-b border-emerald-900/20 pb-1 w-full' : ''}
                 ${!sec.isThematicHeader && !sec.isSubHeader ? 'text-[11px] md:text-[12px] text-rose-500 flex items-center gap-2' : ''}
@@ -103,7 +101,7 @@ const AnalysisDisplay: React.FC<AnalysisDisplayProps> = ({ prediction }) => {
             </div>
           )}
           
-          <div className={`text-[12px] md:text-[14px] transition-all duration-1000 
+          <div className={`text-[12px] md:text-[14px] 
             ${sec.isThematicHeader ? 'text-center italic text-slate-300' : 'pl-4 md:pl-7'}
             ${sec.isActionable ? 'bg-rose-500/5 p-4 md:p-8 rounded-2xl md:rounded-[2rem] border-l border-rose-500/30 shadow-lg' : 'text-slate-400'}
             ${sec.isSubHeader ? 'bg-emerald-500/5 p-4 md:p-6 rounded-xl md:rounded-2xl border-l border-emerald-500/20 mb-2' : ''}

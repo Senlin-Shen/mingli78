@@ -45,7 +45,7 @@ const App: React.FC = () => {
   const [history, setHistory] = useState<PredictionHistory[]>([]);
   
   const fullTextRef = useRef('');
-  const updatePending = useRef(false);
+  const lastUpdateTimeRef = useRef(0);
   const isStreamingRef = useRef(false);
 
   useEffect(() => {
@@ -122,15 +122,14 @@ const App: React.FC = () => {
     return "巽四宫";
   };
 
-  const requestUpdate = useCallback(() => {
-    if (updatePending.current || !isStreamingRef.current) return;
-    updatePending.current = true;
-    requestAnimationFrame(() => {
-      if (isStreamingRef.current) {
-        setDisplayPrediction(fullTextRef.current);
-      }
-      updatePending.current = false;
-    });
+  // 优化后的节流更新函数，提升渲染性能
+  const throttledUpdate = useCallback((isFinal = false) => {
+    const now = Date.now();
+    // 约 40ms 更新一次（25fps），在视觉连贯性与 CPU 消耗间取得最佳平衡
+    if (isFinal || now - lastUpdateTimeRef.current > 40) {
+      setDisplayPrediction(fullTextRef.current);
+      lastUpdateTimeRef.current = now;
+    }
   }, []);
 
   const streamResponse = async (messages: ChatMessage[]) => {
@@ -138,9 +137,9 @@ const App: React.FC = () => {
     fullTextRef.current = '';
     setDisplayPrediction('');
     isStreamingRef.current = true;
+    lastUpdateTimeRef.current = 0;
     
     try {
-      // 统一使用火山引擎 Ark Proxy
       const response = await fetch('/api/ark-proxy', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -177,15 +176,17 @@ const App: React.FC = () => {
               const content = data.choices[0]?.delta?.content || "";
               if (content) {
                 fullTextRef.current += content;
-                requestUpdate();
+                throttledUpdate();
               }
             } catch (e) {
+              // 容错：将不完整的行存回 buffer
               buffer = line + "\n" + buffer;
             }
           }
         }
       }
       
+      throttledUpdate(true); // 确保最后一次全量更新
       isStreamingRef.current = false;
       return fullTextRef.current;
     } catch (err: any) {
