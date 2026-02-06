@@ -1,6 +1,6 @@
 
 export type PredictionType = 'SHI_JU' | 'MING_JU';
-export type AppMode = 'QIMEN' | 'YI_LOGIC';
+export type AppMode = 'QIMEN' | 'YI_LOGIC' | 'TCM_AI';
 
 export interface LocationData {
   latitude: number;

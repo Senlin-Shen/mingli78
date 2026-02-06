@@ -1,8 +1,8 @@
 
 {
-  "name": "qimen-masterclass-volc",
+  "name": "qimen-masterclass-gemini",
   "private": true,
-  "version": "1.3.2",
+  "version": "1.4.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -12,7 +12,7 @@
   "dependencies": {
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "@google/genai": "^1.4.0"
+    "@google/genai": "^1.40.0"
   },
   "devDependencies": {
     "@types/node": "^22.13.1",
