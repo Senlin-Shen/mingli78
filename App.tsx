@@ -3,16 +3,27 @@ import React, { useState, useCallback, useEffect, useRef } from 'react';
 import AnalysisDisplay from './components/AnalysisDisplay';
 import BoardGrid from './components/BoardGrid';
 import BaZiChart from './components/BaZiChart';
+import BaziResult from './components/BaziResult';
 import Header from './components/Header';
 import Footer from './components/Footer';
 import InputForm from './components/InputForm';
 import ProfilePanel from './components/ProfilePanel';
-import { calculateBoard, calculateBaZi } from './qimenLogic';
+// Always use import {GoogleGenAI} from "@google/genai";
+import { GoogleGenAI } from "@google/genai";
+import { calculateBoard } from './qimenLogic';
+import { useBazi } from './hooks/useBazi';
 import { QiMenBoard, LocationData, AppMode, LiuYaoInput, BaZiInput } from './types';
+import { BaziResultData } from './types/bazi.types';
 
-const CHINA_CENTER = { lng: 108.9, lat: 34.2 };
-const UNIFIED_MODEL = "ep-20260206175318-v6cl7";
+// Use gemini-3-pro-preview for complex reasoning tasks like QiMen and TCM analysis
+const GEMINI_MODEL = "gemini-3-pro-preview";
 
+export interface ChatMessage {
+  role: 'user' | 'assistant' | 'system';
+  content: string;
+}
+
+// Fix: Export PredictionHistory to resolve the error in components/ProfilePanel.tsx
 export interface PredictionHistory {
   id: string;
   timestamp: number;
@@ -20,367 +31,201 @@ export interface PredictionHistory {
   input: string;
   result: string;
   board?: QiMenBoard | null;
-  bazi?: any;
-}
-
-interface ChatMessage {
-  role: 'user' | 'assistant' | 'system';
-  content: string;
+  baziData?: BaziResultData | null;
 }
 
 const App: React.FC = () => {
   const [mode, setMode] = useState<AppMode>('QIMEN');
   const [board, setBoard] = useState<QiMenBoard | null>(null);
-  const [baziData, setBaziData] = useState<any>(null);
+  const [baziData, setBaziData] = useState<BaziResultData | null>(null);
   const [loading, setLoading] = useState(false);
-  const [followUpLoading, setFollowUpLoading] = useState(false);
   const [error, setError] = useState('');
-  const [userLocation, setUserLocation] = useState<(LocationData & { city?: string, ip?: string, palaceName?: string }) | null>(null);
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
   const [displayPrediction, setDisplayPrediction] = useState('');
-  const [followUpText, setFollowUpText] = useState('');
-  
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [history, setHistory] = useState<PredictionHistory[]>([]);
   
+  const { getBaziResult } = useBazi();
   const fullTextRef = useRef('');
-  const lastUpdateTimeRef = useRef(0);
-  const isStreamingRef = useRef(false);
-  const rafIdRef = useRef<number | null>(null);
 
+  // Fix: Persistence for prediction history
   useEffect(() => {
-    const saved = localStorage.getItem('qimen_history_v1');
+    const saved = localStorage.getItem('qimen_prediction_history_v1');
     if (saved) {
       try {
         setHistory(JSON.parse(saved));
-      } catch (e) { console.error("历史记录解析失败"); }
+      } catch (e) {
+        console.error("Failed to load history", e);
+      }
     }
   }, []);
 
   useEffect(() => {
-    const fetchGeo = async () => {
-      try {
-        const res = await fetch('https://ipapi.co/json/');
-        const data = await res.json();
-        if (data.latitude && data.longitude) {
-          const palace = getPalaceFromCoords(data.longitude, data.latitude);
-          setUserLocation({
-            latitude: Number(data.latitude.toFixed(4)),
-            longitude: Number(data.longitude.toFixed(4)),
-            city: `${data.city}, ${data.region}`,
-            ip: data.ip,
-            palaceName: palace,
-            isAdjusted: true
-          });
-        }
-      } catch (e) { console.warn("定位受限"); }
-    };
-    fetchGeo();
-  }, []);
+    if (history.length > 0) {
+      localStorage.setItem('qimen_prediction_history_v1', JSON.stringify(history));
+    }
+  }, [history]);
 
-  const saveToHistory = (result: string, currentInput: string, currentBoard: any, currentBazi: any) => {
-    const newEntry: PredictionHistory = {
-      id: Date.now().toString(),
-      timestamp: Date.now(),
-      mode,
-      input: currentInput,
-      result,
-      board: currentBoard,
-      bazi: currentBazi
-    };
-    const updatedHistory = [newEntry, ...history].slice(0, 50);
-    setHistory(updatedHistory);
-    localStorage.setItem('qimen_history_v1', JSON.stringify(updatedHistory));
+  // Fix: Refactor to use Google Gemini API with direct integration and streaming
+  const streamResponse = async (messages: ChatMessage[]) => {
+    fullTextRef.current = '';
+    setDisplayPrediction('');
+    
+    // Create a new GoogleGenAI instance right before making an API call to ensure fresh configuration
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    
+    try {
+      const systemInstruction = messages.find(m => m.role === 'system')?.content || '';
+      const contents = messages
+        .filter(m => m.role !== 'system')
+        .map(m => ({
+          role: m.role === 'user' ? 'user' : 'model',
+          parts: [{ text: m.content }]
+        }));
+
+      const responseStream = await ai.models.generateContentStream({
+        model: GEMINI_MODEL,
+        contents,
+        config: {
+          systemInstruction,
+          temperature: 0.3,
+        },
+      });
+
+      for await (const chunk of responseStream) {
+        const text = chunk.text;
+        if (text) {
+          fullTextRef.current += text;
+          setDisplayPrediction(fullTextRef.current);
+        }
+      }
+      return fullTextRef.current;
+    } catch (err: any) {
+      console.error("Gemini API Error:", err);
+      throw err;
+    }
   };
 
-  const loadFromHistory = (entry: PredictionHistory) => {
+  const handlePredict = useCallback(async (userInput: any, type: string, date?: string) => {
+    setLoading(true);
+    setError('');
     setDisplayPrediction('');
+    setChatHistory([]);
+    setBoard(null);
+    setBaziData(null);
+
+    let systemInstruction = "";
+    let finalUserInput = "";
+    let activeBoard: QiMenBoard | null = null;
+    let activeBazi: BaziResultData | null = null;
+
+    if (mode === 'QIMEN') {
+      const targetDate = date ? new Date(date) : new Date();
+      activeBoard = calculateBoard(targetDate, 120);
+      setBoard(activeBoard);
+      finalUserInput = `[奇门起局数据] ${JSON.stringify(activeBoard)}。\n[诉求] ${userInput}`;
+      systemInstruction = `你是一位精通奇门遁甲的专家。请基于以上盘局进行深度推演。分析星、门、神、干在宫位中的互动，给出针对性建议。`;
+    } else if (mode === 'YI_LOGIC' && type === 'BA_ZI') {
+      const input = userInput as BaZiInput;
+      activeBazi = getBaziResult(input.birthDate, input.birthTime || '', input.birthPlace, input.gender);
+      setBaziData(activeBazi);
+      
+      finalUserInput = `【排盘结果】${JSON.stringify(activeBazi)}\n【命主诉求】${input.question || '综合运势解析'}`;
+      systemInstruction = `你是一位精通八字气象论与五行理法的专家。请基于排盘结果，分析命造气象分布、十神意向及运势起伏。`;
+    } else if (mode === 'TCM_AI') {
+      finalUserInput = userInput;
+      systemInstruction = `你是一位精通传统中医全息调理的专家。请分析患者描述的症状，判明虚实寒热，并给出病机解析与调理方案。`;
+    }
+
+    try {
+      const result = await streamResponse([
+        { role: 'system', content: systemInstruction },
+        { role: 'user', content: finalUserInput }
+      ]);
+      setChatHistory([{ role: 'assistant', content: result }]);
+
+      // Fix: Record history entry after successful prediction
+      const newEntry: PredictionHistory = {
+        id: Date.now().toString(),
+        timestamp: Date.now(),
+        mode,
+        input: typeof userInput === 'string' ? userInput : (userInput.question || userInput.name || '时空推演'),
+        result,
+        board: activeBoard,
+        baziData: activeBazi
+      };
+      setHistory(prev => [newEntry, ...prev].slice(0, 50));
+    } catch (err: any) {
+      setError(err.message || '推演连接超时或异常，请稍后重试');
+    } finally {
+      setLoading(false);
+    }
+  }, [mode, getBaziResult]);
+
+  const handleLoadHistory = (entry: PredictionHistory) => {
     setMode(entry.mode);
     setBoard(entry.board || null);
-    setBaziData(entry.bazi || null);
+    setBaziData(entry.baziData || null);
+    setDisplayPrediction(entry.result);
     setChatHistory([{ role: 'assistant', content: entry.result }]);
     setIsProfileOpen(false);
     window.scrollTo({ top: 400, behavior: 'smooth' });
   };
 
-  const clearHistory = () => {
-    setHistory([]);
-    localStorage.removeItem('qimen_history_v1');
-  };
-
-  const getPalaceFromCoords = (lng: number, lat: number) => {
-    const angle = Math.atan2(lat - CHINA_CENTER.lat, lng - CHINA_CENTER.lng);
-    let degrees = angle * (180 / Math.PI);
-    if (degrees < 0) degrees += 360;
-    if (degrees >= 337.5 || degrees < 22.5) return "震三宫";
-    if (degrees >= 22.5 && degrees < 67.5) return "艮八宫";
-    if (degrees >= 67.5 && degrees < 112.5) return "坎一宫";
-    if (degrees >= 112.5 && degrees < 157.5) return "乾六宫";
-    if (degrees >= 157.5 && degrees < 202.5) return "兑七宫";
-    if (degrees >= 202.5 && degrees < 247.5) return "坤二宫";
-    if (degrees >= 247.5 && degrees < 292.5) return "离九宫";
-    return "巽四宫";
-  };
-
-  const throttledUpdate = useCallback((isFinal = false) => {
-    const now = Date.now();
-    if (isFinal || lastUpdateTimeRef.current === 0 || now - lastUpdateTimeRef.current > 32) {
-      if (rafIdRef.current) cancelAnimationFrame(rafIdRef.current);
-      rafIdRef.current = requestAnimationFrame(() => {
-        setDisplayPrediction(fullTextRef.current);
-        lastUpdateTimeRef.current = now;
-      });
-    }
-  }, []);
-
-  const streamResponse = async (messages: ChatMessage[]) => {
-    setError('');
-    fullTextRef.current = '';
-    setDisplayPrediction('');
-    isStreamingRef.current = true;
-    lastUpdateTimeRef.current = 0;
-    
-    try {
-      const response = await fetch('/api/ark-proxy', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          messages: messages.map(m => ({ role: m.role, content: m.content })),
-          temperature: 0.3,
-          model: UNIFIED_MODEL
-        })
-      });
-
-      if (!response.ok) throw new Error("通联链路异常");
-
-      const reader = response.body?.getReader();
-      if (!reader) throw new Error("无法读取流数据");
-
-      const decoder = new TextDecoder();
-      let buffer = ""; 
-      
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split('\n');
-        buffer = lines.pop() || "";
-        
-        for (const line of lines) {
-          const trimmedLine = line.trim();
-          if (!trimmedLine || trimmedLine === 'data: [DONE]') continue;
-          
-          if (trimmedLine.startsWith('data: ')) {
-            try {
-              const data = JSON.parse(trimmedLine.slice(6));
-              const content = data.choices[0]?.delta?.content || "";
-              if (content) {
-                fullTextRef.current += content;
-                throttledUpdate();
-              }
-            } catch (e) {
-              buffer = line + "\n" + buffer;
-            }
-          }
-        }
-      }
-      
-      throttledUpdate(true);
-      isStreamingRef.current = false;
-      return fullTextRef.current;
-    } catch (err: any) {
-      isStreamingRef.current = false;
-      throw new Error(err.message || "推演中断");
-    }
-  };
-
-  const handlePredict = useCallback(async (userInput: string | any, type: string, date?: string) => {
-    setLoading(true);
-    setError('');
-    setDisplayPrediction('');
-    fullTextRef.current = '';
-    setChatHistory([]);
-    
-    let systemInstruction = "";
-    let finalUserInput = "";
-    let summaryInput = typeof userInput === 'string' ? userInput : JSON.stringify(userInput);
-    let currentCalculatedBoard: any = null;
-    let currentCalculatedBazi: any = null;
-
-    const baseConstraints = `严禁使用 # 和 * 符号。严禁使用 Markdown 加粗格式。严禁复述用户输入的原始参数。严禁寒暄。语气：专业、中立、逻辑严密，具有慈悲心但拒绝恐吓。`;
-
-    if (mode === 'QIMEN') {
-      const targetDate = date ? new Date(date) : new Date();
-      currentCalculatedBoard = calculateBoard(targetDate, userLocation?.longitude || 120);
-      const autoPalace = userLocation?.palaceName || '中五宫';
-      currentCalculatedBoard.direction = autoPalace;
-      if (userLocation) currentCalculatedBoard.location = { ...userLocation, isAdjusted: true };
-      setBoard(currentCalculatedBoard);
-
-      finalUserInput = `[奇门起局数据] ${JSON.stringify(currentCalculatedBoard)}。\n[用户诉求] ${userInput as string}`;
-      systemInstruction = `你是一名深谙现代应用理念的奇门遁甲专家，擅长将传统术数转化为清晰、可操作的决策建议。请根据提供的盘局数据进行分析。分析框架：1.【乾坤定局】；2.【核心能量】；3.【纵横博弈】；4.【实战理法】。${baseConstraints}`;
-    } else if (mode === 'YI_LOGIC') {
-      if (type === 'LI_YAO') {
-        const input = userInput as LiuYaoInput;
-        finalUserInput = `[任务：六爻逻辑推演] 占问事项：${input.question}。卦象动数：${input.numbers.join(',')}。`;
-        systemInstruction = `你是一位精通六爻演化的专家。${baseConstraints}`;
-      } else {
-        const input = userInput as BaZiInput;
-        const hasTime = !!input.birthTime && input.birthTime !== '';
-        // 此处不再直接 new Date，而是交给 calculateBaZi 进行更精密的解析
-        const birthDateObj = new Date(input.birthDate + ' ' + (input.birthTime || '00:00'));
-        currentCalculatedBazi = calculateBaZi(birthDateObj, 120, hasTime);
-        setBaziData(currentCalculatedBazi);
-        
-        const { year, month, day, hour } = currentCalculatedBazi;
-        finalUserInput = `【命主全息档案】
-姓名：${input.name || '匿名客'}
-性别：${input.gender}
-出生日期：${input.birthDate} ${input.birthTime || '(不详)'}
-出生地点：${input.birthPlace} (经度修正：120°E)
-
-【四柱乾坤排盘】
-年柱：${year[0]}${year[1]}
-月柱：${month[0]}${month[1]}
-日柱：${day[0]}${day[1]}
-时柱：${hour[0]}${hour[1]}
-
-【核心分析诉求】
-${input.question || '暂无特定诉求，请进行综合格局解析。'}
-
-【分析要求】
-1. 解析命局的寒暖燥湿气象，论格局之高低，定职业之定式。
-2. 针对命主填写的详细诉求进行深度回应。
-3. 严禁改变以上排定的干支。`;
-
-        systemInstruction = `你是一位精通命理气象论与姜氏实战体系的专家。请基于已排定的四柱干支进行深度全息分析。你的推演应具备高度的实战性，能为命主提供清晰的人生赛道建议。${baseConstraints}`;
-      }
-    } else if (mode === 'TCM_AI') {
-      finalUserInput = `【全息辨证】${userInput as string}`;
-      systemInstruction = `你是精通“医易同源”的中医专家。${baseConstraints}`;
-    }
-
-    try {
-      const initialMessages: ChatMessage[] = [
-        { role: "system", content: systemInstruction },
-        { role: "user", content: finalUserInput }
-      ];
-      const fullResponse = await streamResponse(initialMessages);
-      
-      setDisplayPrediction('');
-      setChatHistory([{ role: "assistant", content: fullResponse }]);
-      saveToHistory(fullResponse, summaryInput, currentCalculatedBoard, currentCalculatedBazi);
-    } catch (err: any) { 
-      setError(err.message); 
-      setDisplayPrediction('');
-    } finally { 
-      setLoading(false); 
-    }
-  }, [userLocation, mode, streamResponse]);
-
-  const handleFollowUp = async (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
-    if (!followUpText.trim() || followUpLoading) return;
-    const query = followUpText;
-    setFollowUpText('');
-    setFollowUpLoading(true);
-    
-    const newHistory: ChatMessage[] = [...chatHistory, { role: "user", content: query }];
-    setChatHistory(newHistory);
-    
-    try {
-      const fullResponse = await streamResponse(newHistory);
-      setDisplayPrediction('');
-      setChatHistory(prev => [...prev, { role: "assistant", content: fullResponse }]);
-    } catch (err: any) { 
-      setError(err.message); 
-      setDisplayPrediction('');
-    } finally { 
-      setFollowUpLoading(false); 
+  const handleClearHistory = () => {
+    if (window.confirm('确认清除所有历史推演记录？')) {
+      setHistory([]);
+      localStorage.removeItem('qimen_prediction_history_v1');
     }
   };
 
   return (
     <div className="min-h-screen bg-[#020617] text-slate-100 flex flex-col parchment-bg">
       <Header onOpenProfile={() => setIsProfileOpen(true)} />
-      <ProfilePanel 
-        isOpen={isProfileOpen} 
-        onClose={() => setIsProfileOpen(false)} 
-        history={history}
-        onLoadHistory={loadFromHistory}
-        onClearHistory={clearHistory}
-      />
-
-      <div className="bg-slate-900/90 border-y border-rose-500/20 backdrop-blur-2xl sticky top-0 z-50 shadow-2xl">
-        <div className="max-w-4xl mx-auto flex items-center h-16 px-4">
-          <button onClick={() => setMode('QIMEN')} className={`flex-1 h-full text-[11px] tracking-[0.5em] font-black transition-all relative overflow-hidden ${mode === 'QIMEN' ? 'text-rose-400' : 'text-slate-500'}`}>
-            {mode === 'QIMEN' && <div className="absolute bottom-0 left-0 right-0 h-1 bg-rose-500 shadow-[0_0_20px_#f43f5e] animate-pulse"></div>}
-            奇门
-          </button>
-          <button onClick={() => setMode('YI_LOGIC')} className={`flex-1 h-full text-[11px] tracking-[0.5em] font-black transition-all relative overflow-hidden ${mode === 'YI_LOGIC' ? 'text-rose-400' : 'text-slate-500'}`}>
-            {mode === 'YI_LOGIC' && <div className="absolute bottom-0 left-0 right-0 h-1 bg-rose-500 shadow-[0_0_20px_#f43f5e]"></div>}
-            易理
-          </button>
-          <button onClick={() => setMode('TCM_AI')} className={`flex-1 h-full text-[11px] tracking-[0.5em] font-black transition-all relative overflow-hidden ${mode === 'TCM_AI' ? 'text-rose-400' : 'text-slate-500'}`}>
-            {mode === 'TCM_AI' && <div className="absolute bottom-0 left-0 right-0 h-1 bg-rose-500 shadow-[0_0_20px_#f43f5e]"></div>}
-            中医
-          </button>
+      
+      <div className="bg-slate-900/90 border-y border-rose-500/20 backdrop-blur-2xl sticky top-0 z-50">
+        <div className="max-w-4xl mx-auto flex h-16 px-4">
+          <button onClick={() => setMode('QIMEN')} className={`flex-1 text-[11px] font-black tracking-widest transition-all ${mode === 'QIMEN' ? 'text-rose-400 border-b-2 border-rose-500' : 'text-slate-500 hover:text-slate-200'}`}>奇门</button>
+          <button onClick={() => setMode('YI_LOGIC')} className={`flex-1 text-[11px] font-black tracking-widest transition-all ${mode === 'YI_LOGIC' ? 'text-rose-400 border-b-2 border-rose-500' : 'text-slate-500 hover:text-slate-200'}`}>易理</button>
+          <button onClick={() => setMode('TCM_AI')} className={`flex-1 text-[11px] font-black tracking-widest transition-all ${mode === 'TCM_AI' ? 'text-rose-400 border-b-2 border-rose-500' : 'text-slate-500 hover:text-slate-200'}`}>中医</button>
         </div>
       </div>
 
       <main className="flex-1 max-w-4xl mx-auto w-full px-6 py-12 flex flex-col gap-12">
-        <section className={`bg-slate-950/40 border border-emerald-900/30 p-8 md:p-10 rounded-[2.5rem] backdrop-blur-2xl shadow-2xl ring-1 ring-emerald-500/10`}>
-          <InputForm onPredict={handlePredict} isLoading={loading} mode={mode} />
-        </section>
+        {error && (
+          <div className="p-4 bg-rose-500/10 border border-rose-500/30 rounded-xl text-rose-500 text-xs text-center font-black">
+            {error}
+          </div>
+        )}
         
-        {mode === 'QIMEN' && board && <BoardGrid board={board} />}
-        {mode === 'YI_LOGIC' && baziData && <BaZiChart pillars={baziData} />}
+        <InputForm onPredict={handlePredict} isLoading={loading} mode={mode} />
+        
+        {/* Core data visualization */}
+        {board && <BoardGrid board={board} />}
+        {baziData && <BaziResult data={baziData} />}
 
-        {(chatHistory.length > 0 || displayPrediction || loading || error) && (
-          <section className="bg-slate-950/80 border border-rose-900/20 p-8 md:p-14 rounded-[3rem] backdrop-blur-3xl relative shadow-[0_0_50px_rgba(244,63,94,0.05)]">
-            <div className="relative z-10 space-y-20">
-              {chatHistory.filter(m => m.role !== 'system').map((msg, i) => (
-                <div key={i} className={`animate-in fade-in duration-700 ${msg.role === 'user' ? 'opacity-40 border-l-2 border-emerald-500/20 pl-8 py-4 mb-14 italic' : ''}`}>
-                  <AnalysisDisplay prediction={msg.content} />
-                </div>
-              ))}
-              
-              {displayPrediction && (
-                <div className="pt-12 border-t border-rose-950/80">
-                   <p className="text-[11px] mb-10 tracking-[1.2em] font-black uppercase text-rose-500 animate-pulse flex items-center gap-4">
-                     <span className="w-2 h-2 rounded-full bg-rose-500"></span>
-                     解析中...
-                   </p>
-                   <AnalysisDisplay prediction={displayPrediction} />
-                </div>
-              )}
-
-              {loading && !displayPrediction && (
-                <div className="flex flex-col items-center justify-center py-32 opacity-60">
-                  <div className="w-16 h-16 border-[3px] border-emerald-500/10 border-t-rose-500 rounded-full animate-spin"></div>
-                </div>
-              )}
-              
-              {error && (
-                <div className="p-8 bg-red-950/30 border border-red-900/40 rounded-3xl text-red-400 text-[11px] font-black">
-                   ✕ {error}
-                </div>
-              )}
+        {/* AI Insight section */}
+        {(displayPrediction || chatHistory.length > 0) && (
+          <section className="bg-slate-950/80 border border-rose-900/20 p-8 rounded-[2rem] shadow-2xl">
+            <div className="mb-8 border-b border-rose-900/10 pb-4 flex items-center justify-between">
+              <span className="text-[10px] text-rose-500 font-black tracking-[0.5em] uppercase">全息逻辑推演 · AI Insight</span>
+              {loading && <div className="w-4 h-4 border-2 border-rose-500 border-t-transparent rounded-full animate-spin"></div>}
             </div>
-
-            {chatHistory.length > 0 && !loading && !error && (
-              <div className="mt-24 pt-12 border-t border-rose-950/80">
-                <form onSubmit={handleFollowUp} className="relative max-w-2xl mx-auto">
-                   <textarea value={followUpText} onChange={(e) => setFollowUpText(e.target.value)} placeholder="进一步研讨..." className="w-full h-32 bg-slate-950 border border-slate-900 rounded-[2rem] p-7 text-slate-200 focus:outline-none resize-none text-[13px]" />
-                   <button type="submit" className="absolute bottom-6 right-6 bg-rose-600 text-white px-8 py-3 rounded-2xl text-[10px] font-black tracking-widest">发送</button>
-                </form>
-              </div>
-            )}
+            <AnalysisDisplay prediction={displayPrediction || chatHistory[0]?.content} />
           </section>
         )}
       </main>
+      
       <Footer />
+
+      {/* Fix: Added the missing ProfilePanel rendering to handle user history and state loading */}
+      <ProfilePanel 
+        isOpen={isProfileOpen} 
+        onClose={() => setIsProfileOpen(false)} 
+        history={history}
+        onLoadHistory={handleLoadHistory}
+        onClearHistory={handleClearHistory}
+      />
     </div>
   );
 };
