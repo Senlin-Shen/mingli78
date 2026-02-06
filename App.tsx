@@ -31,6 +31,7 @@ const App: React.FC = () => {
   
   const fullTextRef = useRef('');
   const updatePending = useRef(false);
+  const isStreamingRef = useRef(false);
 
   const getPalaceFromCoords = (lng: number, lat: number) => {
     const angle = Math.atan2(lat - CHINA_CENTER.lat, lng - CHINA_CENTER.lng);
@@ -68,11 +69,12 @@ const App: React.FC = () => {
   }, []);
 
   const requestUpdate = useCallback(() => {
-    if (updatePending.current) return;
+    if (updatePending.current || !isStreamingRef.current) return;
     updatePending.current = true;
-    // 采用更密集的帧同步，配合更轻量的组件渲染
     requestAnimationFrame(() => {
-      setDisplayPrediction(fullTextRef.current);
+      if (isStreamingRef.current) {
+        setDisplayPrediction(fullTextRef.current);
+      }
       updatePending.current = false;
     });
   }, []);
@@ -81,6 +83,7 @@ const App: React.FC = () => {
     setError('');
     fullTextRef.current = '';
     setDisplayPrediction('');
+    isStreamingRef.current = true;
     
     try {
       const response = await fetch('/api/ark-proxy', {
@@ -122,15 +125,16 @@ const App: React.FC = () => {
                 requestUpdate();
               }
             } catch (e) {
-              // 遇到不完整JSON行时存回buffer等待
               buffer = line + "\n" + buffer;
             }
           }
         }
       }
       
+      isStreamingRef.current = false;
       return fullTextRef.current;
     } catch (err: any) {
+      isStreamingRef.current = false;
       throw new Error(err.message || "推演中断");
     }
   };
@@ -202,15 +206,15 @@ ${baseConstraints}
         { role: "user", content: finalUserInput }
       ];
       const fullResponse = await streamResponse(initialMessages);
-      // 批量处理状态更新，确保清空流式结果与展示正式结果在同一个渲染周期内，防止闪烁或重复
-      setChatHistory([{ role: "assistant", content: fullResponse }]);
+      // 核心修复：同步重置流式显示状态并更新历史记录，React 会批量处理这两次状态变更
       setDisplayPrediction('');
+      setChatHistory([{ role: "assistant", content: fullResponse }]);
     } catch (err: any) { 
       setError(err.message); 
     } finally { 
       setLoading(false); 
     }
-  }, [userLocation, mode, streamResponse, requestUpdate]);
+  }, [userLocation, mode, streamResponse]);
 
   const handleFollowUp = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -224,8 +228,9 @@ ${baseConstraints}
     
     try {
       const fullResponse = await streamResponse(newHistory);
-      setChatHistory(prev => [...prev, { role: "assistant", content: fullResponse }]);
+      // 核心修复：同步重置流式显示状态并更新历史记录
       setDisplayPrediction('');
+      setChatHistory(prev => [...prev, { role: "assistant", content: fullResponse }]);
     } catch (err: any) { 
       setError(err.message); 
     } finally { 
