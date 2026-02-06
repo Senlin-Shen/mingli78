@@ -1,13 +1,27 @@
 
 import React from 'react';
 
-const Header: React.FC = () => {
+interface HeaderProps {
+  onOpenProfile: () => void;
+}
+
+const Header: React.FC<HeaderProps> = ({ onOpenProfile }) => {
   return (
     <header className="text-center py-20 border-b border-rose-900/20 relative overflow-hidden">
       {/* 能量背景层 */}
       <div className="absolute inset-0 bg-gradient-to-b from-rose-500/5 via-transparent to-transparent pointer-events-none"></div>
       <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-lg h-full opacity-20 pointer-events-none blur-3xl bg-gradient-to-tr from-emerald-500/20 via-rose-500/20 to-violet-500/20"></div>
       
+      {/* 个人中心入口 */}
+      <button 
+        onClick={onOpenProfile}
+        className="absolute top-8 right-8 w-12 h-12 rounded-full bg-slate-900/40 border border-rose-500/20 flex items-center justify-center text-rose-500 hover:bg-rose-600/10 hover:border-rose-500/50 transition-all z-50 group"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 group-hover:scale-110 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+        </svg>
+      </button>
+
       {/* 装饰性浮动粒子 */}
       {[...Array(6)].map((_, i) => (
         <div 

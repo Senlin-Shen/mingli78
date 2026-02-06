@@ -5,18 +5,12 @@ interface AnalysisDisplayProps {
   prediction: string;
 }
 
-// 预定义常量与正则，增加对最新 Prompt 结构的标题识别支持
+// Optimized patterns for a more fluid report structure
 const PATTERNS = [
-  '一、\\s*能量态势透视', 
-  '二、\\s*深度逻辑分析', 
-  '三、\\s*核心判定结论', 
-  '四、\\s*综合调理建议',
-  '四、\\s*全息理法建议',
-  '第一步：\\s*核验与排盘',
-  '第二步：\\s*命格核心诊断',
-  '第三步：\\s*多维度优化方案生成',
-  '第四步：\\s*生成整合总结与开篇诗句',
-  '[ABCD]\\.\\s*[^\\n]+',
+  '【命造流转 · 乾坤排定】',
+  '【气象格局 · 虚实辨证】',
+  '【天人合一 · 景曜调理】',
+  '【整合观照】',
   '【能量态势透视】', 
   '【深度逻辑分析】', 
   '【核心判定结论】', 
@@ -26,17 +20,22 @@ const PATTERNS = [
   '【核心调理原则】', 
   '【全息方案建议】',
   '【命局排盘】',
-  '【定格分析】',
-  '【定式分析】',
+  '【全息定格】',
+  '【命格定式】',
   '【流年趋势】',
   '【定格点睛】',
   '【辨旺衰】',
   '【找病药】',
-  '【论调候与通关】'
+  '【论调候与通关】',
+  '一、\\s*[^\\n]+',
+  '二、\\s*[^\\n]+',
+  '三、\\s*[^\\n]+',
+  '四、\\s*[^\\n]+',
+  '[ABCD]\\.\\s*[^\\n]+'
 ];
 
 const SECTION_SPLIT_REGEX = new RegExp(`(?=${PATTERNS.join('|')})`, 'g');
-const TITLE_MATCH_REGEX = /^([一二三四]、\s*[^\\n]+|第[一二三四]步：\s*[^\\n]+|[ABCD]\.\s*[^\\n]+|【[^】]+】)/;
+const TITLE_MATCH_REGEX = /^([【一二三四].+?[】、]|[ABCD]\.\s*[^\\n]+)/;
 const CLEAN_MARKDOWN_REGEX = /[\*#`\-]{2,}/g;
 
 const AnalysisDisplay: React.FC<AnalysisDisplayProps> = ({ prediction }) => {
@@ -54,47 +53,74 @@ const AnalysisDisplay: React.FC<AnalysisDisplayProps> = ({ prediction }) => {
       const titleMatch = trimmed.match(TITLE_MATCH_REGEX);
       const title = titleMatch ? titleMatch[0].replace(/[【】]/g, '').trim() : '';
       const content = trimmed.replace(TITLE_MATCH_REGEX, '').trim();
-      const isHighlight = 
-        title.includes('判定') || 
-        title.includes('理法') || 
-        title.includes('建议') || 
-        title.includes('结论') || 
-        title.includes('趋势') || 
-        title.includes('定格') || 
-        title.includes('定式') ||
-        title.includes('第三步') ||
-        /^[ABCD]\./.test(title);
       
-      return { title, content, isHighlight };
+      const isThematicHeader = title.includes('·') || title.includes('观照');
+      const isSubHeader = /^[ABCD]\./.test(title);
+      const isActionable = title.includes('建议') || title.includes('调理') || title.includes('方案');
+
+      return { 
+        title, 
+        content, 
+        isThematicHeader, 
+        isSubHeader,
+        isActionable
+      };
     });
   }, [prediction]);
 
   if (sections.length === 0) {
     return (
-      <div className="text-[13px] text-slate-300 leading-relaxed tracking-widest font-serif pl-6 border-l border-orange-500/20 animate-in fade-in duration-300">
+      <div className="text-[14px] text-slate-300 leading-relaxed tracking-widest font-serif pl-8 border-l border-emerald-500/20 animate-in fade-in duration-300">
         {prediction.split('\n').map((line, i) => (
-          <p key={i} className="mb-4">{line.trim()}</p>
+          <p key={i} className="mb-5">{line.trim()}</p>
         ))}
       </div>
     );
   }
 
   return (
-    <div className="space-y-12 font-serif leading-loose tracking-widest">
+    <div className="space-y-16 font-serif leading-loose tracking-[0.1em]">
       {sections.map((sec, idx) => (
-        <div key={idx} className="animate-in slide-in-from-left-2 fade-in duration-500">
+        <div key={idx} className="animate-in slide-in-from-bottom-4 fade-in duration-700">
           {sec.title && (
-            <div className="flex items-center gap-3 mb-6">
-              <div className={`h-1.5 w-4 rounded-full ${sec.isHighlight ? 'bg-orange-500 shadow-[0_0_8px_orange]' : 'bg-orange-900'}`}></div>
-              <h3 className={`text-[11px] font-black tracking-[0.5em] uppercase ${sec.isHighlight ? 'text-orange-400' : 'text-orange-800'}`}>
+            <div className={`flex items-center gap-4 mb-8 ${sec.isThematicHeader ? 'justify-center flex-col' : ''}`}>
+              {sec.isThematicHeader && (
+                 <div className="w-12 h-px bg-gradient-to-r from-transparent to-rose-500 mb-2"></div>
+              )}
+              <h3 className={`font-black tracking-[0.4em] uppercase transition-all
+                ${sec.isThematicHeader ? 'text-lg text-transparent bg-clip-text bg-gradient-to-r from-rose-400 to-amber-400' : ''}
+                ${sec.isSubHeader ? 'text-[11px] text-emerald-500 border-b border-emerald-900/30 pb-1 w-full' : ''}
+                ${!sec.isThematicHeader && !sec.isSubHeader ? 'text-[12px] text-rose-500 flex items-center gap-3' : ''}
+              `}>
+                {!sec.isThematicHeader && !sec.isSubHeader && (
+                  <span className="w-1 h-3 bg-rose-600 rounded-full shadow-[0_0_8px_#f43f5e]"></span>
+                )}
                 {sec.title}
               </h3>
             </div>
           )}
-          <div className={`text-[13px] pl-7 py-1 border-l border-orange-900/20 transition-all ${sec.isHighlight ? 'text-orange-50 bg-orange-500/5 p-6 rounded-r-2xl border-l-orange-500/40 italic shadow-xl' : 'text-slate-400'}`}>
-            {sec.content.split('\n').map((line, lidx) => (
-              <p key={lidx} className={lidx > 0 ? 'mt-4' : ''}>{line.trim()}</p>
-            ))}
+          
+          <div className={`text-[14px] transition-all duration-1000 
+            ${sec.isThematicHeader ? 'text-center italic text-slate-200' : 'pl-7'}
+            ${sec.isActionable ? 'bg-rose-500/5 p-8 rounded-[2rem] border-l-2 border-rose-500/40 shadow-xl shadow-rose-950/20' : 'text-slate-400'}
+            ${sec.isSubHeader ? 'bg-emerald-500/5 p-6 rounded-2xl border-l-2 border-emerald-500/30 mb-4' : ''}
+          `}>
+            {sec.content.split('\n').map((line, lidx) => {
+              const trimmedLine = line.trim();
+              if (!trimmedLine) return null;
+              
+              // Detect specific poetic patterns or key labels within text
+              const isPoetry = trimmedLine.length > 15 && trimmedLine.includes('，') && trimmedLine.includes('。');
+              
+              return (
+                <p key={lidx} className={`
+                  ${lidx > 0 ? 'mt-5' : ''}
+                  ${isPoetry ? 'text-center text-rose-300 font-medium italic text-base py-4 leading-[2.5]' : ''}
+                `}>
+                  {trimmedLine}
+                </p>
+              );
+            })}
           </div>
         </div>
       ))}

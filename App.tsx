@@ -6,11 +6,22 @@ import BaZiChart from './components/BaZiChart';
 import Header from './components/Header';
 import Footer from './components/Footer';
 import InputForm from './components/InputForm';
+import ProfilePanel from './components/ProfilePanel';
 import { calculateBoard, calculateBaZi } from './qimenLogic';
 import { QiMenBoard, LocationData, AppMode, LiuYaoInput, BaZiInput } from './types';
 
 const CHINA_CENTER = { lng: 108.9, lat: 34.2 };
 const UNIFIED_MODEL = "ep-20260206175318-v6cl7";
+
+export interface PredictionHistory {
+  id: string;
+  timestamp: number;
+  mode: AppMode;
+  input: string;
+  result: string;
+  board?: QiMenBoard | null;
+  bazi?: any;
+}
 
 interface ChatMessage {
   role: 'user' | 'assistant' | 'system';
@@ -26,26 +37,24 @@ const App: React.FC = () => {
   const [error, setError] = useState('');
   const [userLocation, setUserLocation] = useState<(LocationData & { city?: string, ip?: string, palaceName?: string }) | null>(null);
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
-  const [followUpText, setFollowUpText] = useState('');
   const [displayPrediction, setDisplayPrediction] = useState('');
+  const [followUpText, setFollowUpText] = useState('');
+  
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [history, setHistory] = useState<PredictionHistory[]>([]);
   
   const fullTextRef = useRef('');
   const updatePending = useRef(false);
   const isStreamingRef = useRef(false);
 
-  const getPalaceFromCoords = (lng: number, lat: number) => {
-    const angle = Math.atan2(lat - CHINA_CENTER.lat, lng - CHINA_CENTER.lng);
-    let degrees = angle * (180 / Math.PI);
-    if (degrees < 0) degrees += 360;
-    if (degrees >= 337.5 || degrees < 22.5) return "震三宫";
-    if (degrees >= 22.5 && degrees < 67.5) return "艮八宫";
-    if (degrees >= 67.5 && degrees < 112.5) return "坎一宫";
-    if (degrees >= 112.5 && degrees < 157.5) return "乾六宫";
-    if (degrees >= 157.5 && degrees < 202.5) return "兑七宫";
-    if (degrees >= 202.5 && degrees < 247.5) return "坤二宫";
-    if (degrees >= 247.5 && degrees < 292.5) return "离九宫";
-    return "巽四宫";
-  };
+  useEffect(() => {
+    const saved = localStorage.getItem('qimen_history_v1');
+    if (saved) {
+      try {
+        setHistory(JSON.parse(saved));
+      } catch (e) { console.error("历史记录解析失败"); }
+    }
+  }, []);
 
   useEffect(() => {
     const fetchGeo = async () => {
@@ -67,6 +76,50 @@ const App: React.FC = () => {
     };
     fetchGeo();
   }, []);
+
+  const saveToHistory = (result: string, currentInput: string, currentBoard: any, currentBazi: any) => {
+    const newEntry: PredictionHistory = {
+      id: Date.now().toString(),
+      timestamp: Date.now(),
+      mode,
+      input: currentInput,
+      result,
+      board: currentBoard,
+      bazi: currentBazi
+    };
+    const updatedHistory = [newEntry, ...history].slice(0, 50);
+    setHistory(updatedHistory);
+    localStorage.setItem('qimen_history_v1', JSON.stringify(updatedHistory));
+  };
+
+  const loadFromHistory = (entry: PredictionHistory) => {
+    setMode(entry.mode);
+    setBoard(entry.board || null);
+    setBaziData(entry.bazi || null);
+    setChatHistory([{ role: 'assistant', content: entry.result }]);
+    setDisplayPrediction('');
+    setIsProfileOpen(false);
+    window.scrollTo({ top: 400, behavior: 'smooth' });
+  };
+
+  const clearHistory = () => {
+    setHistory([]);
+    localStorage.removeItem('qimen_history_v1');
+  };
+
+  const getPalaceFromCoords = (lng: number, lat: number) => {
+    const angle = Math.atan2(lat - CHINA_CENTER.lat, lng - CHINA_CENTER.lng);
+    let degrees = angle * (180 / Math.PI);
+    if (degrees < 0) degrees += 360;
+    if (degrees >= 337.5 || degrees < 22.5) return "震三宫";
+    if (degrees >= 22.5 && degrees < 67.5) return "艮八宫";
+    if (degrees >= 67.5 && degrees < 112.5) return "坎一宫";
+    if (degrees >= 112.5 && degrees < 157.5) return "乾六宫";
+    if (degrees >= 157.5 && degrees < 202.5) return "兑七宫";
+    if (degrees >= 202.5 && degrees < 247.5) return "坤二宫";
+    if (degrees >= 247.5 && degrees < 292.5) return "离九宫";
+    return "巽四宫";
+  };
 
   const requestUpdate = useCallback(() => {
     if (updatePending.current || !isStreamingRef.current) return;
@@ -150,6 +203,8 @@ const App: React.FC = () => {
     
     let systemInstruction = "";
     let finalUserInput = "";
+    let summaryInput = typeof userInput === 'string' ? userInput : JSON.stringify(userInput);
+    let currentCalculatedPillars: any = null;
 
     const baseConstraints = `严禁使用 # 和 * 符号。严禁使用 Markdown 加粗格式。严禁复述用户输入的原始参数。严禁寒暄。语气：专业、中立、逻辑严密，具有慈悲心但拒绝恐吓。`;
 
@@ -164,38 +219,33 @@ const App: React.FC = () => {
       finalUserInput = `[奇门起局] 方位：${autoPalace}。参数：${JSON.stringify(newBoard)}。诉求：${userInput as string}`;
       systemInstruction = `你是一位精通正统奇门实战理法的推演专家。${baseConstraints} 结构：一、能量态势透视；二、深度逻辑分析；三、核心判定结论；四、全息理法建议。`;
     } else if (mode === 'YI_LOGIC') {
-      if (type === 'LI_YAO') { // 修正 type 判断
+      if (type === 'LI_YAO') {
         const input = userInput as LiuYaoInput;
         finalUserInput = `[任务：六爻逻辑推演] 占问事项：${input.question}。卦象动数：${input.numbers.join(',')}。起卦时间：${new Date().toLocaleString()}。`;
         systemInstruction = `你是一位精通六爻演化与三才判定的易学专家。${baseConstraints} 结构：一、能量态势透视；二、深度逻辑分析；三、核心判定结论；四、综合调理建议。`;
       } else {
         const input = userInput as BaZiInput;
-        const calculatedPillars = calculateBaZi(new Date(input.birthDate));
-        setBaziData(calculatedPillars);
+        currentCalculatedPillars = calculateBaZi(new Date(input.birthDate));
+        setBaziData(currentCalculatedPillars);
         
         finalUserInput = `性别：${input.gender}\n公历生日：${input.birthDate}\n出生时间：${input.birthTime || '不详'}\n出生地点：${input.birthPlace}\n特定问题：${userInput?.question || '深度分析命局特质及全方位优化方案。'}`;
         
-        systemInstruction = `你是一位精通中国古典命理学（尤其擅长姜氏五行气象论与碧海易学体系）、环境风水学、现代商业战略与认知心理学的整合咨询专家。
+        systemInstruction = `你是一位精通中国古典命理学（姜氏五行气象论与景曜全息演化体系）的专家。
 
 核心任务：
-根据用户提供的生辰信息，生成一份包括八字命盘诊断、命格特质解读（定格与定式分析）、以及涵盖风水、商业、心理、时运的整合优化方案的个人报告。
+生成一份高美感、高逻辑性的全息人生优化报告。
 
-输出格式与步骤要求：
-第一步：核验与排盘。将公历生日转换为农历，排定八字四柱、十神。推算起运岁数、当前大运及重要流年。
-第二步：命格核心诊断（用神分析）。
-1. 辨旺衰：分析日主强弱。
-2. 找病药：指出命局中最突出的不平衡（病），明确核心“用神”与“喜神”（药），以及“忌神”与“仇神”。
-3. 论调候与通关：结合出生月份分析寒暖燥湿。
-4. 格局点睛（碧海定格分析）：用“定格”、“定式”逻辑概括命局核心运作模型（如：伤官生财格，流量定式）。
-第三步：多维度优化方案生成。建议必须紧扣用神与忌神五行。
-A. 空间场能（风水布局）：指明增益方位、环境布置建议、规避要点。
-B. 行为策略（商业与生涯）：根据十神现代映射（如伤官为流量，偏印为深度技术）提供赛道建议、合作模式、资源策略。
-C. 心智调频（心理与能量）：提供能量管理仪式、认知框架引导、行为边界设定。
-D. 时空节奏（运势与决策）：大运指南、未来2-3年流年提醒、年度行动节奏。
-第四步：生成整合总结与开篇诗句。
-1. 开篇诗句：生成一首契合命主核心格局的七律或古诗点睛。
-2. 系统整合：提供一个人生优化“公式”或“系统观”。
-3. 免责说明：文末附带“以上内容由AI生成，仅供参考”的提示。
+输出要求（严禁使用“第一步”、“第二步”等字眼）：
+1. 开篇诗句：以一首七律或古诗点睛，展现命局宏观气象。
+2. 【命造流转 · 乾坤排定】：简要排盘与起运描述。
+3. 【气象格局 · 虚实辨证】：辨旺衰、找病药。用定格定式逻辑分析命局运作。
+4. 【天人合一 · 景曜调理】：涵盖空间场能（风水）、行为策略（商业）、心智调频（心理）、时空节奏（流年）四维度。
+5. 【整合观照】：最后总结一个系统化的人生成长公式。
+
+视觉排版建议：
+- 使用【】作为核心标题。
+- 使用 A. B. C. D. 区分调理维度。
+- 文辞优美，分析透彻，建议具体。
 
 ${baseConstraints}`;
       }
@@ -212,13 +262,15 @@ ${baseConstraints}`;
       const fullResponse = await streamResponse(initialMessages);
       setDisplayPrediction('');
       setChatHistory([{ role: "assistant", content: fullResponse }]);
+      
+      saveToHistory(fullResponse, summaryInput, (mode === 'QIMEN' ? calculateBoard(date ? new Date(date) : new Date(), userLocation?.longitude) : null), (mode === 'YI_LOGIC' ? currentCalculatedPillars : null));
     } catch (err: any) { 
       setError(err.message); 
       setDisplayPrediction('');
     } finally { 
       setLoading(false); 
     }
-  }, [userLocation, mode, streamResponse]);
+  }, [userLocation, mode, streamResponse, history]);
 
   const handleFollowUp = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -244,8 +296,16 @@ ${baseConstraints}`;
 
   return (
     <div className="min-h-screen bg-[#020617] text-slate-100 flex flex-col parchment-bg">
-      <Header />
+      <Header onOpenProfile={() => setIsProfileOpen(true)} />
       
+      <ProfilePanel 
+        isOpen={isProfileOpen} 
+        onClose={() => setIsProfileOpen(false)} 
+        history={history}
+        onLoadHistory={loadFromHistory}
+        onClearHistory={clearHistory}
+      />
+
       <div className="bg-slate-900/90 border-y border-rose-500/20 backdrop-blur-2xl sticky top-0 z-50 shadow-2xl">
         <div className="max-w-4xl mx-auto flex items-center h-16 px-4">
           <button onClick={() => setMode('QIMEN')} className={`flex-1 h-full text-[11px] tracking-[0.5em] font-black transition-all relative overflow-hidden ${mode === 'QIMEN' ? 'text-rose-400' : 'text-slate-500'}`}>
