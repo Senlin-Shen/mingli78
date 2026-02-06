@@ -16,24 +16,19 @@ export default async function handler(req: Request) {
   }
 
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 60000); 
+  const timeoutId = setTimeout(() => controller.abort(), 90000); 
 
   try {
     const apiKey = process.env.ARK_API_KEY;
-    const defaultEndpointId = process.env.ARK_ENDPOINT_ID;
-    const baseUrl = process.env.ARK_BASE_URL || 'https://ark.cn-beijing.volces.com/api/v3';
+    const defaultEndpointId = process.env.ARK_ENDPOINT_ID || 'ep-20260206175318-v6cl7';
+    const baseUrl = 'https://ark.cn-beijing.volces.com/api/v3';
 
     if (!apiKey) {
       return new Response(JSON.stringify({ error: "代理配置缺失 API KEY" }), { status: 500, headers: corsHeaders });
     }
 
     const body = await req.json();
-    // 优先使用请求中指定的模型，否则使用环境变量中的默认模型
     const modelId = body.model || defaultEndpointId;
-
-    if (!modelId) {
-      return new Response(JSON.stringify({ error: "未指定 Endpoint ID" }), { status: 500, headers: corsHeaders });
-    }
 
     const volcResponse = await fetch(`${baseUrl}/chat/completions`, {
       method: "POST",
@@ -44,7 +39,7 @@ export default async function handler(req: Request) {
       body: JSON.stringify({
         model: modelId,
         messages: body.messages,
-        temperature: body.temperature || 0.7,
+        temperature: body.temperature || 0.4,
         stream: true 
       }),
       signal: controller.signal,

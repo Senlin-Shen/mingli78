@@ -10,6 +10,7 @@ import { calculateBoard } from './qimenLogic';
 import { QiMenBoard, LocationData, AppMode, LiuYaoInput, BaZiInput } from './types';
 
 const CHINA_CENTER = { lng: 108.9, lat: 34.2 };
+const UNIFIED_MODEL = "ep-20260206175318-v6cl7";
 
 interface ChatMessage {
   role: 'user' | 'assistant' | 'system';
@@ -33,7 +34,6 @@ const App: React.FC = () => {
     const angle = Math.atan2(lat - CHINA_CENTER.lat, lng - CHINA_CENTER.lng);
     let degrees = angle * (180 / Math.PI);
     if (degrees < 0) degrees += 360;
-    // 依后天八宫方位映射
     if (degrees >= 337.5 || degrees < 22.5) return "震三宫";
     if (degrees >= 22.5 && degrees < 67.5) return "艮八宫";
     if (degrees >= 67.5 && degrees < 112.5) return "坎一宫";
@@ -67,13 +67,13 @@ const App: React.FC = () => {
 
   const updateDisplay = useCallback((text: string, force = false) => {
     const now = performance.now();
-    if (force || now - lastUpdateTime.current > 16) { 
+    if (force || now - lastUpdateTime.current > 12) { 
       setDisplayPrediction(text);
       lastUpdateTime.current = now;
     }
   }, []);
 
-  const streamResponse = async (messages: ChatMessage[], customModel?: string) => {
+  const streamResponse = async (messages: ChatMessage[]) => {
     setError('');
     try {
       const response = await fetch('/api/ark-proxy', {
@@ -82,7 +82,7 @@ const App: React.FC = () => {
         body: JSON.stringify({
           messages: messages.map(m => ({ role: m.role, content: m.content })),
           temperature: 0.4,
-          model: customModel
+          model: UNIFIED_MODEL
         })
       });
 
@@ -100,7 +100,7 @@ const App: React.FC = () => {
         const lines = chunk.split('\n');
         for (const line of lines) {
           if (line.startsWith('data: ')) {
-            const dataStr = line.slice(6);
+            const dataStr = line.slice(6).trim();
             if (dataStr === '[DONE]') break;
             try {
               const data = JSON.parse(dataStr);
@@ -134,27 +134,41 @@ const App: React.FC = () => {
       if (userLocation) newBoard.location = { ...userLocation, isAdjusted: true };
       setBoard(newBoard);
 
-      finalUserInput = `起局方位：${autoPalace}（当前IP定位映射）。盘象参数：${JSON.stringify(newBoard)}。诉求详述：${userInput as string}`;
+      finalUserInput = `起局方位：${autoPalace}。盘象参数：${JSON.stringify(newBoard)}。诉求：${userInput as string}`;
       systemInstruction = `你是一位承袭“碧海易学”姜兴道老师心法的奇门专家。
 分析逻辑：
-1. **气象为先**：评估局中寒暖燥湿，看气机是否舒展。
-2. **定局抽轴**：看值符值使落宫，断大势；看用神与时干，断细节。
-3. **流通为贵**：分析宫位生克流转，找出阻塞点（如空亡、入墓、刑破）。
-4. **实战映射**：将干支象意转化为现代商业、职业或情感的具体指导。
-输出：严禁 Markdown，语气须专业、深邃、富有温情。分【能量态势】、【逻辑发微】、【核心判定】、【碧海调理】输出。`;
+1. **气象为先**：评估局中寒暖燥湿，判断气象。冬生需丙火，夏生需壬癸水。
+2. **定局抽轴**：看值符值使。能量以流通为贵。
+3. **推演路径**：查看冲、合、空、破对能量流转的影响。
+输出：严禁 Markdown。按【能量态势透视】、【深度逻辑分析】、【核心判定结论】、【碧海调理建议】输出。风格庄重深邃，富有离火之明。`;
     } else if (mode === 'YI_LOGIC') {
       setBoard(null);
       if (type === 'LIU_YAO') {
-        finalUserInput = `【六爻演化】动数：${(userInput as LiuYaoInput).numbers.join(',')}。事宜：${(userInput as LiuYaoInput).question}`;
-        systemInstruction = `你是一位《增删卜易》实战专家。分析用神强弱、月建日辰影响及应期。严禁 Markdown。`;
+        const input = userInput as LiuYaoInput;
+        finalUserInput = `【六爻演化】事宜：${input.question}。动数：${input.numbers.join(',')}。`;
+        systemInstruction = `你是一位承袭“碧海易学”姜兴道老师心法的 AI 专家，主攻《增删卜易》六爻逻辑。
+核心判定：
+- 三才判定：月建（天时）、日辰（地利）、动爻（人心）。
+- 病态检测：旬空、月破、回头克、贪合忘克。
+输出：严禁 Markdown。按【能量态势透视】、【深度逻辑分析】、【核心判定结论】、【碧海调理建议】输出。`;
       } else {
-        finalUserInput = `【四柱气象】生辰：${(userInput as BaZiInput).birthDate}。诉求：职业定式。`;
-        systemInstruction = `你是一位五行气象论顶级专家。分析格局气象与现代职业映射。严禁 Markdown。`;
+        const input = userInput as BaZiInput;
+        setBaziData({ year: ["甲", "辰"], month: ["丙", "寅"], day: ["丁", "卯"], hour: ["戊", "申"] });
+        finalUserInput = `【碧海四柱气象分析】生辰：${input.birthDate} ${input.birthTime || ''}。诉求：事业发展。`;
+        systemInstruction = `你是一位承袭“碧海易学”姜兴道老师心法的五行气象论顶级专家。
+核心理论：
+- 调侯为重：先观寒暖燥湿。
+- 现代映射：将干支转化为现代职业（食伤互联网、官杀管理、印星保障、财星贸易）。
+输出：严禁 Markdown。按【能量态势透视】、【深度逻辑分析】、【核心判定结论】、【碧海调理建议】输出。`;
       }
     } else if (mode === 'TCM_AI') {
       setBoard(null);
-      finalUserInput = `全息辨证诉求：${userInput as string}`;
-      systemInstruction = `你是一位“医易同源”全息辨证专家。严禁 Markdown。按【失衡判定】、【核心病机】、【全息方案】输出。`;
+      finalUserInput = `【医易同源】全息辨证诉求：${userInput as string}`;
+      systemInstruction = `你是一位承袭“碧海易学”姜兴道老师“医易同源”智慧的资深中医顾问。
+辨证逻辑：
+1. 识别五行气机受阻环节（如水冷金寒、火炎土燥对脏腑影响）。
+2. 将症状与易理气象联系。
+输出：严禁 Markdown。按【全息失衡判定】、【核心病机】、【核心调理原则】、【全息方案】输出。`;
     }
 
     try {
@@ -195,33 +209,34 @@ const App: React.FC = () => {
     <div className="min-h-screen bg-[#020617] text-slate-100 flex flex-col parchment-bg">
       <Header />
       
-      <div className="bg-orange-950/80 border-y border-orange-500/20 backdrop-blur-xl sticky top-0 z-50 shadow-2xl shadow-orange-900/10">
-        <div className="max-w-4xl mx-auto flex items-center h-14 px-4">
-          <button onClick={() => setMode('QIMEN')} className={`flex-1 h-full text-[10px] tracking-[0.4em] font-black transition-all relative overflow-hidden ${mode === 'QIMEN' ? 'text-orange-500' : 'text-slate-500'}`}>
-            {mode === 'QIMEN' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-orange-500 shadow-[0_0_10px_orange]"></div>}
-            奇门推演
+      <div className="bg-orange-950/90 border-y border-orange-500/30 backdrop-blur-2xl sticky top-0 z-50 shadow-2xl shadow-orange-950/50">
+        <div className="max-w-4xl mx-auto flex items-center h-16 px-4">
+          <button onClick={() => setMode('QIMEN')} className={`flex-1 h-full text-[11px] tracking-[0.5em] font-black transition-all relative overflow-hidden ${mode === 'QIMEN' ? 'text-orange-400' : 'text-slate-500'}`}>
+            {mode === 'QIMEN' && <div className="absolute bottom-0 left-0 right-0 h-1 bg-orange-500 shadow-[0_0_15px_orange] animate-pulse"></div>}
+            奇门
           </button>
-          <button onClick={() => setMode('YI_LOGIC')} className={`flex-1 h-full text-[10px] tracking-[0.4em] font-black transition-all relative overflow-hidden ${mode === 'YI_LOGIC' ? 'text-orange-500' : 'text-slate-500'}`}>
-            {mode === 'YI_LOGIC' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-orange-500"></div>}
-            易理实验
+          <button onClick={() => setMode('YI_LOGIC')} className={`flex-1 h-full text-[11px] tracking-[0.5em] font-black transition-all relative overflow-hidden ${mode === 'YI_LOGIC' ? 'text-orange-400' : 'text-slate-500'}`}>
+            {mode === 'YI_LOGIC' && <div className="absolute bottom-0 left-0 right-0 h-1 bg-orange-500 shadow-[0_0_15px_orange]"></div>}
+            易理
           </button>
-          <button onClick={() => setMode('TCM_AI')} className={`flex-1 h-full text-[10px] tracking-[0.4em] font-black transition-all relative overflow-hidden ${mode === 'TCM_AI' ? 'text-orange-500' : 'text-slate-500'}`}>
-            {mode === 'TCM_AI' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-orange-500"></div>}
-            中医辨证
+          <button onClick={() => setMode('TCM_AI')} className={`flex-1 h-full text-[11px] tracking-[0.5em] font-black transition-all relative overflow-hidden ${mode === 'TCM_AI' ? 'text-orange-400' : 'text-slate-500'}`}>
+            {mode === 'TCM_AI' && <div className="absolute bottom-0 left-0 right-0 h-1 bg-orange-500 shadow-[0_0_15px_orange]"></div>}
+            中医
           </button>
         </div>
       </div>
 
-      <main className="flex-1 max-w-4xl mx-auto w-full px-6 py-12 flex flex-col gap-10">
-        <section className={`bg-slate-900/60 border border-orange-900/30 p-8 rounded-[2rem] backdrop-blur-xl shadow-2xl shadow-orange-950/20 ring-1 ring-orange-500/10`}>
-          <div className="flex items-center justify-between mb-8">
-            <h2 className="text-sm font-black text-orange-200 flex items-center gap-4">
-              <span className="w-8 h-8 rounded-lg bg-orange-500/10 border border-orange-500/30 flex items-center justify-center text-orange-500 text-xs">甲</span>
+      <main className="flex-1 max-w-4xl mx-auto w-full px-6 py-12 flex flex-col gap-12">
+        <section className={`bg-slate-900/70 border border-orange-800/40 p-8 md:p-10 rounded-[2.5rem] backdrop-blur-xl shadow-2xl shadow-orange-950/40 ring-1 ring-orange-500/20`}>
+          <div className="flex items-center justify-between mb-10">
+            <h2 className="text-sm font-black text-orange-200 flex items-center gap-5">
+              <span className="w-10 h-10 rounded-xl bg-orange-600/20 border border-orange-500/40 flex items-center justify-center text-orange-500 text-xs shadow-[0_0_10px_rgba(249,115,22,0.3)]">甲</span>
               录入参数
             </h2>
             {userLocation && (
-              <div className="text-[9px] text-orange-400/60 tracking-widest font-mono">
-                {userLocation.city} | {userLocation.ip}
+              <div className="text-[10px] text-orange-500/60 tracking-widest font-mono flex items-center gap-4">
+                <span className="w-1.5 h-1.5 rounded-full bg-orange-500 animate-ping"></span>
+                {userLocation.palaceName} | {userLocation.city}
               </div>
             )}
           </div>
@@ -229,61 +244,62 @@ const App: React.FC = () => {
         </section>
         
         {mode === 'QIMEN' && board && (
-          <div className="animate-in fade-in slide-in-from-top-4 duration-1000">
+          <div className="animate-in fade-in slide-in-from-top-6 duration-1000">
              <BoardGrid board={board} />
           </div>
         )}
 
         {(chatHistory.length > 0 || displayPrediction || loading || error) && (
-          <section className="bg-slate-950/40 border border-orange-900/20 p-8 md:p-12 rounded-[2rem] backdrop-blur-3xl shadow-2xl shadow-orange-950/30">
-            <div className="flex items-center justify-between mb-10">
-              <h2 className="text-sm font-black text-orange-200 flex items-center gap-4">
-                <span className="w-8 h-8 rounded-lg bg-orange-500/10 border border-orange-500/30 flex items-center justify-center text-orange-500 text-xs">乙</span>
-                推演解构
+          <section className="bg-slate-950/60 border border-orange-900/30 p-8 md:p-14 rounded-[3rem] backdrop-blur-3xl shadow-[0_0_60px_rgba(124,45,18,0.2)]">
+            <div className="flex items-center justify-between mb-12">
+              <h2 className="text-sm font-black text-orange-100 flex items-center gap-5">
+                <span className="w-10 h-10 rounded-xl bg-orange-600/20 border border-orange-500/40 flex items-center justify-center text-orange-500 text-xs shadow-[0_0_15px_rgba(249,115,22,0.4)]">乙</span>
+                推演解构报告
               </h2>
             </div>
 
-            <div className="space-y-16">
+            <div className="space-y-20">
               {chatHistory.filter(m => m.role !== 'system').map((msg, i) => (
-                <div key={i} className={`animate-in fade-in duration-700 ${msg.role === 'user' ? 'opacity-50 border-l-2 border-orange-500/20 pl-6 py-4 mb-10' : ''}`}>
+                <div key={i} className={`animate-in fade-in duration-1000 ${msg.role === 'user' ? 'opacity-40 border-l-2 border-orange-500/20 pl-8 py-4 mb-14 italic' : ''}`}>
                   <AnalysisDisplay prediction={msg.content} />
                 </div>
               ))}
               
               {displayPrediction && (
-                <div className="pt-10 border-t border-orange-950/50">
-                   <p className="text-[10px] mb-8 tracking-[0.6em] font-black uppercase text-orange-500 animate-pulse flex items-center gap-3">
-                     <span className="w-1.5 h-1.5 rounded-full bg-orange-500 shadow-[0_0_8px_orange]"></span>
-                     离火运化中...
+                <div className="pt-12 border-t border-orange-950/80">
+                   <p className="text-[11px] mb-10 tracking-[0.8em] font-black uppercase text-orange-500 animate-pulse flex items-center gap-4">
+                     <span className="w-2 h-2 rounded-full bg-orange-500 shadow-[0_0_12px_orange]"></span>
+                     离火运化 · 时空解析中
                    </p>
                    <AnalysisDisplay prediction={displayPrediction} />
                 </div>
               )}
 
               {loading && !displayPrediction && (
-                <div className="flex flex-col items-center justify-center gap-8 py-24 opacity-40">
-                  <div className="w-12 h-12 border-2 border-orange-500/20 border-t-orange-500 rounded-full animate-spin"></div>
-                  <p className="text-[10px] tracking-[1em] text-orange-500">通联时空</p>
+                <div className="flex flex-col items-center justify-center gap-10 py-32 opacity-60">
+                  <div className="w-16 h-16 border-[3px] border-orange-500/10 border-t-orange-500 rounded-full animate-spin shadow-[0_0_20px_rgba(249,115,22,0.2)]"></div>
+                  <p className="text-[11px] tracking-[1.5em] text-orange-500 font-black">通联时空</p>
                 </div>
               )}
               
               {error && (
-                <div className="p-6 bg-red-950/20 border border-red-900/30 rounded-2xl text-red-400 text-xs tracking-widest font-bold">
-                   <span className="text-red-600 mr-3">✕</span> {error}
+                <div className="p-8 bg-red-950/30 border border-red-900/40 rounded-3xl text-red-400 text-[11px] tracking-[0.3em] font-black border-l-8 border-l-red-600 shadow-xl">
+                   <span className="text-red-500 mr-4 text-sm font-black">✕</span> {error}
                 </div>
               )}
             </div>
 
             {chatHistory.length > 0 && !loading && !error && (
-              <div className="mt-20 pt-10 border-t border-orange-950/50">
+              <div className="mt-24 pt-12 border-t border-orange-950/80">
                 <form onSubmit={handleFollowUp} className="relative group max-w-2xl mx-auto">
+                   <div className="absolute -inset-1 bg-gradient-to-r from-orange-600/20 to-orange-900/20 rounded-[2rem] blur opacity-30 group-focus-within:opacity-100 transition duration-1000"></div>
                    <textarea 
                      value={followUpText} 
                      onChange={(e) => setFollowUpText(e.target.value)} 
                      placeholder="关于推演结果，您还有什么需要深入研讨的变数？" 
-                     className="w-full h-28 bg-slate-950/90 border border-orange-950 rounded-2xl p-5 text-slate-200 focus:outline-none focus:border-orange-500/40 transition-all resize-none text-xs leading-loose" 
+                     className="relative w-full h-32 bg-slate-950/95 border border-orange-950 rounded-[2rem] p-7 text-slate-200 focus:outline-none focus:border-orange-500/50 transition-all resize-none text-[13px] leading-loose shadow-inner" 
                    />
-                   <button type="submit" className="absolute bottom-5 right-5 bg-orange-600 hover:bg-orange-500 text-white px-6 py-2 rounded-xl text-[10px] font-black tracking-widest transition-all shadow-xl shadow-orange-900/40">
+                   <button type="submit" className="absolute bottom-6 right-6 bg-orange-600 hover:bg-orange-500 text-white px-8 py-3 rounded-2xl text-[10px] font-black tracking-[0.4em] transition-all shadow-2xl shadow-orange-900/60 active:scale-95">
                      追问研讨
                    </button>
                 </form>
