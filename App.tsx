@@ -1,6 +1,5 @@
 
 import React, { useState, useCallback, useEffect, useRef } from 'react';
-import { GoogleGenAI } from "@google/genai";
 import AnalysisDisplay from './components/AnalysisDisplay';
 import BoardGrid from './components/BoardGrid';
 import BaZiChart from './components/BaZiChart';
@@ -76,39 +75,59 @@ const App: React.FC = () => {
   }, []);
 
   const streamResponse = async (messages: ChatMessage[]) => {
-    const apiKey = process.env.API_KEY;
-    if (!apiKey) throw new Error("API 密钥缺失，请检查环境变量配置。");
-
-    const ai = new GoogleGenAI({ apiKey });
-    const systemMsg = messages.find(m => m.role === 'system')?.content || '';
-    const userMsgs = messages.filter(m => m.role !== 'system');
-    
-    const contents = userMsgs.map(m => ({
-      role: m.role === 'user' ? 'user' : 'model',
-      parts: [{ text: m.content }]
+    setError('');
+    const apiMessages = messages.map(m => ({
+      role: m.role,
+      content: m.content
     }));
 
     try {
-      const result = await ai.models.generateContentStream({
-        model: 'gemini-3-pro-preview',
-        contents: contents as any,
-        config: {
-          systemInstruction: systemMsg,
-          temperature: 0.85,
-          thinkingConfig: { thinkingBudget: 32768 }
-        },
+      const response = await fetch('/api/ark-proxy', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          messages: apiMessages,
+          temperature: 0.8
+        })
       });
 
+      if (!response.ok) {
+        const errData = await response.json();
+        throw new Error(errData.detail || errData.error || "通联时空链路异常");
+      }
+
+      const reader = response.body?.getReader();
+      if (!reader) throw new Error("无法读取时空流数据");
+
+      const decoder = new TextDecoder();
       let fullText = "";
-      for await (const chunk of result) {
-        const content = chunk.text || "";
-        fullText += content;
-        updateDisplay(fullText);
+      
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        
+        const chunk = decoder.decode(value, { stream: true });
+        const lines = chunk.split('\n');
+        
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            const dataStr = line.slice(6);
+            if (dataStr === '[DONE]') break;
+            try {
+              const data = JSON.parse(dataStr);
+              const content = data.choices[0]?.delta?.content || "";
+              fullText += content;
+              updateDisplay(fullText);
+            } catch (e) {
+              // 忽略部分解析错误
+            }
+          }
+        }
       }
       updateDisplay(fullText, true);
       return fullText;
     } catch (err: any) {
-      console.error("Gemini API Error:", err);
+      console.error("Ark API Error:", err);
       throw new Error(err.message || "时空推演链路中断，请检查网络或配置。");
     }
   };
@@ -132,16 +151,17 @@ const App: React.FC = () => {
       setBoard(newBoard);
 
       finalUserInput = `起局方位：${autoPalace}。诉求：${userInput as string}`;
-      systemInstruction = `你是一位精通林毅奇门遁甲体系的专家，擅长法理象数四维合一推演。输出 2000 字以上的极深度报告。严禁 Markdown。
+      systemInstruction = `你是一位精通林毅奇门遁甲体系的专家，擅长法理象数四维合一推演。输出 2000 字以上的极深度报告。严禁使用 Markdown。
 内容分段：理法发微、深度象数解析、多维度实战策略、乾坤断语建议。`;
     } else {
       setBoard(null);
       if (type === 'LIU_YAO') {
         const input = userInput as LiuYaoInput;
         finalUserInput = `【六爻演化】动数：${input.numbers.join(', ')}。事宜：${input.question}`;
-        systemInstruction = `你是一位深研《增删卜易》且结合气象论的六爻实战专家。严禁 Markdown。分析重点：用神强弱、月建日辰影响、应期判定。`;
+        systemInstruction = `你是一位深研《增删卜易》且结合气象论的六爻实战专家。严禁使用 Markdown。分析重点：用神强弱、月建日辰影响、应期判定。`;
       } else {
         const input = userInput as BaZiInput;
+        // 模拟排盘数据用于图表显示
         setBaziData({
           year: ["甲", "辰"],
           month: ["丙", "寅"],
@@ -150,7 +170,7 @@ const App: React.FC = () => {
         });
         finalUserInput = `【四柱气象推演】姓名：${input.name}，生辰：${input.birthDate} ${input.birthTime || ''}。结合碧海易学定格与姜氏气象论分析。`;
         
-        systemInstruction = `你是一位承袭“碧海易学”定格体系与“姜氏五行气象论”核心精髓的顶级命理专家。输出不低于 2500 字报告。严禁 Markdown。
+        systemInstruction = `你是一位承袭“碧海易学”定格体系与“姜氏五行气象论”核心精髓的顶级命理专家。输出不低于 2500 字报告。严禁使用 Markdown。
 核心逻辑：1.五行气象论(寒暖燥湿)；2.碧海定格分析(宾主体用)；3.核心定式判定(职业定位)；4.十神现代映射；5.岁运财富量级。
 输出分段：五行气象论、碧海定格分析、核心定式判定、十神现代映射、岁运纵横（含财富量级）、诚实铁口评价、道学修持建议。`;
       }
@@ -211,7 +231,6 @@ const App: React.FC = () => {
     );
   }
 
-  // 计算结果区域是否应该显示的逻辑（增加 error 判定）
   const shouldShowResults = chatHistory.length > 0 || displayPrediction !== '' || loading || error !== '';
 
   return (
