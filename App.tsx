@@ -151,13 +151,14 @@ const App: React.FC = () => {
 出生地址：${input.birthPlace}`;
       }
 
-      systemInstruction = `# Role
-你是一位精通传统易学（四柱命理、六爻预测）与道家智慧的资深专家。
-# Core Analysis Logic
-1. 六爻：关注用神旺衰、生克。2. 四柱：五行气象论，寒暖燥湿。
-# Workflow
+      systemInstruction = `你是一位深研“碧海易学”体系、承袭姜兴道老师（碧海观/碧海书院）易学精髓的资深易学专家。
+# 核心分析架构
+1. 六爻预测体系（基于《增删卜易》）：判定月建天时、日辰地利、动爻变量。优先判定用神旺衰。逻辑准则：合处逢冲必散，冲处逢合必成。
+2. 四柱命理体系（姜氏五行气象论）：气象优先，审视寒暖燥湿。根据月令定格、定式。
+# 任务流程
 输出要求：严禁使用任何 Markdown 符号（如 * 或 #）。
-格式：一、气象态势分析；二、逻辑推论；三、判定结论；四、调理建议。`;
+格式：一、能量态势；二、职业建议；三、避坑指南；四、道学/环境建议。
+语言风格：专业严谨，拒绝模糊词汇，温和治愈，杜绝迷信，定位为时空能量逻辑推演。`;
     }
 
     try {
@@ -218,15 +219,14 @@ const App: React.FC = () => {
     <div className="min-h-screen bg-[#020617] text-slate-100 flex flex-col selection:bg-amber-500/30">
       <Header />
       
-      {/* 顶部导航切换 */}
       <div className="bg-slate-900/95 border-y border-slate-800 backdrop-blur-xl sticky top-0 z-50 shadow-2xl">
-        <div className="max-w-7xl mx-auto flex items-center h-14">
+        <div className="max-w-7xl mx-auto flex items-center h-16">
           <button 
             type="button"
             onClick={() => { setMode('QIMEN'); setChatHistory([]); }} 
             className={`flex-1 h-full text-[11px] tracking-[0.4em] font-black transition-all border-r border-slate-800/50 relative overflow-hidden group ${mode === 'QIMEN' ? 'text-amber-500' : 'text-slate-500 hover:text-slate-300'}`}
           >
-            {mode === 'QIMEN' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.6)] animate-in slide-in-from-left duration-300"></div>}
+            {mode === 'QIMEN' && <div className="absolute bottom-0 left-0 right-0 h-1 bg-amber-500 shadow-[0_0_12px_rgba(245,158,11,0.8)] animate-in slide-in-from-left duration-300"></div>}
             奇门时空推演
           </button>
           <button 
@@ -234,22 +234,21 @@ const App: React.FC = () => {
             onClick={() => { setMode('YI_LOGIC'); setChatHistory([]); }} 
             className={`flex-1 h-full text-[11px] tracking-[0.4em] font-black transition-all relative overflow-hidden group ${mode === 'YI_LOGIC' ? 'text-amber-500' : 'text-slate-500 hover:text-slate-300'}`}
           >
-            {mode === 'YI_LOGIC' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.6)] animate-in slide-in-from-left duration-300"></div>}
+            {mode === 'YI_LOGIC' && <div className="absolute bottom-0 left-0 right-0 h-1 bg-amber-500 shadow-[0_0_12px_rgba(245,158,11,0.8)] animate-in slide-in-from-left duration-300"></div>}
             多维易理实验室
           </button>
         </div>
       </div>
 
-      <main className="flex-1 max-w-7xl mx-auto w-full px-6 py-12 grid grid-cols-1 lg:grid-cols-2 gap-12 items-start">
-        {/* 左侧录入区 */}
-        <div className="space-y-10 sticky top-24">
-          <section className="bg-slate-900/40 border border-slate-800 p-8 rounded-[2rem] backdrop-blur-xl shadow-2xl border-t-amber-500/10">
-            <div className="flex items-center justify-between mb-8">
-              <h2 className="text-xl font-black text-slate-100 flex items-center gap-4">
-                <span className="w-10 h-10 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-500 text-sm font-black shadow-inner">01</span>
+      <main className="flex-1 max-w-7xl mx-auto w-full px-6 py-12 grid grid-cols-1 lg:grid-cols-2 gap-16 items-start">
+        <div className="space-y-12 sticky top-28">
+          <section className="bg-slate-900/40 border border-slate-800 p-10 rounded-[2.5rem] backdrop-blur-xl shadow-2xl border-t-amber-500/10">
+            <div className="flex items-center justify-between mb-10">
+              <h2 className="text-xl font-black text-slate-100 flex items-center gap-5">
+                <span className="w-12 h-12 rounded-[1.2rem] bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-500 text-sm font-black shadow-inner">01</span>
                 {mode === 'QIMEN' ? '时空基准录入' : '演化模型构建'}
               </h2>
-              <div className="h-px flex-1 bg-slate-800 ml-6 opacity-30"></div>
+              <div className="h-px flex-1 bg-slate-800 ml-8 opacity-40"></div>
             </div>
             <InputForm onPredict={handlePredict} isLoading={loading} mode={mode} />
           </section>
@@ -261,72 +260,70 @@ const App: React.FC = () => {
           )}
         </div>
 
-        {/* 右侧解析区 */}
-        <div className="space-y-10 h-full">
-          <section className="bg-slate-900/40 border border-slate-800 p-8 md:p-10 rounded-[2rem] backdrop-blur-xl flex flex-col relative overflow-hidden min-h-[600px] max-h-[1400px] shadow-2xl border-t-amber-500/10">
-            <div className="flex items-center justify-between mb-8">
-              <h2 className="text-xl font-black text-slate-100 flex items-center gap-4">
-                <span className="w-10 h-10 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-500 text-sm font-black shadow-inner">02</span>
+        <div className="space-y-12 h-full">
+          <section className="bg-slate-900/40 border border-slate-800 p-10 md:p-14 rounded-[2.5rem] backdrop-blur-xl flex flex-col relative overflow-hidden min-h-[700px] max-h-[1600px] shadow-2xl border-t-amber-500/10">
+            <div className="flex items-center justify-between mb-10">
+              <h2 className="text-xl font-black text-slate-100 flex items-center gap-5">
+                <span className="w-12 h-12 rounded-[1.2rem] bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-500 text-sm font-black shadow-inner">02</span>
                 {mode === 'QIMEN' ? '格局逻辑解构' : '深度理法报告'}
               </h2>
-              <div className="h-px flex-1 bg-slate-800 ml-6 opacity-30"></div>
+              <div className="h-px flex-1 bg-slate-800 ml-8 opacity-40"></div>
             </div>
 
-            <div ref={scrollRef} className="flex-1 overflow-y-auto pr-4 space-y-12 scroll-smooth pb-32">
+            <div ref={scrollRef} className="flex-1 overflow-y-auto pr-6 space-y-16 scroll-smooth pb-40 custom-scrollbar">
               {chatHistory.filter(m => m.role !== 'system').map((msg, i) => (
-                <div key={i} className={`animate-in fade-in slide-in-from-bottom-4 duration-700 ${msg.role === 'user' ? 'opacity-70 border-l-2 border-amber-500/20 pl-6 py-4 my-8 bg-amber-500/5 rounded-r-2xl' : ''}`}>
-                  {msg.role === 'user' && <p className="text-[10px] text-amber-600/60 uppercase tracking-widest font-black mb-2">问询：</p>}
+                <div key={i} className={`animate-in fade-in slide-in-from-bottom-6 duration-700 ${msg.role === 'user' ? 'opacity-80 border-l-2 border-amber-500/30 pl-8 py-6 my-10 bg-amber-500/5 rounded-r-3xl' : ''}`}>
+                  {msg.role === 'user' && <p className="text-[10px] text-amber-600/80 uppercase tracking-[0.4em] font-black mb-4">访客咨询：</p>}
                   <AnalysisDisplay prediction={msg.content} isYiLogic={mode === 'YI_LOGIC'} />
                 </div>
               ))}
               
               {prediction && (
-                <div className="border-t border-slate-800/50 pt-10 mt-10 animate-pulse">
-                   <p className="text-[10px] text-amber-500 mb-6 tracking-[0.5em] font-black uppercase flex items-center gap-3">
-                     <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-ping"></span>
-                     正在解构理法数据...
+                <div className="border-t border-slate-800/50 pt-12 mt-12">
+                   <p className="text-[10px] text-amber-500 mb-8 tracking-[0.6em] font-black uppercase flex items-center gap-4">
+                     <span className="w-2 h-2 rounded-full bg-amber-500 animate-ping"></span>
+                     正在研判理法变数...
                    </p>
                    <AnalysisDisplay prediction={prediction} isYiLogic={mode === 'YI_LOGIC'} />
                 </div>
               )}
 
               {loading && !prediction && (
-                <div className="flex-1 flex flex-col items-center justify-center gap-8 text-slate-500 min-h-[400px]">
+                <div className="flex-1 flex flex-col items-center justify-center gap-10 text-slate-500 min-h-[500px]">
                   <div className="relative">
-                    <div className="w-16 h-16 border-[3px] border-amber-500/5 border-t-amber-500 rounded-full animate-spin"></div>
+                    <div className="w-20 h-20 border-[4px] border-amber-500/5 border-t-amber-500 rounded-full animate-spin"></div>
                     <div className="absolute inset-0 flex items-center justify-center">
-                      <div className="w-8 h-8 bg-amber-500/20 rounded-full animate-pulse"></div>
+                      <div className="w-10 h-10 bg-amber-500/20 rounded-full animate-pulse"></div>
                     </div>
                   </div>
-                  <div className="text-center space-y-2">
-                    <p className="text-xs tracking-[0.6em] text-amber-500 font-black uppercase">正在连接时空枢纽</p>
-                    <p className="text-[9px] text-slate-600 tracking-widest italic">同步干支能量流中...</p>
+                  <div className="text-center space-y-3">
+                    <p className="text-sm tracking-[0.8em] text-amber-500 font-black uppercase">时空信息通联中</p>
+                    <p className="text-[10px] text-slate-600 tracking-widest italic">正在解析变数矩阵...</p>
                   </div>
                 </div>
               )}
               
               {error && (
-                <div className="p-8 bg-red-950/10 border border-red-900/30 rounded-[2rem] text-red-400 text-sm leading-relaxed animate-in shake duration-500">
-                  <p className="font-black tracking-widest uppercase mb-2 text-[10px]">链路异常</p>
+                <div className="p-10 bg-red-950/10 border border-red-900/30 rounded-[2.5rem] text-red-400 text-sm leading-relaxed animate-in shake duration-500">
+                  <p className="font-black tracking-[0.3em] uppercase mb-4 text-[10px]">链路通联异常</p>
                   {error}
                 </div>
               )}
             </div>
 
-            {/* 追问区域 */}
             {chatHistory.length > 0 && !loading && (
-              <div className="absolute bottom-0 left-0 right-0 p-8 pt-0 bg-gradient-to-t from-slate-900 via-slate-900/95 to-transparent backdrop-blur-sm">
+              <div className="absolute bottom-0 left-0 right-0 p-10 pt-0 bg-gradient-to-t from-slate-900 via-slate-900/98 to-transparent backdrop-blur-sm">
                 <form onSubmit={handleFollowUp} className="relative group">
-                   <div className="absolute -inset-0.5 bg-gradient-to-r from-amber-500/20 to-blue-500/20 rounded-2xl blur opacity-30 group-focus-within:opacity-100 transition duration-500"></div>
+                   <div className="absolute -inset-1 bg-gradient-to-r from-amber-500/20 to-blue-500/20 rounded-3xl blur-md opacity-20 group-focus-within:opacity-100 transition duration-700"></div>
                    <textarea 
                      value={followUpText} 
                      onChange={(e) => setFollowUpText(e.target.value)} 
-                     placeholder="进一步探讨变数细节..." 
-                     className="relative w-full h-20 bg-slate-950/90 border border-slate-800 rounded-2xl p-4 text-slate-200 focus:outline-none focus:border-amber-500/50 transition-all resize-none text-xs leading-relaxed" 
+                     placeholder="关于推演结果，您还有什么需要深入研讨的变数？" 
+                     className="relative w-full h-24 bg-slate-950/90 border border-slate-800 rounded-3xl p-6 text-slate-200 focus:outline-none focus:border-amber-500/50 transition-all resize-none text-xs leading-loose" 
                    />
                    <button 
                      type="submit" 
-                     className="absolute bottom-4 right-4 bg-amber-600 hover:bg-amber-500 text-white px-6 py-2 rounded-xl text-[10px] font-black tracking-widest transition-all shadow-lg shadow-amber-900/40 hover:scale-105 active:scale-95"
+                     className="absolute bottom-6 right-6 bg-amber-600 hover:bg-amber-500 text-white px-8 py-3 rounded-2xl text-[10px] font-black tracking-[0.4em] transition-all shadow-xl shadow-amber-900/50 hover:scale-105 active:scale-95"
                    >
                      研讨
                    </button>
