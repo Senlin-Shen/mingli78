@@ -7,7 +7,7 @@ const Header: React.FC = () => {
       <div className="absolute inset-0 bg-gradient-to-b from-orange-500/5 to-transparent pointer-events-none"></div>
       <div className="inline-block px-5 py-1 mb-8 border border-orange-600/20 rounded-full bg-slate-950/50 backdrop-blur-md">
         <span className="text-[9px] text-orange-500/80 tracking-[0.5em] font-black uppercase">
-          Bi Hai Framework · Contemporary Application
+          Jing Yao Framework · Contemporary Application
         </span>
       </div>
       <h1 className="text-7xl md:text-9xl qimen-font text-orange-500 mb-8 drop-shadow-[0_0_35px_rgba(245,158,11,0.5)] animate-glow">
