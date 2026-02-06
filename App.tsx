@@ -1,6 +1,5 @@
 
 import React, { useState, useCallback, useEffect, useRef } from 'react';
-import { GoogleGenAI, GenerateContentResponse } from "@google/genai";
 import AnalysisDisplay from './components/AnalysisDisplay';
 import BoardGrid from './components/BoardGrid';
 import BaZiChart from './components/BaZiChart';
@@ -75,43 +74,62 @@ const App: React.FC = () => {
     }
   }, []);
 
-  const streamGeminiResponse = async (systemInstruction: string, messages: ChatMessage[]) => {
+  const streamResponse = async (messages: ChatMessage[], customModel?: string) => {
     setError('');
-    setDisplayPrediction('');
-    
-    try {
-      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
-      
-      // 构建符合 Gemini SDK 格式的 contents
-      const contents = messages.filter(m => m.role !== 'system').map(m => ({
-        role: m.role === 'assistant' ? 'model' : 'user',
-        parts: [{ text: m.content }]
-      }));
+    const apiMessages = messages.map(m => ({
+      role: m.role,
+      content: m.content
+    }));
 
-      const responseStream = await ai.models.generateContentStream({
-        model: 'gemini-3-pro-preview',
-        contents: contents,
-        config: {
-          systemInstruction: systemInstruction,
+    try {
+      const response = await fetch('/api/ark-proxy', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          messages: apiMessages,
           temperature: 0.8,
-          topP: 0.95,
-        },
+          model: customModel
+        })
       });
 
+      if (!response.ok) {
+        const errData = await response.json();
+        throw new Error(errData.detail || errData.error || "通联时空链路异常");
+      }
+
+      const reader = response.body?.getReader();
+      if (!reader) throw new Error("无法读取时空流数据");
+
+      const decoder = new TextDecoder();
       let fullText = "";
-      for await (const chunk of responseStream) {
-        const chunkText = chunk.text;
-        if (chunkText) {
-          fullText += chunkText;
-          updateDisplay(fullText);
+      
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        
+        const chunk = decoder.decode(value, { stream: true });
+        const lines = chunk.split('\n');
+        
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            const dataStr = line.slice(6);
+            if (dataStr === '[DONE]') break;
+            try {
+              const data = JSON.parse(dataStr);
+              const content = data.choices[0]?.delta?.content || "";
+              fullText += content;
+              updateDisplay(fullText);
+            } catch (e) {
+              // 忽略解析错误
+            }
+          }
         }
       }
-      
       updateDisplay(fullText, true);
       return fullText;
     } catch (err: any) {
-      console.error("Gemini API Error:", err);
-      throw new Error(err.message || "通联时空链路异常，请检查网络或 API 配置。");
+      console.error("Ark API Error:", err);
+      throw new Error(err.message || "时空推演链路中断，请检查网络环境。");
     }
   };
 
@@ -124,6 +142,7 @@ const App: React.FC = () => {
     
     let systemInstruction = "";
     let finalUserInput = "";
+    let targetModel = "";
 
     if (mode === 'QIMEN') {
       const targetDate = date ? new Date(date) : new Date();
@@ -133,50 +152,50 @@ const App: React.FC = () => {
       if (userLocation) newBoard.location = { ...userLocation, isAdjusted: true };
       setBoard(newBoard);
 
-      finalUserInput = `起局方位：${autoPalace}。当前奇门盘象及干支历：${JSON.stringify(newBoard)}。咨询诉求：${userInput as string}`;
-      systemInstruction = `你是一位精通传统奇门遁甲体系的实战推演专家。严禁使用 Markdown 格式化字符。请基于提供的盘面信息，从理法发微、深度象数解析、多维度实战建议、乾坤断语建议四个板块进行超过 2000 字的极深度分析。`;
+      finalUserInput = `起局方位：${autoPalace}。当前奇门盘象及干支历：${JSON.stringify(newBoard)}。诉求：${userInput as string}`;
+      systemInstruction = `你是一位精通传统奇门遁甲体系的推演专家。请基于提供的盘面，进行理法发微、深度象数解析、实战建议推演。输出 2000 字以上深度报告，严禁 Markdown。`;
     } else if (mode === 'YI_LOGIC') {
       setBoard(null);
       if (type === 'LIU_YAO') {
         const input = userInput as LiuYaoInput;
         finalUserInput = `【六爻演化】动数：${input.numbers.join(', ')}。事宜：${input.question}`;
-        systemInstruction = `你是一位深研《增删卜易》的六爻实战专家。严禁使用 Markdown。分析重点：用神强弱、月建日辰影响、应期判定。`;
+        systemInstruction = `你是一位深研《增删卜易》的六爻实战专家。分析用神强弱、月建日辰影响及应期判定。严禁 Markdown。`;
       } else {
         const input = userInput as BaZiInput;
         setBaziData({ year: ["甲", "辰"], month: ["丙", "寅"], day: ["丁", "卯"], hour: ["戊", "申"] });
         finalUserInput = `【四柱气象推演】生辰：${input.birthDate} ${input.birthTime || ''}。`;
-        systemInstruction = `你是一位精通全息命理与五行气象论的顶级专家。请从五行气象论、命理模型定格、岁运大势纵横、财官层级深度分析、道学修持建议五个维度输出 2500 字以上报告。严禁使用 Markdown。`;
+        systemInstruction = `你是一位精通全息命理与五行气象论的顶级专家。深度分析五行气象定格、岁运大势。严禁 Markdown。`;
       }
     } else if (mode === 'TCM_AI') {
       setBoard(null);
-      finalUserInput = `基于以下症状和体感描述，请进行深度中医全息辨证：${userInput as string}`;
-      systemInstruction = `你是拥有20年临床经验的资深中医全息辨证专家。严禁提到任何特定个人姓名。
+      targetModel = "ep-20260206175318-v6cl7"; 
+      finalUserInput = `基于以下症状和体感描述，进行深度中医全息辨证：${userInput as string}`;
+      systemInstruction = `你是资深中医全息辨证专家。严禁提到特定个人姓名。
 必须遵守规则：
-1. 核心理论：以“神（精神意识）、气（能量机能）、形（肉体症状）”三层失衡判定为核心。
-2. 辨证逻辑：优先判断“神、气”层面的波动。
+1. 核心理论：以“神、气、形”三层失衡判定为核心。
+2. 辨证逻辑：优先判断“神、气”波动。
 3. 回复结构（强制固定）：
-【全息失衡判定】：深度解析用户神、气、形三层面的具体失衡点。
-【核心病机】：揭示病症的根本原因。
-【调理原则】：明确核心调理方向。
-【全息方案】：含药食同源、经络导引、气机感受三部分。
-4. 语言要求：专业且通俗，篇幅 400 字左右，严禁 Markdown。`;
+【全息失衡判定】：深度解析用户神、气、形失衡点。
+【核心病机】：揭示病症根源。
+【调理原则】：明确调理方向。
+【全息方案】：含药食同源、经络导引、气机感受。
+4. 语言要求：专业通俗，篇幅 400 字左右，严禁 Markdown。`;
     }
 
     try {
-      const initialUserMessage: ChatMessage = { role: "user", content: finalUserInput };
-      const fullResponse = await streamGeminiResponse(systemInstruction, [initialUserMessage]);
-      setChatHistory([
+      const initialMessages: ChatMessage[] = [
         { role: "system", content: systemInstruction },
-        initialUserMessage, 
-        { role: "assistant", content: fullResponse }
-      ]);
+        { role: "user", content: finalUserInput }
+      ];
+      const fullResponse = await streamResponse(initialMessages, targetModel);
+      setChatHistory([...initialMessages, { role: "assistant", content: fullResponse }]);
       setDisplayPrediction(''); 
     } catch (err: any) { 
       setError(`推演异常: ${err.message}`); 
     } finally { 
       setLoading(false); 
     }
-  }, [userLocation, mode, streamGeminiResponse]);
+  }, [userLocation, mode, streamResponse]);
 
   const handleFollowUp = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -187,12 +206,12 @@ const App: React.FC = () => {
     setDisplayPrediction('');
     setError('');
 
-    const systemMsg = chatHistory.find(m => m.role === 'system')?.content || "";
+    const targetModel = mode === 'TCM_AI' ? "ep-20260206175318-v6cl7" : undefined;
     const newHistory: ChatMessage[] = [...chatHistory, { role: "user", content: query }];
     setChatHistory(newHistory);
     
     try {
-      const fullResponse = await streamGeminiResponse(systemMsg, newHistory);
+      const fullResponse = await streamResponse(newHistory, targetModel);
       setChatHistory(prev => [...prev, { role: "assistant", content: fullResponse }]);
       setDisplayPrediction('');
     } catch (err: any) { 
@@ -224,7 +243,7 @@ const App: React.FC = () => {
             className={`flex-1 h-full text-[11px] tracking-[0.4em] font-black transition-all border-r border-slate-800/50 relative overflow-hidden ${mode === 'YI_LOGIC' ? 'text-amber-500' : 'text-slate-500 hover:text-slate-300'}`}
           >
             {mode === 'YI_LOGIC' && <div className="absolute bottom-0 left-0 right-0 h-1 bg-amber-500 shadow-[0_0_12px_rgba(245,158,11,0.8)]"></div>}
-            易理实验室
+            实验室
           </button>
           <button 
             type="button"
@@ -274,7 +293,7 @@ const App: React.FC = () => {
             <div className="space-y-24">
               {chatHistory.filter(m => m.role !== 'system').map((msg, i) => (
                 <div key={i} className={`animate-in fade-in slide-in-from-bottom-6 duration-700 ${msg.role === 'user' ? 'opacity-70 border-l-2 border-amber-500/30 pl-8 py-6 my-10 bg-amber-500/5 rounded-r-3xl max-w-2xl' : ''}`}>
-                  {msg.role === 'user' && <p className={`text-[10px] uppercase tracking-[0.4em] font-black mb-4 accent-font ${isTCM ? 'text-teal-500/80' : 'text-amber-600/80'}`}>咨询反馈：</p>}
+                  {msg.role === 'user' && <p className={`text-[10px] uppercase tracking-[0.4em] font-black mb-4 accent-font ${isTCM ? 'text-teal-500/80' : 'text-amber-600/80'}`}>反馈：</p>}
                   <AnalysisDisplay prediction={msg.content} isYiLogic={mode === 'YI_LOGIC'} />
                 </div>
               ))}
@@ -283,7 +302,7 @@ const App: React.FC = () => {
                 <div className="pt-12 border-t border-slate-800/50">
                    <p className={`text-[10px] mb-8 tracking-[0.6em] font-black uppercase flex items-center gap-4 animate-pulse ${isTCM ? 'text-teal-400' : 'text-amber-500'}`}>
                      <span className={`w-2 h-2 rounded-full ${isTCM ? 'bg-teal-400 shadow-[0_0_8px_teal]' : 'bg-amber-500 shadow-[0_0_8px_amber]'}`}></span>
-                     全息辨证解析中...
+                     深度辨证推演中...
                    </p>
                    <AnalysisDisplay prediction={displayPrediction} isYiLogic={mode === 'YI_LOGIC'} />
                 </div>
@@ -298,7 +317,7 @@ const App: React.FC = () => {
               
               {error && (
                 <div className="p-10 bg-red-950/10 border border-red-900/30 rounded-[2.5rem] text-red-400 text-sm border-l-4 border-l-red-500">
-                  <p className="font-black tracking-[0.3em] uppercase mb-4 text-[10px] text-red-500">推演异常</p>
+                  <p className="font-black tracking-[0.3em] uppercase mb-4 text-[10px] text-red-500">链路中断</p>
                   {error}
                 </div>
               )}
@@ -311,7 +330,7 @@ const App: React.FC = () => {
                    <textarea 
                      value={followUpText} 
                      onChange={(e) => setFollowUpText(e.target.value)} 
-                     placeholder="关于辨证结果，您还有什么需要深入研讨的变数？" 
+                     placeholder="关于推演结果，您还有什么需要深入研讨的变数？" 
                      className="relative w-full h-32 bg-slate-950/90 border border-slate-800 rounded-3xl p-6 text-slate-200 focus:outline-none focus:border-amber-500/50 transition-all resize-none text-[13px] leading-loose" 
                    />
                    <button 
