@@ -228,42 +228,52 @@ const App: React.FC = () => {
         
         systemInstruction = `你是一位高级时空能量建模专家 (Life Energy Analyst)。
 基于“气象为先、流通为要、中和为贵”准则，将八字转化为逻辑严密、去迷信化、极具“决策感”的能量操作说明书。
-请采用 CoT 思维链，严禁神棍化，严禁使用 Markdown（#，*）。
+请采用 CoT 思维链（思维推导），严禁神棍化，严禁使用 Markdown（#，*）。
 
-必须严格按以下结构输出：
+输出质量强化指令：
+1. 视觉化描述：使用具备场景感的动词与隐喻。
+2. 博弈分析：必须基于命局中的“合冲”解释用户在社交与职场中的心理站位。
+3. 能效量化：增加【能量雷达图数据】，评估执行、资源、逻辑、自律、创新五个维度。
+4. 即时破局：在报告末尾给出一个24小时内可立即执行的“能量微动作”。
+
+必须严格按照以下结构输出：
 
 【📊 能量维度定量分析】
 (以0-100打分并简评：执行力、资源力、逻辑力、自律力、创新力)
 
 【🧊 命局气象透视 (Climate Analysis)】
-- 定量描述：描述出生时空的热力、湿度与物理状态隐喻(如：烈火锻金)。
-- 核心结论：给出当前能效状态关键词（如：宜“慢火细熬”，忌“急火猛攻”）。
+- 能效状态关键词：(如：烈火锻金，宜“慢火细熬”)
+- 定量描述：描述出生时空的热力、湿度与物理状态隐喻(如：深秋的利刃)。
 
 【🤝 人际能量博弈 (Game Position)】
-- 社交站位：结合合冲关系，分析用户在职场与社交中的博弈位置。
-- 互动预警：揭示用户容易产生的心理内耗或博弈短板。
+- 社交站位：结合命局合冲关系，分析用户在社交博弈中的心理站位与博弈位。
+- 博弈弱点：揭示容易产生内耗或被动局面的能量触发点。
 
 【⚙️ 核心运作逻辑 (Operational Mechanism)】
-- 动力分析：分析个体的行为驱动力（是欲望、安全感还是成就感）。
+- 动力分析：分析个体的核心行为驱动力（是欲望、安全感还是成就感）。
 - 财富路径：揭示最顺畅的能量转化链条（如：专业驱动型、资源整合型）。
 
 【⚠️ 关键认知对冲 (Warning)】
 - 反直觉预警：明确指出为什么不能盲目补齐缺失五行。
-- 逻辑自证：解释该五行进入后是对格局的“优化”还是“破坏”。
+- 逻辑自证：说明该五行进入是对格局的“优化”还是“破坏”。
 
 【⏳ 时空波动窗口 (Temporal Windows)】
 - 动能周期：未来3-5年的能量转折点。
 
 【🛠️ 全息场景方案 (Scenario-based)】
-- 谈判场景：具体的社交博弈策略（色彩、心态、节奏）。
-- 决策场景：最佳决策时机与环境建议。
-- 认知升级：针对性格短板的底层逻辑升级方案。`;
+- 谈判场景：(具体的社交博弈策略、着装色调建议)
+- 决策场景：(最佳决策时机与环境避坑建议)
+- 能量微动作：(24小时内可立即执行的一个行为动作)
+
+负面约束：
+- 禁学术字眼：禁止出现特定命理流派名称。
+- 禁迷信表述：禁止出现“大富大贵”、“灾劫”、“辟邪”等词汇。
+- 输出完整性：必须包含所有标题，严禁在结束语‘[策略审计完毕]’之前停止。`;
 
         const p = activeBazi.pillars;
         finalUserInput = `[用户诉求]：${input.question || '全息能量分析'}
-[性别]：${input.gender}
-[出生公历]：${input.birthDate} ${input.birthTime || '时辰不详'}
-[真太阳时修正后四柱]：${p.year.stem}${p.year.branch} ${p.month.stem}${p.month.branch} ${p.day.stem}${p.day.branch} ${p.hour.stem}${p.hour.branch}
+[背景信息]：性别 ${input.gender}，公历 ${input.birthDate} ${input.birthTime || '时辰不详'}，出生地 ${input.birthPlace}
+[修正四柱]：${p.year.stem}${p.year.branch} ${p.month.stem}${p.month.branch} ${p.day.stem}${p.day.branch} ${p.hour.stem}${p.hour.branch}
 [命盘详细参数]：${JSON.stringify(activeBazi)}`;
       } else {
         const input = userInput as LiuYaoInput;
@@ -337,16 +347,16 @@ const App: React.FC = () => {
     <div className="min-h-screen bg-[#020617] text-slate-100 flex flex-col parchment-bg">
       <Header onOpenProfile={() => setIsProfileOpen(true)} />
       
-      <div className="bg-slate-900/90 border-y border-rose-500/20 backdrop-blur-2xl sticky top-0 z-50">
+      <div className="bg-slate-900/40 border-y border-slate-800/30 backdrop-blur-2xl sticky top-0 z-50">
         <div className="max-w-4xl mx-auto flex h-14 px-4">
-          <button onClick={() => handleModeChange('QIMEN')} className={`flex-1 text-[10px] font-black tracking-widest transition-all ${mode === 'QIMEN' ? 'text-rose-400 border-b-2 border-rose-500' : 'text-slate-500 hover:text-slate-200'}`}>奇门</button>
-          <button onClick={() => handleModeChange('YI_LOGIC')} className={`flex-1 text-[10px] font-black tracking-widest transition-all ${mode === 'YI_LOGIC' ? 'text-rose-400 border-b-2 border-rose-500' : 'text-slate-500 hover:text-slate-200'}`}>易理</button>
-          <button onClick={() => handleModeChange('TCM_AI')} className={`flex-1 text-[10px] font-black tracking-widest transition-all ${mode === 'TCM_AI' ? 'text-rose-400 border-b-2 border-rose-500' : 'text-slate-500 hover:text-slate-200'}`}>中医</button>
+          <button onClick={() => handleModeChange('QIMEN')} className={`flex-1 text-[10px] font-black tracking-[0.3em] transition-all ${mode === 'QIMEN' ? 'text-logic-blue border-b-2 border-logic-blue' : 'text-slate-500 hover:text-slate-200'}`}>奇门遁甲</button>
+          <button onClick={() => handleModeChange('YI_LOGIC')} className={`flex-1 text-[10px] font-black tracking-[0.3em] transition-all ${mode === 'YI_LOGIC' ? 'text-logic-blue border-b-2 border-logic-blue' : 'text-slate-500 hover:text-slate-200'}`}>易理能量</button>
+          <button onClick={() => handleModeChange('TCM_AI')} className={`flex-1 text-[10px] font-black tracking-[0.3em] transition-all ${mode === 'TCM_AI' ? 'text-logic-blue border-b-2 border-logic-blue' : 'text-slate-500 hover:text-slate-200'}`}>全息调理</button>
         </div>
       </div>
 
       <main className="flex-1 max-w-4xl mx-auto w-full px-4 py-8 flex flex-col gap-8">
-        {error && <div className="p-3 bg-rose-500/10 border border-rose-500/30 rounded-lg text-rose-500 text-[10px] text-center font-black animate-shake">{error}</div>}
+        {error && <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-lg text-red-500 text-[10px] text-center font-black animate-shake">{error}</div>}
         
         <InputForm onPredict={handlePredict} isLoading={loading} mode={mode} location={location} onSetLocation={setLocation} />
         
@@ -358,19 +368,19 @@ const App: React.FC = () => {
         )}
 
         {isAiThinking && (
-          <section className="bg-slate-950/40 border border-emerald-900/10 p-10 rounded-[2rem] flex flex-col items-center justify-center gap-6 min-h-[250px]">
+          <section className="frosted-glass p-10 rounded-[2rem] flex flex-col items-center justify-center gap-6 min-h-[250px]">
             <div className="relative">
-              <div className="w-14 h-14 border-2 border-rose-500/20 rounded-full animate-ping"></div>
-              <div className="absolute inset-0 border-t-2 border-emerald-500 rounded-full animate-spin"></div>
-              <div className="absolute inset-0 flex items-center justify-center"><span className="text-[9px] text-rose-500 font-black">思</span></div>
+              <div className="w-14 h-14 border-2 border-logic-blue/20 rounded-full animate-ping"></div>
+              <div className="absolute inset-0 border-t-2 border-logic-blue rounded-full animate-spin"></div>
+              <div className="absolute inset-0 flex items-center justify-center"><span className="text-[9px] text-logic-blue font-black tracking-widest">推</span></div>
             </div>
-            <p className="text-[9px] text-emerald-500 font-black tracking-[0.4em] uppercase">逻辑引擎推演中 · Processing</p>
+            <p className="text-[9px] text-logic-blue font-black tracking-[0.4em] uppercase">逻辑引擎全速计算中 · Computing</p>
           </section>
         )}
 
         {displayPrediction && (
-          <section className="bg-slate-950/80 border border-rose-900/20 p-6 md:p-10 rounded-[2rem] shadow-[0_30px_80px_rgba(0,0,0,0.5)] relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-64 h-64 bg-rose-500/5 blur-[100px] pointer-events-none"></div>
+          <section className="frosted-glass p-6 md:p-10 rounded-[2rem] shadow-[0_30px_80px_rgba(0,0,0,0.5)] relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-64 h-64 bg-logic-blue/5 blur-[100px] pointer-events-none"></div>
             <AnalysisDisplay prediction={displayPrediction} onFollowUp={handleFollowUp} isFollowUpLoading={loading} />
           </section>
         )}
