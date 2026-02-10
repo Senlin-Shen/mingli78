@@ -196,7 +196,6 @@ const App: React.FC = () => {
       activeBoard = calculateBoard(targetDate, currentLng);
       setBoard(activeBoard);
       
-      // 植入专家级奇门预测指令
       systemInstruction = `你是一位资深奇门遁甲时空建模与预测专家。精通数理逻辑、现代决策科学与心理学。将奇门视为高维时空信息处理系统。
 严禁使用 Markdown（#，*）。
 
@@ -339,39 +338,39 @@ const App: React.FC = () => {
       <Header onOpenProfile={() => setIsProfileOpen(true)} />
       
       <div className="bg-slate-900/90 border-y border-rose-500/20 backdrop-blur-2xl sticky top-0 z-50">
-        <div className="max-w-4xl mx-auto flex h-16 px-4">
-          <button onClick={() => handleModeChange('QIMEN')} className={`flex-1 text-[11px] font-black tracking-widest transition-all ${mode === 'QIMEN' ? 'text-rose-400 border-b-2 border-rose-500' : 'text-slate-500 hover:text-slate-200'}`}>奇门</button>
-          <button onClick={() => handleModeChange('YI_LOGIC')} className={`flex-1 text-[11px] font-black tracking-widest transition-all ${mode === 'YI_LOGIC' ? 'text-rose-400 border-b-2 border-rose-500' : 'text-slate-500 hover:text-slate-200'}`}>易理</button>
-          <button onClick={() => handleModeChange('TCM_AI')} className={`flex-1 text-[11px] font-black tracking-widest transition-all ${mode === 'TCM_AI' ? 'text-rose-400 border-b-2 border-rose-500' : 'text-slate-500 hover:text-slate-200'}`}>中医</button>
+        <div className="max-w-4xl mx-auto flex h-14 px-4">
+          <button onClick={() => handleModeChange('QIMEN')} className={`flex-1 text-[10px] font-black tracking-widest transition-all ${mode === 'QIMEN' ? 'text-rose-400 border-b-2 border-rose-500' : 'text-slate-500 hover:text-slate-200'}`}>奇门</button>
+          <button onClick={() => handleModeChange('YI_LOGIC')} className={`flex-1 text-[10px] font-black tracking-widest transition-all ${mode === 'YI_LOGIC' ? 'text-rose-400 border-b-2 border-rose-500' : 'text-slate-500 hover:text-slate-200'}`}>易理</button>
+          <button onClick={() => handleModeChange('TCM_AI')} className={`flex-1 text-[10px] font-black tracking-widest transition-all ${mode === 'TCM_AI' ? 'text-rose-400 border-b-2 border-rose-500' : 'text-slate-500 hover:text-slate-200'}`}>中医</button>
         </div>
       </div>
 
-      <main className="flex-1 max-w-4xl mx-auto w-full px-6 py-12 flex flex-col gap-12">
-        {error && <div className="p-4 bg-rose-500/10 border border-rose-500/30 rounded-xl text-rose-500 text-xs text-center font-black animate-shake">{error}</div>}
+      <main className="flex-1 max-w-4xl mx-auto w-full px-4 py-8 flex flex-col gap-8">
+        {error && <div className="p-3 bg-rose-500/10 border border-rose-500/30 rounded-lg text-rose-500 text-[10px] text-center font-black animate-shake">{error}</div>}
         
         <InputForm onPredict={handlePredict} isLoading={loading} mode={mode} location={location} onSetLocation={setLocation} />
         
         {(board || baziData) && (
-          <div className="animate-in fade-in slide-in-from-bottom-6 duration-700">
+          <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
              {board && <BoardGrid board={board} />}
              {baziData && <BaziResult data={baziData} />}
           </div>
         )}
 
         {isAiThinking && (
-          <section className="bg-slate-950/40 border border-emerald-900/10 p-16 rounded-[2.5rem] flex flex-col items-center justify-center gap-8 min-h-[350px]">
+          <section className="bg-slate-950/40 border border-emerald-900/10 p-10 rounded-[2rem] flex flex-col items-center justify-center gap-6 min-h-[250px]">
             <div className="relative">
-              <div className="w-20 h-20 border-2 border-rose-500/20 rounded-full animate-ping"></div>
+              <div className="w-14 h-14 border-2 border-rose-500/20 rounded-full animate-ping"></div>
               <div className="absolute inset-0 border-t-2 border-emerald-500 rounded-full animate-spin"></div>
-              <div className="absolute inset-0 flex items-center justify-center"><span className="text-[10px] text-rose-500 font-black">思</span></div>
+              <div className="absolute inset-0 flex items-center justify-center"><span className="text-[9px] text-rose-500 font-black">思</span></div>
             </div>
-            <p className="text-[10px] text-emerald-500 font-black tracking-[0.5em] uppercase">逻辑引擎推演中 · Processing</p>
+            <p className="text-[9px] text-emerald-500 font-black tracking-[0.4em] uppercase">逻辑引擎推演中 · Processing</p>
           </section>
         )}
 
         {displayPrediction && (
-          <section className="bg-slate-950/80 border border-rose-900/20 p-8 md:p-14 rounded-[3rem] shadow-[0_40px_100px_rgba(0,0,0,0.6)] relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-96 h-96 bg-rose-500/5 blur-[150px] pointer-events-none"></div>
+          <section className="bg-slate-950/80 border border-rose-900/20 p-6 md:p-10 rounded-[2rem] shadow-[0_30px_80px_rgba(0,0,0,0.5)] relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-64 h-64 bg-rose-500/5 blur-[100px] pointer-events-none"></div>
             <AnalysisDisplay prediction={displayPrediction} onFollowUp={handleFollowUp} isFollowUpLoading={loading} />
           </section>
         )}
@@ -389,7 +388,7 @@ const App: React.FC = () => {
           setDisplayPrediction(entry.result);
           setActiveHistoryId(entry.id);
           setIsProfileOpen(false);
-          window.scrollTo({ top: 400, behavior: 'smooth' });
+          window.scrollTo({ top: 300, behavior: 'smooth' });
         }}
         onClearHistory={() => setHistory([])}
       />
