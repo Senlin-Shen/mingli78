@@ -7,39 +7,21 @@ interface AnalysisDisplayProps {
   isFollowUpLoading?: boolean;
 }
 
-const SECTION_TITLES = [
-  '一、', '二、', '三、', '四、', '五、',
-  '【⚖️ 时空起局公示】',
-  '【🔍 盘局深度解析】',
-  '【💡 预测结论】',
-  '【🚀 实战运筹建议】',
-  '【📊 能量维度定量分析】',
-  '【🧊 命局气象透视 (Climate Analysis)】',
-  '【🤝 人际能量博弈 (Game Position)】',
-  '【⚙️ 核心运作逻辑 (Operational Mechanism)】',
-  '【⚠️ 关键认知对冲 (Warning)】',
-  '【⏳ 时空波动窗口 (Temporal Windows)】',
-  '【🛠️ 全息场景方案 (Scenario-based)】',
-  '【🌊 命局气象透视】',
-  '【🛠️ 深度逻辑拆解】',
-  '【🎯 核心预测结论】',
-  '【💡 调理与指引】',
-  '【八字命理分析报告】',
-  '【命盘基础信息】',
-  '【命格核心诊断】',
-  '【多维优化方案】',
-  '【综合建议总结】',
-  '🏠 环境能量调整',
-  '💼 事业财富策略',
-  '❤️ 情感关系指导',
-  '🌱 健康养生要点',
-  '🕐 近期运势节奏',
-  '【局象概述】',
-  '【决策建议】'
+/**
+ * 容错性更强的章节识别关键字
+ * 用于解决 AI 输出标题不完全匹配的问题
+ */
+const KEYWORD_MAP = [
+  { keywords: ['起局', '公示', '参数'], type: 'header', icon: '⚖️' },
+  { keywords: ['解析', '盘局', '透视', '深度', '推演'], type: 'conclusion', icon: '🔍' },
+  { keywords: ['结论', '定论', '预判'], type: 'conclusion', icon: '🎯' },
+  { keywords: ['建议', '运筹', '行动', '方案', '调理', '策略'], type: 'actionable', icon: '💡' },
+  { keywords: ['能量', '维度', '定量', '打分'], type: 'conclusion', icon: '📊' },
+  { keywords: ['博弈', '社交', '人际', '站位'], type: 'conclusion', icon: '🤝' },
+  { keywords: ['认知', '对冲', '预警', '注意'], type: 'conclusion', icon: '⚠️' },
+  { keywords: ['窗口', '周期', '时间'], type: 'conclusion', icon: '⏳' },
+  { keywords: ['场景', '模拟', '动作'], type: 'actionable', icon: '🛠️' }
 ];
-
-const SECTION_SPLIT_REGEX = new RegExp(`(?=${SECTION_TITLES.map(t => t.replace(/[、[\]⚖️🔍💡🚀🏠💼❤️🌱🕐🌊🛠️🎯📊🧊🤝⚙️⚠️⏳()]/g, '\\$&')).join('|')})`, 'g');
-const TITLE_EXTRACT_REGEX = /^([一二三四五]、|【.+?】|[🏠💼❤️🌱🕐]\s?.+?(\n|$))/;
 
 const AnalysisDisplay: React.FC<AnalysisDisplayProps> = ({ prediction, onFollowUp, isFollowUpLoading }) => {
   const [followUpText, setFollowUpText] = useState('');
@@ -47,16 +29,30 @@ const AnalysisDisplay: React.FC<AnalysisDisplayProps> = ({ prediction, onFollowU
   const sections = useMemo(() => {
     if (!prediction) return [];
     
-    const rawParts = prediction.split(SECTION_SPLIT_REGEX);
+    // 按【】或一、二、三、等模式分割，且支持换行后的标题
+    const rawParts = prediction.split(/(?=\n【|\n[一二三四五]、|【)/g);
     const parts = rawParts.map(p => p.trim()).filter(Boolean);
     
     return parts.map(part => {
-      const titleMatch = part.match(TITLE_EXTRACT_REGEX);
-      const title = titleMatch ? titleMatch[0].trim() : '';
-      const content = part.replace(TITLE_EXTRACT_REGEX, '').trim();
+      // 提取标题行
+      const lines = part.split('\n');
+      const firstLine = lines[0].trim();
+      const isTitle = (firstLine.startsWith('【') && firstLine.includes('】')) || /^[一二三四五]、/.test(firstLine);
       
-      const isActionable = title.includes('建议') || title.includes('方案') || title.includes('策略') || title.includes('指引') || title.includes('优化') || /[🏠💼❤️🌱🚀🎯🛠️]/.test(title) || title === '三、' || title === '四、';
-      const isConclusion = title.includes('诊断') || title.includes('分析') || title.includes('解析') || title.includes('结论') || title.includes('透视') || title.includes('拆解') || title.includes('逻辑') || title.includes('窗口') || title.includes('博弈') || title.includes('画像') || title.includes('对冲') || title.includes('状态') || title === '二、' || title.includes('💡') || title.includes('🌊') || title.includes('🧊') || title.includes('⚙️') || title.includes('⏳') || title.includes('📊') || title.includes('🤝') || title.includes('⚠️');
+      const title = isTitle ? firstLine : '';
+      const content = isTitle ? lines.slice(1).join('\n').trim() : part;
+
+      // 模糊匹配类型
+      let isActionable = false;
+      let isConclusion = false;
+      
+      const lowerTitle = title.toLowerCase();
+      KEYWORD_MAP.forEach(km => {
+        if (km.keywords.some(k => lowerTitle.includes(k))) {
+          if (km.type === 'actionable') isActionable = true;
+          if (km.type === 'conclusion') isConclusion = true;
+        }
+      });
 
       return { title, content, isActionable, isConclusion };
     });
@@ -70,14 +66,6 @@ const AnalysisDisplay: React.FC<AnalysisDisplayProps> = ({ prediction, onFollowU
     }
   };
 
-  if (sections.length === 0) {
-    return (
-      <div className="text-[14px] md:text-[15px] text-slate-300 leading-relaxed report-font whitespace-pre-wrap">
-        {prediction}
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-12 report-font leading-relaxed">
       <div className="border-b border-slate-800 pb-6 flex items-center justify-between">
@@ -85,10 +73,17 @@ const AnalysisDisplay: React.FC<AnalysisDisplayProps> = ({ prediction, onFollowU
           <span className="text-[10px] text-logic-blue font-black tracking-[0.5em] uppercase">全息时空解析操作说明书</span>
           <span className="text-[7px] text-slate-600 font-mono tracking-widest uppercase">SYMMETRIC HOLOGRAPHIC OPERATIONAL MANUAL</span>
         </div>
+        {/* 流式状态指示器 */}
+        {!prediction.includes('报告审计完毕') && !prediction.includes('[END]') && (
+          <div className="flex items-center gap-1">
+            <div className="w-1 h-1 bg-logic-blue rounded-full animate-ping"></div>
+            <span className="text-[8px] text-slate-700 font-black uppercase tracking-tighter">Connecting...</span>
+          </div>
+        )}
       </div>
 
       {sections.map((sec, idx) => (
-        <div key={idx} className="animate-in fade-in duration-1000">
+        <div key={idx} className="animate-in fade-in slide-in-from-left-2 duration-700">
           {sec.title && (
             <div className="flex items-center gap-4 mb-6">
               <div className={`w-1 h-5 rounded-full ${sec.isActionable ? 'bg-slate-100 shadow-[0_0_12px_#fff]' : sec.isConclusion ? 'bg-logic-blue shadow-[0_0_12px_#38bdf8]' : 'bg-slate-700'}`}></div>
@@ -99,8 +94,8 @@ const AnalysisDisplay: React.FC<AnalysisDisplayProps> = ({ prediction, onFollowU
           )}
           
           <div className={`text-[14px] md:text-[15px] leading-loose
-            ${sec.isActionable ? 'bg-slate-100/5 p-6 md:p-10 rounded-3xl border border-slate-100/10 text-slate-100/90' : 'pl-5 text-slate-300'}
-            ${sec.isConclusion ? 'bg-logic-blue/5 p-6 md:p-10 rounded-3xl border border-logic-blue/10 text-slate-200' : ''}
+            ${sec.isActionable ? 'bg-slate-100/5 p-6 md:p-10 rounded-3xl border border-slate-100/10 text-slate-100/90 shadow-inner' : 'pl-5 text-slate-300'}
+            ${sec.isConclusion ? 'bg-logic-blue/5 p-6 md:p-10 rounded-3xl border border-logic-blue/10 text-slate-200 shadow-inner' : ''}
           `}>
             {sec.content.split('\n').map((line, lidx) => {
               const l = line.trim();
