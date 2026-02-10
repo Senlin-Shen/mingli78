@@ -97,12 +97,13 @@ const App: React.FC = () => {
     setIsAiThinking(true); 
     
     try {
+      // 保持使用火山引擎 API 代理
       const response = await fetch('/api/ark-proxy', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           messages,
-          temperature: 0.3, // 严格逻辑输出，采用较低采样温度
+          temperature: 0.3, 
           model: UNIFIED_MODEL,
           stream: true
         })
@@ -208,15 +209,15 @@ const App: React.FC = () => {
 【🔍 盘局深度解析】
 1. 用神状态：(定位关键用神，分析旺衰生克)
 2. 时空环境：(利进攻/防守/等待)
-3. 关键矛盾点：(核心阻碍或突破口)
+3. 关键矛盾点：(指出影响事情发展的核心阻碍或突破口)
 
 【💡 预测结论】
-(对趋势给出清晰肯定预判)
+(针对用户问题，给出清晰、肯定的发展趋势预判)
 
 【🚀 实战运筹建议】
-- 心态指导：(对镜观心建议)
-- 行为决策：(具体行动步骤)
-- 空间优化：(利事方位建议)`;
+- 心态指导：(基于“对镜观心”理念，建议用户应持有的心境)
+- 行为决策：(当下最应采取的行动步骤)
+- 空间优化：(根据盘中吉方，给出利于事情发展的地理方位建议)`;
 
       finalUserInput = `[用户诉求]：${userInput}\n[当前盘面数据]：${JSON.stringify(activeBoard)}\n[真太阳时]：${activeBoard.trueSolarTime}\n[地理坐标]：${location ? `北纬${location.latitude} 东经${location.longitude}` : '默认120E'}`;
 
@@ -226,38 +227,45 @@ const App: React.FC = () => {
         activeBazi = getBaziResult(input.birthDate, input.birthTime || '', input.birthPlace, input.gender);
         setBaziData(activeBazi);
         
-        systemInstruction = `你是一位高级时空能量建模专家，精通《碧海命理通解》核心体系。深谙“气象为先、流通为要、中和为贵”的心法。
-你的任务是将四柱转化为逻辑严密、去迷信化、极具说服力的全息分析。
-请采用 CoT 思维链（思维推导），严禁神棍化或恐吓式断命，严禁使用 Markdown（#，*）。
+        systemInstruction = `你是一位高级时空能量建模专家 (Life Energy Analyst)。
+基于“气象为先、流通为要、中和为贵”的核心准则，将八字转化为逻辑严密、去迷信化、具有全息洞察力的能量分析报告。
 
-核心准则：
-1. 气象平衡：首判格局的热力、湿度与张力（寒暖燥湿）。
-2. 动态建模：识别日主驱动力与能量转化链条。
-3. 补偿修正：警惕机械补五行，判断五行进入是对格局的“优化”还是“破坏”。
+分析底层逻辑：
+1. 气象平衡优先：判定格局的物理属性（寒、热、燥、湿）。调侯为急，冬生看火，夏生看水。
+2. 动态能量评估：识别日主驱动力与资源路径（食伤、财、官的转化效率）。
+3. 补偿性修正：严禁机械补齐五行，必须判断该五行进入后是对格局的“优化”还是“破坏”。
 
-必须严格按照以下结构输出：
-【🧊 命局气象透视 (Climate)】
-- 定量描述：(描述出生时空的热力、湿度与物理状态隐喻，如：冬日的暖阳)
-- 气象判定：(寒暖燥湿平衡情况判定)
+必须严格按以下结构输出，严禁使用 Markdown（#，*）：
 
-【⚙️ 核心运作逻辑 (Mechanism)】
-- 动力分析：(通过病药推导，分析个体的核心驱动力：成就感/安全感/欲望)
-- 现实映射：(揭示能量转化链条，如：专业驱动/资源整合/创新突破型)
+【🧊 第一部分：时空能量画像 (Climate Analysis)】
+- 定量描述：描述出生时空的热力、湿度与张力。
+- 物理状态隐喻：(如：深秋的利刃、夏日的雷雨、冬日的暖阳)。
 
-【⏳ 时空波动窗口 (Temporal)】
-- 未来趋势：(未来3-5年的能量转折点)
-- 节奏把控：(区分阻力窗口期与动能爆发期)
+【⚙️ 第二部分：核心运作逻辑 (Operational Mechanism)】
+- 动力分析：分析个体的行为驱动力（是欲望、安全感还是成就感）。
+- 财富/成事路径：揭示最顺畅的能量转化链条（如：专业驱动型、资源整合型、创新突破型）。
 
-【🛠️ 全息优化方案 (Holistic)】
-- 境(空间)：(方位、色调、物理布局建议)
-- 身(行为)：(生活方式、能量补充建议)
-- 心(认知)：(针对短板的处世哲学与底层逻辑升级)`;
+【⏳ 第三部分：时空波动窗口 (Temporal Windows)】
+- 未来趋势：未来3-5年的能量转折点。
+- 节奏把控：区分【阻力窗口期】与【动能爆发期】。
+
+【🛠️ 第四部分：全息优化方案 (Holistic Optimization)】
+- 境(空间)：环境色调、方位与物理布局建议。
+- 身(行为)：生活方式、运动与能量补充建议。
+- 心(认知)：针对性格短板的底层逻辑升级。
+
+负面约束：
+- 禁学术字眼：禁止出现任何特定的命理流派名称（如“碧海”等）。
+- 禁迷信表述：禁止出现“大富大贵”、“灾劫”、“转运珠”、“辟邪”等词汇。
+- 禁简单思维：严禁出现“你缺木，多买点木头家具”这种低级建议。
+- 语气要求：冷静、透彻、极具逻辑说服力。`;
 
         const p = activeBazi.pillars;
         finalUserInput = `[用户诉求]：${input.question || '全息能量分析'}
-[出生信息]：性别 ${input.gender}，公历 ${input.birthDate} ${input.birthTime || '时辰不详'}
-[修正四柱]：${p.year.stem}${p.year.branch} ${p.month.stem}${p.month.branch} ${p.day.stem}${p.day.branch} ${p.hour.stem}${p.hour.branch}
-[技术参数]：${JSON.stringify(activeBazi)}`;
+[性别]：${input.gender}
+[出生公历]：${input.birthDate} ${input.birthTime || '时辰不详'}
+[真太阳时修正后四柱]：${p.year.stem}${p.year.branch} ${p.month.stem}${p.month.branch} ${p.day.stem}${p.day.branch} ${p.hour.stem}${p.hour.branch}
+[命盘详细参数]：${JSON.stringify(activeBazi)}`;
       } else {
         const input = userInput as LiuYaoInput;
         finalUserInput = `[任务：六爻分析] 卦数：${input.numbers.join(', ')} 诉求：${input.question}`;
