@@ -102,7 +102,7 @@ const App: React.FC = () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           messages,
-          temperature: 0.3, // 调低温度以增强逻辑严密性
+          temperature: 0.3, // 严格逻辑输出，采用较低采样温度
           model: UNIFIED_MODEL,
           stream: true
         })
@@ -226,34 +226,38 @@ const App: React.FC = () => {
         activeBazi = getBaziResult(input.birthDate, input.birthTime || '', input.birthPlace, input.gender);
         setBaziData(activeBazi);
         
-        systemInstruction = `你是一位精通《碧海命理通解》核心体系的命理专家。深谙“气象为先、流通为要、中和为贵”的心法。
-请采用 CoT 思维链，严禁神棍化或恐吓式断命，严禁使用 Markdown（#，*）。
+        systemInstruction = `你是一位高级时空能量建模专家，精通《碧海命理通解》核心体系。深谙“气象为先、流通为要、中和为贵”的心法。
+你的任务是将四柱转化为逻辑严密、去迷信化、极具说服力的全息分析。
+请采用 CoT 思维链（思维推导），严禁神棍化或恐吓式断命，严禁使用 Markdown（#，*）。
+
+核心准则：
+1. 气象平衡：首判格局的热力、湿度与张力（寒暖燥湿）。
+2. 动态建模：识别日主驱动力与能量转化链条。
+3. 补偿修正：警惕机械补五行，判断五行进入是对格局的“优化”还是“破坏”。
 
 必须严格按照以下结构输出：
-【🌊 命局气象透视】
-- 五行分布：(干支强弱分析)
-- 气象判定：(描述寒暖燥湿情况)
+【🧊 命局气象透视 (Climate)】
+- 定量描述：(描述出生时空的热力、湿度与物理状态隐喻，如：冬日的暖阳)
+- 气象判定：(寒暖燥湿平衡情况判定)
 
-【🛠️ 深度逻辑拆解】
-- 格局判定：(分析能量流向)
-- 病药分析：(找出命局问题及解决神)
-- 现实映射：(在性格、事业中的具体体现)
+【⚙️ 核心运作逻辑 (Mechanism)】
+- 动力分析：(通过病药推导，分析个体的核心驱动力：成就感/安全感/欲望)
+- 现实映射：(揭示能量转化链条，如：专业驱动/资源整合/创新突破型)
 
-【🎯 核心预测结论】
-- 事业财运：(行业建议、求财层级、趋势)
-- 感情人际：(互动模式、缘分判断)
+【⏳ 时空波动窗口 (Temporal)】
+- 未来趋势：(未来3-5年的能量转折点)
+- 节奏把控：(区分阻力窗口期与动能爆发期)
 
-【💡 调理与指引】
-- 心态指引：(符合道家智慧的哲学)
-- 环境建议：(方位、色彩建议)
-- 健康提醒：(五行养生要点)`;
+【🛠️ 全息优化方案 (Holistic)】
+- 境(空间)：(方位、色调、物理布局建议)
+- 身(行为)：(生活方式、能量补充建议)
+- 心(认知)：(针对短板的处世哲学与底层逻辑升级)`;
 
         const p = activeBazi.pillars;
-        finalUserInput = `[用户诉求]：${input.question || '深度解析命局'}
-[性别]：${input.gender}
-[出生公历]：${input.birthDate} ${input.birthTime || '时辰不详'}
-[真太阳时修正后四柱]：${p.year.stem}${p.year.branch} ${p.month.stem}${p.month.branch} ${p.day.stem}${p.day.branch} ${p.hour.stem}${p.hour.branch}
-[命盘详细参数]：${JSON.stringify(activeBazi)}`;
+        finalUserInput = `[用户诉求]：${input.question || '全息能量分析'}
+[出生信息]：性别 ${input.gender}，公历 ${input.birthDate} ${input.birthTime || '时辰不详'}
+[修正四柱]：${p.year.stem}${p.year.branch} ${p.month.stem}${p.month.branch} ${p.day.stem}${p.day.branch} ${p.hour.stem}${p.hour.branch}
+[技术参数]：${JSON.stringify(activeBazi)}`;
       } else {
         const input = userInput as LiuYaoInput;
         finalUserInput = `[任务：六爻分析] 卦数：${input.numbers.join(', ')} 诉求：${input.question}`;

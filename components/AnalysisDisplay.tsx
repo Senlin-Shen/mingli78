@@ -13,6 +13,10 @@ const SECTION_TITLES = [
   '【🔍 盘局深度解析】',
   '【💡 预测结论】',
   '【🚀 实战运筹建议】',
+  '【🧊 命局气象透视 (Climate)】',
+  '【⚙️ 核心运作逻辑 (Mechanism)】',
+  '【⏳ 时空波动窗口 (Temporal)】',
+  '【🛠️ 全息优化方案 (Holistic)】',
   '【🌊 命局气象透视】',
   '【🛠️ 深度逻辑拆解】',
   '【🎯 核心预测结论】',
@@ -31,7 +35,7 @@ const SECTION_TITLES = [
   '【决策建议】'
 ];
 
-const SECTION_SPLIT_REGEX = new RegExp(`(?=${SECTION_TITLES.map(t => t.replace(/[、[\]⚖️🔍💡🚀🏠💼❤️🌱🕐🌊🛠️🎯]/g, '\\$&')).join('|')})`, 'g');
+const SECTION_SPLIT_REGEX = new RegExp(`(?=${SECTION_TITLES.map(t => t.replace(/[、[\]⚖️🔍💡🚀🏠💼❤️🌱🕐🌊🛠️🎯🧊⚙️⏳()]/g, '\\$&')).join('|')})`, 'g');
 const TITLE_EXTRACT_REGEX = /^([一二三四五]、|【.+?】|[🏠💼❤️🌱🕐]\s?.+?(\n|$))/;
 
 const AnalysisDisplay: React.FC<AnalysisDisplayProps> = ({ prediction, onFollowUp, isFollowUpLoading }) => {
@@ -48,8 +52,8 @@ const AnalysisDisplay: React.FC<AnalysisDisplayProps> = ({ prediction, onFollowU
       const title = titleMatch ? titleMatch[0].trim() : '';
       const content = part.replace(TITLE_EXTRACT_REGEX, '').trim();
       
-      const isActionable = title.includes('建议') || title.includes('方案') || title.includes('策略') || title.includes('指引') || /[🏠💼❤️🌱🚀🎯]/.test(title) || title === '三、' || title === '四、';
-      const isConclusion = title.includes('诊断') || title.includes('分析') || title.includes('解析') || title.includes('结论') || title.includes('透视') || title.includes('拆解') || title === '二、' || title.includes('💡') || title.includes('🌊') || title.includes('🛠️');
+      const isActionable = title.includes('建议') || title.includes('方案') || title.includes('策略') || title.includes('指引') || title.includes('优化') || /[🏠💼❤️🌱🚀🎯🛠️]/.test(title) || title === '三、' || title === '四、';
+      const isConclusion = title.includes('诊断') || title.includes('分析') || title.includes('解析') || title.includes('结论') || title.includes('透视') || title.includes('拆解') || title.includes('逻辑') || title.includes('窗口') || title === '二、' || title.includes('💡') || title.includes('🌊') || title.includes('🧊') || title.includes('⚙️') || title.includes('⏳');
 
       return { title, content, isActionable, isConclusion };
     });
