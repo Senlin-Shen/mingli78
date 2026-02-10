@@ -28,7 +28,7 @@ export interface PredictionHistory {
   status: 'loading' | 'completed' | 'error';
   board?: QiMenBoard | null;
   baziData?: BaziResultData | null;
-  messages: ChatMessage[]; // 确保 messages 数组始终存在以支持追问
+  messages: ChatMessage[]; 
 }
 
 const App: React.FC = () => {
@@ -49,7 +49,7 @@ const App: React.FC = () => {
   const renderAnimationFrame = useRef<number | null>(null);
 
   useEffect(() => {
-    const saved = localStorage.getItem('qimen_history_v9');
+    const saved = localStorage.getItem('qimen_history_v10');
     if (saved) {
       try {
         setHistory(JSON.parse(saved));
@@ -63,7 +63,7 @@ const App: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    localStorage.setItem('qimen_history_v9', JSON.stringify(history));
+    localStorage.setItem('qimen_history_v10', JSON.stringify(history));
   }, [history]);
 
   const handleModeChange = (newMode: AppMode) => {
@@ -93,17 +93,17 @@ const App: React.FC = () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           messages,
-          temperature: 0.3,
+          temperature: 0.2, // 降低温度以提高输出稳定性，减少排版跳变
           model: UNIFIED_MODEL,
           stream: true
         })
       });
 
-      if (!response.ok) throw new Error('时空链路繁忙，请稍后重试');
+      if (!response.ok) throw new Error('时空链路波动，请重试');
 
       const reader = response.body?.getReader();
       const decoder = new TextDecoder();
-      if (!reader) throw new Error('流读取器未就绪');
+      if (!reader) throw new Error('读取器初始化失败');
 
       let isFirstChunk = true;
 
@@ -132,7 +132,6 @@ const App: React.FC = () => {
 
             fullTextRef.current += content;
             
-            // 极致流畅渲染：仅在浏览器重绘时更新 UI
             if (!renderAnimationFrame.current) {
               renderAnimationFrame.current = requestAnimationFrame(() => {
                 setDisplayPrediction(fullTextRef.current);
@@ -185,36 +184,69 @@ const App: React.FC = () => {
       const targetDate = date ? new Date(date) : new Date();
       activeBoard = calculateBoard(targetDate, 120);
       setBoard(activeBoard);
-      finalUserInput = `[任务：奇门全息解析]\n盘面数据：${JSON.stringify(activeBoard)}\n诉求：${userInput}`;
-      systemInstruction = `你是一位精通林毅老师体系的奇门专家。重点分析气象平衡。严禁使用 Markdown。输出要排版精美。`;
+      finalUserInput = `[任务：奇门全息解析] 盘面：${JSON.stringify(activeBoard)} 诉求：${userInput}`;
+      systemInstruction = `你是一位精通林毅老师奇门遁甲体系的专家。分析以“气象论”为核心。严禁使用 Markdown（#，*）。必须按此结构输出：一、局象概述 二、三奇六仪分析 三、门星神关系 四、决策建议 五、应期判断。`;
     } else if (mode === 'YI_LOGIC') {
       if (type === 'BA_ZI') {
         const input = userInput as BaZiInput;
         activeBazi = getBaziResult(input.birthDate, input.birthTime || '', input.birthPlace, input.gender);
         setBaziData(activeBazi);
-        systemInstruction = `八字命理分析AI专家（生产环境版）。严禁 Markdown 符号。输出结构：一、基础信息 二、核心诊断 三、优化方案 四、总结建议。注重医学、科学、行动建议。`;
+        
+        // 植入生产级八字专家提示词
+        systemInstruction = `你是一位精通中国传统命理学，同时融合现代心理学、商业战略的人生系统优化顾问。
+核心原则：严谨遵循子平八字理论，用神判定经“病药→调候→通关”验证。建议必须具体。
+严禁使用 Markdown（不要出现 #, *, ** 等）。
+
+必须严格按照以下格式和内容板块输出：
+# 【八字命理分析报告】
+## 一、命盘基础信息
+- 八字：[干支]
+- 十神：[分布]
+- 大运：[当前大运]
+
+## 二、命格核心诊断
+1. 能量状态（日主旺衰、五行分布、是否偏枯）
+2. 用神判定（病药、调候、通关三步推导结论）
+3. 格局特征（格局名称、优势、挑战）
+
+## 三、多维优化方案
+### 🏠 环境能量调整
+[方位、色彩、材质建议]
+### 💼 事业财富策略
+[适配行业、能力重心、周期建议]
+### ❤️ 情感关系指导
+[模式、佳期、考验期]
+### 🌱 健康养生要点
+[脏腑、饮食、功法建议]
+### 🕐 近期运势节奏
+[大运解读、未来三年关键年份数字提醒]
+
+## 四、综合建议总结
+[150字个性化实操总结]`;
+
         const p = activeBazi.pillars;
-        finalUserInput = `[八字解析] 性别：${input.gender} 公历：${input.birthDate} 时辰：${input.birthTime || '不详'}\n排盘：${p.year.stem}${p.year.branch} ${p.month.stem}${p.month.branch} ${p.day.stem}${p.day.branch} ${p.hour.stem}${p.hour.branch}\n诉求：${input.question || '分析气象特征。'}`;
+        finalUserInput = `[命盘输入] 性别：${input.gender} 公历：${input.birthDate} 时辰：${input.birthTime || '不详'}
+排盘：${p.year.stem}${p.year.branch} ${p.month.stem}${p.month.branch} ${p.day.stem}${p.day.branch} ${p.hour.stem}${p.hour.branch}
+诉求：${input.question || '深度推演个人命理气象与发展路径。'}`;
       } else {
         const input = userInput as LiuYaoInput;
-        finalUserInput = `[六爻卦象] 卦数：${input.numbers.join(', ')} 诉求：${input.question}`;
-        systemInstruction = `六爻推演专家。严禁 Markdown。重点分析动爻与日辰。`;
+        finalUserInput = `[任务：六爻分析] 卦数：${input.numbers.join(', ')} 诉求：${input.question}`;
+        systemInstruction = `你是一位六爻推演专家。以《增删卜易》为宗，严禁 Markdown。结构：一、卦象组合 二、用神旺衰 三、动变解析 四、最终定论。`;
       }
     } else {
       finalUserInput = userInput;
-      systemInstruction = `中医全息调理专家。失衡判定、病机解析、调理建议。严禁 Markdown。`;
+      systemInstruction = `中医全息调理专家。以五行气象论为基础，分析脏腑虚实。严禁 Markdown。结构：一、辨证分析 二、病机探讨 三、调理建议 四、生活禁忌。`;
     }
 
     const historyInput: string = typeof userInput === 'string' 
       ? userInput 
-      : ((userInput as any).question || (userInput as any).name || '深度全息推演');
+      : ((userInput as any).question || (userInput as any).name || '全息推演');
 
     const initialMessages: ChatMessage[] = [
       { role: 'system', content: systemInstruction },
       { role: 'user', content: finalUserInput }
     ];
 
-    // 立即提交至历史，允许用户在 Profile 中即刻查看
     setHistory(prev => [{
       id: historyId,
       timestamp: Date.now(),
@@ -230,7 +262,7 @@ const App: React.FC = () => {
     try {
       await streamResponse(initialMessages, historyId);
     } catch (err: any) {
-      setError(err.message || '推演中断，请重新提交');
+      setError(err.message || '推演中断');
     } finally {
       setLoading(false);
       setIsAiThinking(false);
@@ -256,7 +288,7 @@ const App: React.FC = () => {
     try {
       await streamResponse(newMessages, activeHistoryId);
     } catch (err: any) {
-      setError(err.message || '追问通讯失败');
+      setError(err.message || '通讯异常');
     } finally {
       setLoading(false);
     }
@@ -276,7 +308,6 @@ const App: React.FC = () => {
 
       <main className="flex-1 max-w-4xl mx-auto w-full px-6 py-12 flex flex-col gap-12">
         {error && <div className="p-4 bg-rose-500/10 border border-rose-500/30 rounded-xl text-rose-500 text-xs text-center font-black animate-shake">{error}</div>}
-        
         <InputForm onPredict={handlePredict} isLoading={loading} mode={mode} />
         
         {(board || baziData) && (
