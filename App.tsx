@@ -59,7 +59,6 @@ const App: React.FC = () => {
       }
     }
     
-    // 初始化尝试获取定位，优化真太阳时
     if ("geolocation" in navigator) {
       navigator.geolocation.getCurrentPosition(
         (pos) => setLocation({ latitude: pos.coords.latitude, longitude: pos.coords.longitude, isAdjusted: true }),
@@ -190,15 +189,43 @@ const App: React.FC = () => {
     let activeBoard: QiMenBoard | null = null;
     let activeBazi: BaziResultData | null = null;
 
-    // 获取当前可用经度
     const currentLng = location?.longitude || 120;
 
     if (mode === 'QIMEN') {
       const targetDate = date ? new Date(date) : new Date();
       activeBoard = calculateBoard(targetDate, currentLng);
       setBoard(activeBoard);
-      finalUserInput = `[任务：奇门全息解析] 盘面：${JSON.stringify(activeBoard)} 诉求：${userInput}\n地理位置：${location ? `北纬${location.latitude} 东经${location.longitude}` : '默认(120E)'}`;
-      systemInstruction = `你是一位精通林毅老师奇门遁甲体系的专家。分析以“气象论”为核心。严禁使用 Markdown（#，*）。必须按此结构输出：一、局象概述 二、三奇六仪分析 三、门星神关系 四、决策建议 五、应期判断。`;
+      
+      // 植入专家级奇门预测指令
+      systemInstruction = `你是一位资深奇门遁甲时空建模与预测专家。精通数理逻辑、现代决策科学与心理学。将奇门视为高维时空信息处理系统。
+严禁使用 Markdown（#，*）。
+
+你的解析需遵循：
+1. 时空建模：结合北京时间、真太阳时及地理位置。
+2. 九维立体分析：分析地、天、人、神四盘，识别吉凶格（如青龙返首、庚格等），评估空亡与马星。
+3. 交互原则：严谨科学、拒绝宿命论。
+
+必须严格按以下结构输出：
+【⚖️ 时空起局公示】
+- 测算时间：[干支四柱]
+- 地理坐标：[城市及经纬度]
+- 局式信息：[局数、值符、值使]
+
+【🔍 盘局深度解析】
+1. 用神状态：(定位关键用神，分析旺衰生克)
+2. 时空环境：(利进攻/防守/等待)
+3. 关键矛盾点：(核心阻碍或突破口)
+
+【💡 预测结论】
+(对趋势给出清晰肯定预判)
+
+【🚀 实战运筹建议】
+- 心态指导：(对镜观心建议)
+- 行为决策：(具体行动步骤)
+- 空间优化：(利事方位建议)`;
+
+      finalUserInput = `[用户诉求]：${userInput}\n[当前盘面数据]：${JSON.stringify(activeBoard)}\n[真太阳时]：${activeBoard.trueSolarTime}\n[地理坐标]：${location ? `北纬${location.latitude} 东经${location.longitude}` : '默认120E'}`;
+
     } else if (mode === 'YI_LOGIC') {
       if (type === 'BA_ZI') {
         const input = userInput as BaZiInput;

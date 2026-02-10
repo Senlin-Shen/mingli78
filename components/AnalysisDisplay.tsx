@@ -9,6 +9,10 @@ interface AnalysisDisplayProps {
 
 const SECTION_TITLES = [
   '一、', '二、', '三、', '四、', '五、',
+  '【⚖️ 时空起局公示】',
+  '【🔍 盘局深度解析】',
+  '【💡 预测结论】',
+  '【🚀 实战运筹建议】',
   '【八字命理分析报告】',
   '【命盘基础信息】',
   '【命格核心诊断】',
@@ -23,7 +27,7 @@ const SECTION_TITLES = [
   '【决策建议】'
 ];
 
-const SECTION_SPLIT_REGEX = new RegExp(`(?=${SECTION_TITLES.map(t => t.replace(/[、[\]🏠💼❤️🌱🕐]/g, '\\$&')).join('|')})`, 'g');
+const SECTION_SPLIT_REGEX = new RegExp(`(?=${SECTION_TITLES.map(t => t.replace(/[、[\]⚖️🔍💡🚀🏠💼❤️🌱🕐]/g, '\\$&')).join('|')})`, 'g');
 const TITLE_EXTRACT_REGEX = /^([一二三四五]、|【.+?】|[🏠💼❤️🌱🕐]\s?.+?(\n|$))/;
 
 const AnalysisDisplay: React.FC<AnalysisDisplayProps> = ({ prediction, onFollowUp, isFollowUpLoading }) => {
@@ -40,8 +44,8 @@ const AnalysisDisplay: React.FC<AnalysisDisplayProps> = ({ prediction, onFollowU
       const title = titleMatch ? titleMatch[0].trim() : '';
       const content = part.replace(TITLE_EXTRACT_REGEX, '').trim();
       
-      const isActionable = title.includes('建议') || title.includes('方案') || title.includes('策略') || /[🏠💼❤️🌱🕐]/.test(title) || title === '三、' || title === '四、';
-      const isConclusion = title.includes('诊断') || title.includes('分析') || title === '二、';
+      const isActionable = title.includes('建议') || title.includes('方案') || title.includes('策略') || /[🏠💼❤️🌱🚀]/.test(title) || title === '三、' || title === '四、';
+      const isConclusion = title.includes('诊断') || title.includes('分析') || title.includes('解析') || title.includes('结论') || title === '二、' || title.includes('💡');
 
       return { title, content, isActionable, isConclusion };
     });
@@ -91,7 +95,6 @@ const AnalysisDisplay: React.FC<AnalysisDisplayProps> = ({ prediction, onFollowU
               const l = line.trim();
               if (!l) return null;
               
-              // 自动识别年份、列表编号、行动项
               const isYearItem = /^\d{4}年/.test(l);
               const isNumbered = /^\d+[.、]/.test(l);
               const isBullet = l.startsWith('-') || l.startsWith('·');
@@ -124,7 +127,7 @@ const AnalysisDisplay: React.FC<AnalysisDisplayProps> = ({ prediction, onFollowU
                 type="text"
                 value={followUpText}
                 onChange={(e) => setFollowUpText(e.target.value)}
-                placeholder="例如：请进一步解析明年三月的财运细节..."
+                placeholder="例如：请进一步解析预测结论中的应期..."
                 className="flex-1 bg-slate-950/80 border border-slate-800 rounded-2xl px-6 py-4 text-xs text-slate-300 focus:outline-none focus:border-rose-500/50 transition-all shadow-inner placeholder:text-slate-700"
               />
               <button 
