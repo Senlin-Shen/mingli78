@@ -102,7 +102,7 @@ const App: React.FC = () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           messages,
-          temperature: 0.2,
+          temperature: 0.3, // 调低温度以增强逻辑严密性
           model: UNIFIED_MODEL,
           stream: true
         })
@@ -196,13 +196,8 @@ const App: React.FC = () => {
       activeBoard = calculateBoard(targetDate, currentLng);
       setBoard(activeBoard);
       
-      systemInstruction = `你是一位资深奇门遁甲时空建模与预测专家。精通数理逻辑、现代决策科学与心理学。将奇门视为高维时空信息处理系统。
+      systemInstruction = `你是一位资深奇门遁甲时空建模与预测专家。精通数理逻辑、现代决策科学与心理学。
 严禁使用 Markdown（#，*）。
-
-你的解析需遵循：
-1. 时空建模：结合北京时间、真太阳时及地理位置。
-2. 九维立体分析：分析地、天、人、神四盘，识别吉凶格（如青龙返首、庚格等），评估空亡与马星。
-3. 交互原则：严谨科学、拒绝宿命论。
 
 必须严格按以下结构输出：
 【⚖️ 时空起局公示】
@@ -231,40 +226,34 @@ const App: React.FC = () => {
         activeBazi = getBaziResult(input.birthDate, input.birthTime || '', input.birthPlace, input.gender);
         setBaziData(activeBazi);
         
-        systemInstruction = `你是一位精通中国传统命理学，同时融合现代心理学、商业战略的人生系统优化顾问。核心原则：严谨遵循子平八字理论，用神判定经“病药→调候→通关”验证。严禁 Markdown 符号（不要出现 #, *, ** 等）。
+        systemInstruction = `你是一位精通《碧海命理通解》核心体系的命理专家。深谙“气象为先、流通为要、中和为贵”的心法。
+请采用 CoT 思维链，严禁神棍化或恐吓式断命，严禁使用 Markdown（#，*）。
 
-必须严格按照以下格式和内容板块输出：
-# 【八字命理分析报告】
-## 一、命盘基础信息
-- 八字：[干支]
-- 十神：[分布]
-- 大运：[当前大运]
+必须严格按照以下结构输出：
+【🌊 命局气象透视】
+- 五行分布：(干支强弱分析)
+- 气象判定：(描述寒暖燥湿情况)
 
-## 二、命格核心诊断
-1. 能量状态（日主旺衰、五行分布、是否偏枯）
-2. 用神判定（病药、调候、通关三步推导结论）
-3. 格局特征（格局名称、优势、挑战）
+【🛠️ 深度逻辑拆解】
+- 格局判定：(分析能量流向)
+- 病药分析：(找出命局问题及解决神)
+- 现实映射：(在性格、事业中的具体体现)
 
-## 三、多维优化方案
-### 🏠 环境能量调整
-[方位、色彩、材质建议]
-### 💼 事业财富策略
-[适配行业、能力重心、周期建议]
-### ❤️ 情感关系指导
-[模式、佳期、考验期]
-### 🌱 健康养生要点
-[脏腑、饮食、功法建议]
-### 🕐 近期运势节奏
-[大运解读、未来三年关键年份数字提醒]
+【🎯 核心预测结论】
+- 事业财运：(行业建议、求财层级、趋势)
+- 感情人际：(互动模式、缘分判断)
 
-## 四、综合建议总结
-[150字个性化实操总结]`;
+【💡 调理与指引】
+- 心态指引：(符合道家智慧的哲学)
+- 环境建议：(方位、色彩建议)
+- 健康提醒：(五行养生要点)`;
 
         const p = activeBazi.pillars;
-        finalUserInput = `[命盘输入] 性别：${input.gender} 公历：${input.birthDate} 时辰：${input.birthTime || '不详'}
-排盘：${p.year.stem}${p.year.branch} ${p.month.stem}${p.month.branch} ${p.day.stem}${p.day.branch} ${p.hour.stem}${p.hour.branch}
-地理信息：${input.birthPlace} (真太阳时已修正)
-诉求：${input.question || '深度推演个人命理气象与发展路径。'}`;
+        finalUserInput = `[用户诉求]：${input.question || '深度解析命局'}
+[性别]：${input.gender}
+[出生公历]：${input.birthDate} ${input.birthTime || '时辰不详'}
+[真太阳时修正后四柱]：${p.year.stem}${p.year.branch} ${p.month.stem}${p.month.branch} ${p.day.stem}${p.day.branch} ${p.hour.stem}${p.hour.branch}
+[命盘详细参数]：${JSON.stringify(activeBazi)}`;
       } else {
         const input = userInput as LiuYaoInput;
         finalUserInput = `[任务：六爻分析] 卦数：${input.numbers.join(', ')} 诉求：${input.question}`;
