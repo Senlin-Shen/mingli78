@@ -50,7 +50,7 @@ const App: React.FC = () => {
   const renderAnimationFrame = useRef<number | null>(null);
 
   useEffect(() => {
-    const saved = localStorage.getItem('qimen_history_v11');
+    const saved = localStorage.getItem('qimen_history_v12');
     if (saved) {
       try {
         setHistory(JSON.parse(saved));
@@ -73,7 +73,7 @@ const App: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    localStorage.setItem('qimen_history_v11', JSON.stringify(history));
+    localStorage.setItem('qimen_history_v12', JSON.stringify(history));
   }, [history]);
 
   const handleModeChange = (newMode: AppMode) => {
@@ -159,8 +159,8 @@ const App: React.FC = () => {
           ? { 
               ...item, 
               result: finalResult, 
-              status: 'completed', 
-              messages: [...messages, { role: 'assistant', content: finalResult }] 
+              status: 'completed' as const, 
+              messages: [...messages, { role: 'assistant' as const, content: finalResult }] 
             } 
           : item
       ));
@@ -169,7 +169,7 @@ const App: React.FC = () => {
     } catch (err: any) {
       setIsAiThinking(false);
       setHistory(prev => prev.map(item => 
-        item.id === historyId ? { ...item, status: 'error' } : item
+        item.id === historyId ? { ...item, status: 'error' as const } : item
       ));
       throw err;
     } finally {
@@ -205,8 +205,7 @@ const App: React.FC = () => {
         activeBazi = getBaziResult(input.birthDate, input.birthTime || '', input.birthPlace, input.gender);
         setBaziData(activeBazi);
         
-        systemInstruction = `你是一位精通中国传统命理学，同时融合现代心理学、商业战略的人生系统优化顾问。
-核心原则：严谨遵循子平八字理论，用神判定经“病药→调候→通关”验证。严禁 Markdown 符号（不要出现 #, *, ** 等）。
+        systemInstruction = `你是一位精通中国传统命理学，同时融合现代心理学、商业战略的人生系统优化顾问。核心原则：严谨遵循子平八字理论，用神判定经“病药→调候→通关”验证。严禁 Markdown 符号（不要出现 #, *, ** 等）。
 
 必须严格按照以下格式和内容板块输出：
 # 【八字命理分析报告】
@@ -255,21 +254,23 @@ const App: React.FC = () => {
       : ((userInput as any).question || (userInput as any).name || '全息推演');
 
     const initialMessages: ChatMessage[] = [
-      { role: 'system', content: systemInstruction },
-      { role: 'user', content: finalUserInput }
+      { role: 'system' as const, content: systemInstruction },
+      { role: 'user' as const, content: finalUserInput }
     ];
 
-    setHistory(prev => [{
+    const newEntry: PredictionHistory = {
       id: historyId,
       timestamp: Date.now(),
       mode,
       input: historyInput,
       result: '',
-      status: 'loading',
+      status: 'loading' as const,
       board: activeBoard,
       baziData: activeBazi,
       messages: initialMessages
-    }, ...prev].slice(0, 50));
+    };
+
+    setHistory(prev => [newEntry, ...prev].slice(0, 50));
 
     try {
       await streamResponse(initialMessages, historyId);
@@ -289,11 +290,11 @@ const App: React.FC = () => {
 
     setLoading(true);
     const context = currentEntry.messages || [];
-    const newMessages: ChatMessage[] = [...context, { role: 'user', content: question }];
+    const newMessages: ChatMessage[] = [...context, { role: 'user' as const, content: question }];
 
     setHistory(prev => prev.map(h => 
       h.id === activeHistoryId 
-        ? { ...h, status: 'loading' } 
+        ? { ...h, status: 'loading' as const } 
         : h
     ));
 
@@ -321,7 +322,6 @@ const App: React.FC = () => {
       <main className="flex-1 max-w-4xl mx-auto w-full px-6 py-12 flex flex-col gap-12">
         {error && <div className="p-4 bg-rose-500/10 border border-rose-500/30 rounded-xl text-rose-500 text-xs text-center font-black animate-shake">{error}</div>}
         
-        {/* 将 location 传递给 InputForm 以便实时展示或手动触发 */}
         <InputForm onPredict={handlePredict} isLoading={loading} mode={mode} location={location} onSetLocation={setLocation} />
         
         {(board || baziData) && (
