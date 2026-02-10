@@ -9,7 +9,7 @@ import InputForm from './components/InputForm';
 import ProfilePanel from './components/ProfilePanel';
 import { calculateBoard } from './qimenLogic';
 import { useBazi } from './hooks/useBazi';
-import { QiMenBoard, AppMode, BaZiInput, LiuYaoInput } from './types';
+import { QiMenBoard, AppMode, BaZiInput, LiuYaoInput, LocationData } from './types';
 import { BaziResultData } from './types/bazi.types';
 
 const UNIFIED_MODEL = "ep-20260206175318-v6cl7";
@@ -42,6 +42,7 @@ const App: React.FC = () => {
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [history, setHistory] = useState<PredictionHistory[]>([]);
   const [activeHistoryId, setActiveHistoryId] = useState<string | null>(null);
+  const [location, setLocation] = useState<LocationData | null>(null);
   
   const { getBaziResult } = useBazi();
   const fullTextRef = useRef('');
@@ -49,7 +50,7 @@ const App: React.FC = () => {
   const renderAnimationFrame = useRef<number | null>(null);
 
   useEffect(() => {
-    const saved = localStorage.getItem('qimen_history_v10');
+    const saved = localStorage.getItem('qimen_history_v11');
     if (saved) {
       try {
         setHistory(JSON.parse(saved));
@@ -57,13 +58,22 @@ const App: React.FC = () => {
         console.error("Failed to load history", e);
       }
     }
+    
+    // 初始化尝试获取定位，优化真太阳时
+    if ("geolocation" in navigator) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => setLocation({ latitude: pos.coords.latitude, longitude: pos.coords.longitude, isAdjusted: true }),
+        () => console.log("Geolocation permission denied, using default longitude (120E)")
+      );
+    }
+
     return () => {
       if (renderAnimationFrame.current) cancelAnimationFrame(renderAnimationFrame.current);
     };
   }, []);
 
   useEffect(() => {
-    localStorage.setItem('qimen_history_v10', JSON.stringify(history));
+    localStorage.setItem('qimen_history_v11', JSON.stringify(history));
   }, [history]);
 
   const handleModeChange = (newMode: AppMode) => {
@@ -93,7 +103,7 @@ const App: React.FC = () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           messages,
-          temperature: 0.2, // 降低温度以提高输出稳定性，减少排版跳变
+          temperature: 0.2,
           model: UNIFIED_MODEL,
           stream: true
         })
@@ -180,11 +190,14 @@ const App: React.FC = () => {
     let activeBoard: QiMenBoard | null = null;
     let activeBazi: BaziResultData | null = null;
 
+    // 获取当前可用经度
+    const currentLng = location?.longitude || 120;
+
     if (mode === 'QIMEN') {
       const targetDate = date ? new Date(date) : new Date();
-      activeBoard = calculateBoard(targetDate, 120);
+      activeBoard = calculateBoard(targetDate, currentLng);
       setBoard(activeBoard);
-      finalUserInput = `[任务：奇门全息解析] 盘面：${JSON.stringify(activeBoard)} 诉求：${userInput}`;
+      finalUserInput = `[任务：奇门全息解析] 盘面：${JSON.stringify(activeBoard)} 诉求：${userInput}\n地理位置：${location ? `北纬${location.latitude} 东经${location.longitude}` : '默认(120E)'}`;
       systemInstruction = `你是一位精通林毅老师奇门遁甲体系的专家。分析以“气象论”为核心。严禁使用 Markdown（#，*）。必须按此结构输出：一、局象概述 二、三奇六仪分析 三、门星神关系 四、决策建议 五、应期判断。`;
     } else if (mode === 'YI_LOGIC') {
       if (type === 'BA_ZI') {
@@ -192,10 +205,8 @@ const App: React.FC = () => {
         activeBazi = getBaziResult(input.birthDate, input.birthTime || '', input.birthPlace, input.gender);
         setBaziData(activeBazi);
         
-        // 植入生产级八字专家提示词
         systemInstruction = `你是一位精通中国传统命理学，同时融合现代心理学、商业战略的人生系统优化顾问。
-核心原则：严谨遵循子平八字理论，用神判定经“病药→调候→通关”验证。建议必须具体。
-严禁使用 Markdown（不要出现 #, *, ** 等）。
+核心原则：严谨遵循子平八字理论，用神判定经“病药→调候→通关”验证。严禁 Markdown 符号（不要出现 #, *, ** 等）。
 
 必须严格按照以下格式和内容板块输出：
 # 【八字命理分析报告】
@@ -227,6 +238,7 @@ const App: React.FC = () => {
         const p = activeBazi.pillars;
         finalUserInput = `[命盘输入] 性别：${input.gender} 公历：${input.birthDate} 时辰：${input.birthTime || '不详'}
 排盘：${p.year.stem}${p.year.branch} ${p.month.stem}${p.month.branch} ${p.day.stem}${p.day.branch} ${p.hour.stem}${p.hour.branch}
+地理信息：${input.birthPlace} (真太阳时已修正)
 诉求：${input.question || '深度推演个人命理气象与发展路径。'}`;
       } else {
         const input = userInput as LiuYaoInput;
@@ -267,7 +279,7 @@ const App: React.FC = () => {
       setLoading(false);
       setIsAiThinking(false);
     }
-  }, [mode, getBaziResult]);
+  }, [mode, getBaziResult, location]);
 
   const handleFollowUp = async (question: string) => {
     if (!activeHistoryId || isStreamingRef.current) return;
@@ -308,7 +320,9 @@ const App: React.FC = () => {
 
       <main className="flex-1 max-w-4xl mx-auto w-full px-6 py-12 flex flex-col gap-12">
         {error && <div className="p-4 bg-rose-500/10 border border-rose-500/30 rounded-xl text-rose-500 text-xs text-center font-black animate-shake">{error}</div>}
-        <InputForm onPredict={handlePredict} isLoading={loading} mode={mode} />
+        
+        {/* 将 location 传递给 InputForm 以便实时展示或手动触发 */}
+        <InputForm onPredict={handlePredict} isLoading={loading} mode={mode} location={location} onSetLocation={setLocation} />
         
         {(board || baziData) && (
           <div className="animate-in fade-in slide-in-from-bottom-6 duration-700">

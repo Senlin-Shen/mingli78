@@ -1,15 +1,17 @@
 
 import React, { useState, useEffect } from 'react';
 import { SCENARIOS, YI_LOGIC_SCENARIOS, TCM_SCENARIOS, TCM_SYMPTOM_OPTIONS } from '../constants';
-import { AppMode, LiuYaoInput, BaZiInput } from '../types';
+import { AppMode, LiuYaoInput, BaZiInput, LocationData } from '../types';
 
 interface InputFormProps {
   onPredict: (query: string | any, type: any, date?: string) => void;
   isLoading: boolean;
   mode: AppMode;
+  location?: LocationData | null;
+  onSetLocation?: (loc: LocationData) => void;
 }
 
-const InputForm: React.FC<InputFormProps> = ({ onPredict, isLoading, mode }) => {
+const InputForm: React.FC<InputFormProps> = ({ onPredict, isLoading, mode, location, onSetLocation }) => {
   const [text, setText] = useState('');
   const [qimenType, setQimenType] = useState<'SHI_JU' | 'MING_JU'>('SHI_JU');
   const [customDate, setCustomDate] = useState('');
@@ -31,6 +33,8 @@ const InputForm: React.FC<InputFormProps> = ({ onPredict, isLoading, mode }) => 
   const [selectedSymptoms, setSelectedSymptoms] = useState<string[]>([]);
   const [tcmContext, setTcmContext] = useState('');
 
+  const [isLocating, setIsLocating] = useState(false);
+
   useEffect(() => {
     if (mode === 'QIMEN') setActiveCategory('investment');
     else if (mode === 'YI_LOGIC') setActiveCategory('liuyao');
@@ -40,6 +44,27 @@ const InputForm: React.FC<InputFormProps> = ({ onPredict, isLoading, mode }) => 
   const toggleSymptom = (symptom: string) => {
     setSelectedSymptoms(prev => 
       prev.includes(symptom) ? prev.filter(s => s !== symptom) : [...prev, symptom]
+    );
+  };
+
+  const handleGetLocation = () => {
+    if (!navigator.geolocation) return alert("您的浏览器不支持地理定位");
+    setIsLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setIsLocating(false);
+        if (onSetLocation) {
+          onSetLocation({
+            latitude: pos.coords.latitude,
+            longitude: pos.coords.longitude,
+            isAdjusted: true
+          });
+        }
+      },
+      (err) => {
+        setIsLocating(false);
+        alert("定位获取失败，请手动输入地点或确保已授权权限。");
+      }
     );
   };
 
@@ -53,8 +78,8 @@ const InputForm: React.FC<InputFormProps> = ({ onPredict, isLoading, mode }) => 
       if (activeCategory === 'liuyao') {
         onPredict({ numbers: liuYaoNumbers, question: liuYaoQuestion || text }, 'LI_YAO');
       } else {
-        if (!baziBirthDate || !baziBirthPlace) {
-          alert('请完善出生日期与地点');
+        if (!baziBirthDate) {
+          alert('请完善出生日期');
           return;
         }
         onPredict({
@@ -62,8 +87,8 @@ const InputForm: React.FC<InputFormProps> = ({ onPredict, isLoading, mode }) => 
           gender: baziGender,
           birthDate: baziBirthDate,
           birthTime: baziBirthTime,
-          birthPlace: baziBirthPlace,
-          question: baziQuestion || text // 优先使用八字专属问题框，兼容快捷模板
+          birthPlace: baziBirthPlace || (location ? `精准定位: ${location.longitude.toFixed(2)}E` : ''),
+          question: baziQuestion || text 
         } as BaZiInput, 'BA_ZI');
       }
     } else if (mode === 'TCM_AI') {
@@ -104,12 +129,29 @@ const InputForm: React.FC<InputFormProps> = ({ onPredict, isLoading, mode }) => 
             <button type="button" onClick={() => setQimenType('SHI_JU')} className={`flex-1 py-4 text-[11px] font-black rounded-xl transition-all tracking-[0.4em] ${qimenType === 'SHI_JU' ? 'bg-rose-600 text-white shadow-xl shadow-rose-900/40' : 'bg-slate-900 text-slate-500'}`}>事局分析</button>
             <button type="button" onClick={() => setQimenType('MING_JU')} className={`flex-1 py-4 text-[11px] font-black rounded-xl transition-all tracking-[0.4em] ${qimenType === 'MING_JU' ? 'bg-rose-600 text-white shadow-xl' : 'bg-slate-900 text-slate-500'}`}>终身命局</button>
           </div>
-          {qimenType === 'MING_JU' && (
-             <div className="animate-in slide-in-from-top-2">
-               <input type="datetime-local" value={customDate} onChange={(e) => setCustomDate(e.target.value)} className={`w-full ${inputStyle}`} />
-               <p className="mt-2 text-[10px] text-emerald-800 pl-2">※ 请准确输入出生时分</p>
+          
+          <div className="flex flex-col gap-2">
+             <div className="flex items-center justify-between px-2">
+                <span className="text-[10px] text-emerald-800 font-black uppercase tracking-widest">时空定位因子</span>
+                <button 
+                  type="button" 
+                  onClick={handleGetLocation}
+                  className={`text-[9px] px-3 py-1 rounded-md border flex items-center gap-2 transition-all ${location ? 'bg-emerald-500/10 border-emerald-500/40 text-emerald-400' : 'bg-slate-900 border-slate-800 text-slate-500 hover:text-emerald-500'}`}
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className={`h-3 w-3 ${isLocating ? 'animate-spin' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
+                  {isLocating ? '定位中...' : location ? `已修正经度: ${location.longitude.toFixed(2)}E` : '获取当前定位'}
+                </button>
              </div>
-          )}
+             {qimenType === 'MING_JU' && (
+                <div className="animate-in slide-in-from-top-2">
+                  <input type="datetime-local" value={customDate} onChange={(e) => setCustomDate(e.target.value)} className={`w-full ${inputStyle}`} />
+                </div>
+             )}
+          </div>
+
           <textarea
             value={text}
             onChange={(e) => setText(e.target.value)}
@@ -176,9 +218,24 @@ const InputForm: React.FC<InputFormProps> = ({ onPredict, isLoading, mode }) => 
               <label className="text-[10px] text-emerald-800 font-black ml-2 uppercase tracking-widest">出生时分 (选填)</label>
               <input type="time" value={baziBirthTime} onChange={(e) => setBaziBirthTime(e.target.value)} className={`w-full ${inputStyle}`} />
             </div>
-            <div className="col-span-2 space-y-2">
-              <label className="text-[10px] text-emerald-800 font-black ml-2 uppercase tracking-widest">出生地点（定位真太阳时）</label>
-              <input type="text" value={baziBirthPlace} onChange={(e) => setBaziBirthPlace(e.target.value)} className={`w-full ${inputStyle}`} placeholder="省份 - 城市 - 区县（如：广东省广州市天河区）" />
+            <div className="col-span-2 space-y-2 relative">
+              <label className="text-[10px] text-emerald-800 font-black ml-2 uppercase tracking-widest flex justify-between items-center">
+                出生地点（定位真太阳时）
+                <button 
+                  type="button" 
+                  onClick={handleGetLocation}
+                  className="text-[8px] bg-slate-900 hover:bg-emerald-900/20 px-2 py-0.5 rounded border border-slate-800 text-slate-500 hover:text-emerald-500 transition-all"
+                >
+                  {isLocating ? '获取中...' : location ? '已获取经纬度' : '获取当前定位'}
+                </button>
+              </label>
+              <input 
+                type="text" 
+                value={baziBirthPlace} 
+                onChange={(e) => setBaziBirthPlace(e.target.value)} 
+                className={`w-full ${inputStyle}`} 
+                placeholder={location ? `已自动识别: ${location.longitude.toFixed(2)}E / ${location.latitude.toFixed(2)}N` : "省份 - 城市 - 区县（如：广东省广州市）"} 
+              />
             </div>
           </div>
           <div className="space-y-2">
@@ -186,11 +243,10 @@ const InputForm: React.FC<InputFormProps> = ({ onPredict, isLoading, mode }) => 
             <textarea
               value={baziQuestion}
               onChange={(e) => setBaziQuestion(e.target.value)}
-              placeholder="请输入您想重点咨询的问题（如：今年财运趋势、职业变动建议、健康注意等）..."
+              placeholder="请输入您想重点咨询的问题..."
               className={`w-full h-24 resize-none leading-loose ${inputStyle}`}
             />
           </div>
-          <p className="text-[10px] text-emerald-700/60 italic pl-2">※ 结合气象论与景曜体系，若不确定时辰，系统将进行精细的“三柱气象”推演。</p>
         </div>
       )}
 
@@ -220,20 +276,12 @@ const InputForm: React.FC<InputFormProps> = ({ onPredict, isLoading, mode }) => 
               </div>
             ))}
           </div>
-          <div className="space-y-3">
-            <label className="text-[10px] text-emerald-900 font-black ml-2 uppercase tracking-widest">补充描述 / 详细诉求</label>
-            <textarea
-              value={tcmContext}
-              onChange={(e) => setTcmContext(e.target.value)}
-              placeholder="请输入其他体感描述、病史背景或主要担忧..."
-              className={`w-full h-32 resize-none ${inputStyle}`}
-            />
-          </div>
-          <div className="bg-emerald-500/5 border border-emerald-950/20 p-5 rounded-2xl">
-             <p className="text-[10px] text-emerald-800 leading-relaxed italic">
-               温馨提示：本推演仅供学术参考与调理建议。若症状严重，请及时前往正规医疗机构就诊。
-             </p>
-          </div>
+          <textarea
+            value={tcmContext}
+            onChange={(e) => setTcmContext(e.target.value)}
+            placeholder="请输入其他体感描述、病史背景或主要担忧..."
+            className={`w-full h-32 resize-none ${inputStyle}`}
+          />
         </div>
       )}
 
