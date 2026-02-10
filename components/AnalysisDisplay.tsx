@@ -13,10 +13,13 @@ const SECTION_TITLES = [
   '【🔍 盘局深度解析】',
   '【💡 预测结论】',
   '【🚀 实战运筹建议】',
-  '【🧊 第一部分：时空能量画像 (Climate Analysis)】',
-  '【⚙️ 第二部分：核心运作逻辑 (Operational Mechanism)】',
-  '【⏳ 第三部分：时空波动窗口 (Temporal Windows)】',
-  '【🛠️ 第四部分：全息优化方案 (Holistic Optimization)】',
+  '【📊 能量维度定量分析】',
+  '【🧊 命局气象透视 (Climate Analysis)】',
+  '【🤝 人际能量博弈 (Game Position)】',
+  '【⚙️ 核心运作逻辑 (Operational Mechanism)】',
+  '【⚠️ 关键认知对冲 (Warning)】',
+  '【⏳ 时空波动窗口 (Temporal Windows)】',
+  '【🛠️ 全息场景方案 (Scenario-based)】',
   '【🌊 命局气象透视】',
   '【🛠️ 深度逻辑拆解】',
   '【🎯 核心预测结论】',
@@ -35,7 +38,7 @@ const SECTION_TITLES = [
   '【决策建议】'
 ];
 
-const SECTION_SPLIT_REGEX = new RegExp(`(?=${SECTION_TITLES.map(t => t.replace(/[、[\]⚖️🔍💡🚀🏠💼❤️🌱🕐🌊🛠️🎯🧊⚙️⏳()]/g, '\\$&')).join('|')})`, 'g');
+const SECTION_SPLIT_REGEX = new RegExp(`(?=${SECTION_TITLES.map(t => t.replace(/[、[\]⚖️🔍💡🚀🏠💼❤️🌱🕐🌊🛠️🎯📊🧊🤝⚙️⚠️⏳()]/g, '\\$&')).join('|')})`, 'g');
 const TITLE_EXTRACT_REGEX = /^([一二三四五]、|【.+?】|[🏠💼❤️🌱🕐]\s?.+?(\n|$))/;
 
 const AnalysisDisplay: React.FC<AnalysisDisplayProps> = ({ prediction, onFollowUp, isFollowUpLoading }) => {
@@ -53,7 +56,7 @@ const AnalysisDisplay: React.FC<AnalysisDisplayProps> = ({ prediction, onFollowU
       const content = part.replace(TITLE_EXTRACT_REGEX, '').trim();
       
       const isActionable = title.includes('建议') || title.includes('方案') || title.includes('策略') || title.includes('指引') || title.includes('优化') || /[🏠💼❤️🌱🚀🎯🛠️]/.test(title) || title === '三、' || title === '四、';
-      const isConclusion = title.includes('诊断') || title.includes('分析') || title.includes('解析') || title.includes('结论') || title.includes('透视') || title.includes('拆解') || title.includes('逻辑') || title.includes('窗口') || title === '二、' || title.includes('💡') || title.includes('🌊') || title.includes('🧊') || title.includes('⚙️') || title.includes('⏳');
+      const isConclusion = title.includes('诊断') || title.includes('分析') || title.includes('解析') || title.includes('结论') || title.includes('透视') || title.includes('拆解') || title.includes('逻辑') || title.includes('窗口') || title.includes('博弈') || title.includes('画像') || title.includes('对冲') || title === '二、' || title.includes('💡') || title.includes('🌊') || title.includes('🧊') || title.includes('⚙️') || title.includes('⏳') || title.includes('📊') || title.includes('🤝') || title.includes('⚠️');
 
       return { title, content, isActionable, isConclusion };
     });
@@ -79,8 +82,8 @@ const AnalysisDisplay: React.FC<AnalysisDisplayProps> = ({ prediction, onFollowU
     <div className="space-y-8 md:space-y-10 font-serif leading-relaxed">
       <div className="border-b border-rose-900/10 pb-4 flex items-center justify-between">
         <div className="flex flex-col gap-1">
-          <span className="text-[9px] text-rose-500 font-black tracking-[0.4em] uppercase">全息推演分析报告</span>
-          <span className="text-[7px] text-slate-600 font-mono tracking-widest uppercase">SYNCED HIGH FIDELITY REPORT</span>
+          <span className="text-[9px] text-rose-500 font-black tracking-[0.4em] uppercase">全息时空解析操作说明</span>
+          <span className="text-[7px] text-slate-600 font-mono tracking-widest uppercase">DECISION-MAKING OPERATIONAL MANUAL</span>
         </div>
       </div>
 
@@ -106,7 +109,7 @@ const AnalysisDisplay: React.FC<AnalysisDisplayProps> = ({ prediction, onFollowU
               const isYearItem = /^\d{4}年/.test(l);
               const isNumbered = /^\d+[.、]/.test(l);
               const isBullet = l.startsWith('-') || l.startsWith('·');
-              const isSubHeader = l.includes('：') && l.length < 25 && !isYearItem && !isNumbered;
+              const isSubHeader = l.includes('：') && l.length < 35 && !isYearItem && !isNumbered;
 
               return (
                 <p key={lidx} className={`
@@ -128,14 +131,14 @@ const AnalysisDisplay: React.FC<AnalysisDisplayProps> = ({ prediction, onFollowU
           <div className="bg-slate-900/40 p-5 rounded-2xl border border-slate-800/50 shadow-lg">
             <h4 className="text-[9px] text-rose-500 font-black tracking-[0.3em] uppercase mb-4 flex items-center gap-2">
               <span className="w-1 h-1 bg-rose-500 rounded-full animate-pulse"></span>
-              基于推演结论持续追问
+              基于决策建议深度追问
             </h4>
             <form onSubmit={handleFollowUpSubmit} className="flex gap-3">
               <input 
                 type="text"
                 value={followUpText}
                 onChange={(e) => setFollowUpText(e.target.value)}
-                placeholder="追问详情..."
+                placeholder="追问行动细节..."
                 className="flex-1 bg-slate-950/80 border border-slate-800 rounded-xl px-4 py-2.5 text-[11px] text-slate-300 focus:outline-none focus:border-rose-500/40 transition-all shadow-inner placeholder:text-slate-800"
               />
               <button 
@@ -151,7 +154,7 @@ const AnalysisDisplay: React.FC<AnalysisDisplayProps> = ({ prediction, onFollowU
       )}
       
       <div className="pt-6 opacity-20 text-center">
-        <p className="text-[8px] tracking-[0.4em] font-light uppercase">END OF HOLOGRAPHIC REPORT</p>
+        <p className="text-[8px] tracking-[0.4em] font-light uppercase">END OF STRATEGIC REPORT</p>
       </div>
     </div>
   );
