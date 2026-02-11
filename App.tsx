@@ -90,13 +90,22 @@ const App: React.FC = () => {
     setActiveHistoryId(null);
   };
 
-  const streamResponse = async (messages: ChatMessage[], historyId: string, isContinuation = false) => {
-    if (isStreamingRef.current && !isContinuation) return ""; 
+  /**
+   * 增强型流式传输引擎：支持自动续写与上下文承接
+   */
+  const streamResponse = async (messages: ChatMessage[], historyId: string, isContinuation = false, isFollowUp = false) => {
+    // 允许续写和追问模式下的并发请求，但禁止初次请求的并发
+    if (isStreamingRef.current && !isContinuation && !isFollowUp) return ""; 
     isStreamingRef.current = true;
     
-    if (!isContinuation) {
+    // 如果是续写或追问，我们不清空 fullTextRef，而是继续追加
+    if (!isContinuation && !isFollowUp) {
       fullTextRef.current = '';
       setDisplayPrediction('');
+      setIsAiThinking(true);
+    } else if (isFollowUp) {
+      // 追问时在文本末尾增加分隔符或换行，增强可读性
+      fullTextRef.current += "\n\n---\n\n";
       setIsAiThinking(true);
     }
     
@@ -109,7 +118,7 @@ const App: React.FC = () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           messages,
-          temperature: 0.5, // 降低温度，增加逻辑稳定性
+          temperature: 0.5,
           model: UNIFIED_MODEL,
           stream: true
         })
@@ -162,13 +171,14 @@ const App: React.FC = () => {
         }
       }
 
+      // 自动续写逻辑
       if (finishReason === 'length') {
         const nextMessages: ChatMessage[] = [
           ...messages,
           { role: 'assistant', content: currentResponseContent },
           { role: 'user', content: '继续往下写，不要重复，确保逻辑闭环' }
         ];
-        return await streamResponse(nextMessages, historyId, true);
+        return await streamResponse(nextMessages, historyId, true, false);
       }
 
       const finalResult = fullTextRef.current;
@@ -179,7 +189,7 @@ const App: React.FC = () => {
               ...item, 
               result: finalResult, 
               status: 'completed' as const, 
-              messages: [...messages, { role: 'assistant' as const, content: finalResult }] 
+              messages: [...messages, { role: 'assistant' as const, content: currentResponseContent }] 
             } 
           : item
       ));
@@ -214,14 +224,27 @@ const App: React.FC = () => {
       activeBoard = calculateBoard(targetDate, location?.longitude || 120);
       setBoard(activeBoard);
       
-      systemInstruction = `你是一位资深奇门遁甲时空建模专家。严格基于盘面数据进行深度解析。
-严禁使用 Markdown。报告需具备极高的逻辑密度。
+      systemInstruction = `# Role: 奇门遁甲高维决策系统 (Advanced Qimen Decision System)
 
-输出结构：
-【⚖️ 时空起局公示】
-【🔍 盘局深度解析】
-【💡 预测结论】
-【🚀 实战运筹建议】
+## 1. 系统核心逻辑
+你是一个基于传统数理奇门与现代决策科学构建的智能化起局模型。你拒绝封建迷信词汇，强调通过行为调理（人盘）与环境优化（地利）寻找“生机”。
+
+## 2. 交互界面设计 (UI/UX 规范)
+严禁使用 Markdown（如 #, *）。必须按以下模块化结构输出：
+
+【⚖️ 时空参数配置 (Dashboard)】
+- 测算时间、干支四柱、地理定位、地利属性。
+- 定局结果：[阳/阴]遁 [X] 局 | 旬首 | 值符 | 值使。
+
+【🔍 能量九宫解析 (Deep Analysis)】
+- 重点分析“用神宫”与“日干宫”的生克链条。
+- 识别关键格局（如：龙回首、虎狂躁、五不遇时等）。
+- 符号映射：将符号转化为现实中的性格、行为、场景。
+
+【🎯 预测结论与决策指导 (Action Plan)】
+- 趋势预判：明确成败可能性、难易度及预期时间点。
+- 行动策略：基于“八门”给出 宜守、宜攻、宜合、宜散 的具体建议。
+- 时空运筹：给出有利方位建议及具体的能量化解/环境微调方案。
 
 报告审计完毕`;
 
@@ -234,29 +257,20 @@ const App: React.FC = () => {
         setBaziData(activeBazi);
         
         systemInstruction = `# Role: 全息能量审计师 (秉承姜氏通解逻辑)
-你是一个冷静、严谨、具备深度逻辑推演能力的战略咨询顾问。你拒绝迷信词汇，改用“能量物理学”与“时空气象学”为用户提供行动指导。你的核心目标是实现【既定目标的逻辑闭环】。
+你是一个冷静、严谨、具备深度逻辑推演能力的战略咨询顾问。拒绝迷信，改用“能量物理学”与“时空气象学”为用户提供行动指导。
 
 ## 核心底层逻辑
-1. 气象优先 (Climate First)：优先判断全局的阴阳平衡与燥湿状态。
-2. 能量路径 (Flow Efficiency)：不谈“缺补”，只谈“路径”是否通畅。
-3. 符号映射 (Holographic Mapping)：将干支精准映射到现实场景。
+1. 气象优先：优先判断全局阴阳平衡与燥湿。
+2. 能量路径：分析能量流转路径是否通畅。
+3. 符号映射：将干支精准映射到现实场景。
 
 ## 输出规范 (必须包含以下【】板块)
 【📊 核心诊断：物理热力扫描】
-- 分析出生月令气候背景，判定局部的“热力值”与“湿度值”。
-
 【⚙️ 逻辑路径：能量转换效率】
-- 识别从“动机”到“成果”的路径中，物理卡点在哪里。
-
 【🛠️ 全息方案：处方级行动建议】
-(此处必须给出具体且符合气象逻辑的指令，严禁空话)
-- 🧠 思维对冲：针对气象失衡给出认知层面的反向补偿逻辑。
-- 🏃 行为补位：给出具体的身体动作、社交节奏或工作模式调整建议。
-- 🏠 环境校准：基于空间物理属性（如湿度、光照、摩擦力）的调适建议。
-- ⏳ 时序避险：基于节律波动给出具体的止损点或冲刺点。
-
+- 🧠 思维对冲、🏃 行为补位、🏠 环境校准、⏳ 时序避险。
 【📍 首要动作 (Priority Action)】
-- 给出用户看完报告后可以立即执行的一个具体、微小且具有破局意义的动作。
+- 立即执行的一个微小且具破局意义的动作。
 
 【能量审计闭环 】`;
 
@@ -314,9 +328,19 @@ const App: React.FC = () => {
     if (!currentEntry) return;
 
     setLoading(true);
-    const newMessages: ChatMessage[] = [...currentEntry.messages, { role: 'user', content: question }];
+    // 增加追问上下文：将之前的 AI 回复也放入对话历史
+    const newMessages: ChatMessage[] = [
+      ...currentEntry.messages, 
+      { role: 'user', content: question }
+    ];
+    
+    // 更新本地历史状态为 loading
+    setHistory(prev => prev.map(h => 
+      h.id === activeHistoryId ? { ...h, status: 'loading' as const } : h
+    ));
+
     try {
-      await streamResponse(newMessages, activeHistoryId);
+      await streamResponse(newMessages, activeHistoryId, false, true);
     } catch (err: any) {
       setError(err.message || '通讯异常');
     } finally {
@@ -360,6 +384,7 @@ const App: React.FC = () => {
           setBoard(entry.board || null);
           setBaziData(entry.baziData || null);
           setDisplayPrediction(entry.result);
+          fullTextRef.current = entry.result; // 加载历史时同步 ref
           setActiveHistoryId(entry.id);
           setIsProfileOpen(false);
         }}
