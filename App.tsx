@@ -90,13 +90,22 @@ const App: React.FC = () => {
     setActiveHistoryId(null);
   };
 
-  const streamResponse = async (messages: ChatMessage[], historyId: string) => {
-    if (isStreamingRef.current) return ""; 
+  /**
+   * 核心流式传输引擎（带缓冲区和自动续写逻辑）
+   */
+  const streamResponse = async (messages: ChatMessage[], historyId: string, isContinuation = false) => {
+    if (isStreamingRef.current && !isContinuation) return ""; 
     isStreamingRef.current = true;
-    fullTextRef.current = '';
-    setDisplayPrediction('');
-    setIsAiThinking(true); 
     
+    if (!isContinuation) {
+      fullTextRef.current = '';
+      setDisplayPrediction('');
+      setIsAiThinking(true);
+    }
+    
+    let currentResponseContent = "";
+    let finishReason = "";
+
     try {
       const response = await fetch('/api/ark-proxy', {
         method: 'POST',
@@ -116,14 +125,16 @@ const App: React.FC = () => {
       if (!reader) throw new Error('读取器初始化失败');
 
       let isFirstChunk = true;
+      let buffer = ""; // 解决漏字/断句的关键缓冲区
 
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
         
-        const chunk = decoder.decode(value, { stream: true });
-        const lines = chunk.split('\n');
-        
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || ""; // 保留最后一行不完整的字符串
+
         for (const line of lines) {
           const trimmed = line.trim();
           if (!trimmed || !trimmed.startsWith('data: ')) continue;
@@ -134,6 +145,7 @@ const App: React.FC = () => {
           try {
             const data = JSON.parse(jsonStr);
             const content: string = data.choices[0]?.delta?.content || "";
+            finishReason = data.choices[0]?.finish_reason || "";
             
             if (isFirstChunk && content.trim()) {
               setIsAiThinking(false);
@@ -141,8 +153,8 @@ const App: React.FC = () => {
             }
 
             fullTextRef.current += content;
+            currentResponseContent += content;
             
-            // 使用帧渲染优化，确保长文本渲染不掉帧、不漏字
             if (!renderAnimationFrame.current) {
               renderAnimationFrame.current = requestAnimationFrame(() => {
                 setDisplayPrediction(fullTextRef.current);
@@ -151,6 +163,16 @@ const App: React.FC = () => {
             }
           } catch (e) {}
         }
+      }
+
+      // 自动续写逻辑：如果是因为长度限制中断，递归调用
+      if (finishReason === 'length') {
+        const nextMessages: ChatMessage[] = [
+          ...messages,
+          { role: 'assistant', content: currentResponseContent },
+          { role: 'user', content: '继续，不要重复' }
+        ];
+        return await streamResponse(nextMessages, historyId, true);
       }
 
       const finalResult = fullTextRef.current;
@@ -199,7 +221,7 @@ const App: React.FC = () => {
       setBoard(activeBoard);
       
       systemInstruction = `你是一位资深奇门遁甲时空建模与预测专家。请严格基于提供的盘面数据进行逻辑解析。
-严禁使用 Markdown（#，*）。数字和关键指标必须清晰完整。
+严禁使用 Markdown（#，*）。数字和关键指标必须清晰完整，保留原文排版。
 
 必须严格按以下结构输出，每个板块必须有独立的【】标题：
 【⚖️ 时空起局公示】

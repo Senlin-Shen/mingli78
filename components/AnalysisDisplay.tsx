@@ -27,15 +27,14 @@ const AnalysisDisplay: React.FC<AnalysisDisplayProps> = ({ prediction, onFollowU
   const sections = useMemo(() => {
     if (!prediction) return [];
     
-    // 预处理：保护所有数字和关键符号，防止被错误分割
+    // 改进：流式文本分段逻辑，更加稳健
     const lines = prediction.split('\n');
     const result: { title: string; content: string[]; isActionable: boolean; isConclusion: boolean }[] = [];
     let currentSection: { title: string; content: string[]; isActionable: boolean; isConclusion: boolean } | null = null;
 
-    lines.forEach(line => {
+    lines.forEach((line, idx) => {
       const trimmed = line.trim();
-      if (!trimmed) return;
-
+      
       // 识别标题：支持【】格式或“一、”格式
       const isHeader = (trimmed.startsWith('【') && trimmed.includes('】')) || /^[一二三四五六七八九十]、/.test(trimmed);
 
@@ -57,7 +56,8 @@ const AnalysisDisplay: React.FC<AnalysisDisplayProps> = ({ prediction, onFollowU
         if (!currentSection) {
           currentSection = { title: '', content: [], isActionable: false, isConclusion: false };
         }
-        currentSection.content.push(line); // 保持原样，不轻易修剪，保留缩进和数字
+        // 保留原文，包括空格，防止漏字
+        currentSection.content.push(line);
       }
     });
 
@@ -82,7 +82,7 @@ const AnalysisDisplay: React.FC<AnalysisDisplayProps> = ({ prediction, onFollowU
             <div className={`w-2.5 h-2.5 rounded-full shadow-[0_0_15px_rgba(56,189,248,0.4)] ${isCompleted ? 'bg-logic-blue' : 'bg-logic-blue animate-pulse'}`}></div>
             <span className="text-[13px] text-slate-100 font-black tracking-[0.4em] uppercase">全息时空解析操作说明书</span>
           </div>
-          <span className="text-[9px] text-slate-600 font-mono tracking-[0.3em] uppercase block">Holographic Operational Protocol V3.1.2</span>
+          <span className="text-[9px] text-slate-600 font-mono tracking-[0.3em] uppercase block">Holographic Operational Protocol V3.1.5</span>
         </div>
         
         <div className="hidden md:flex flex-col items-end gap-1.5">
@@ -93,7 +93,7 @@ const AnalysisDisplay: React.FC<AnalysisDisplayProps> = ({ prediction, onFollowU
           ) : (
             <div className="flex items-center gap-2 px-3 py-1 bg-slate-900 border border-slate-800 rounded-lg">
               <div className="w-1.5 h-1.5 bg-logic-blue rounded-full animate-ping"></div>
-              <span className="text-[9px] text-slate-500 font-black tracking-[0.2em] uppercase">状态：变量计算中 SYNCING</span>
+              <span className="text-[9px] text-slate-500 font-black tracking-[0.2em] uppercase">状态：全息计算中 SYNCING</span>
             </div>
           )}
         </div>
@@ -118,16 +118,15 @@ const AnalysisDisplay: React.FC<AnalysisDisplayProps> = ({ prediction, onFollowU
             `}>
               {sec.content.map((line, lidx) => {
                 const isNumbered = /^\d+[.、]/.test(line.trim());
-                const isBullet = line.trim().startsWith('-') || line.trim().startsWith('·');
+                const isBullet = line.trim().startsWith('-') || line.trim().startsWith('·') || line.trim().startsWith('*');
                 
                 return (
                   <div key={lidx} className={`
                     ${lidx > 0 ? 'mt-4' : ''}
                     ${isNumbered || isBullet ? 'pl-6 relative' : ''}
                   `}>
-                    {/* 列表项修饰，但不替换原文数字 */}
                     {(isNumbered || isBullet) && (
-                      <div className="absolute left-0 top-2 w-1.5 h-1.5 rounded-full bg-logic-blue/30"></div>
+                      <div className="absolute left-0 top-2.5 w-1.5 h-1.5 rounded-full bg-logic-blue/30"></div>
                     )}
                     {line}
                   </div>
@@ -140,7 +139,7 @@ const AnalysisDisplay: React.FC<AnalysisDisplayProps> = ({ prediction, onFollowU
         {!isCompleted && (
           <div className="pl-5 flex items-center gap-3">
             <div className="w-8 h-px bg-slate-800"></div>
-            <span className="text-[10px] text-slate-600 italic tracking-widest animate-pulse">正在推演后续因果链条...</span>
+            <span className="text-[10px] text-slate-600 italic tracking-widest animate-pulse">正在推演后续因果链条，请稍候...</span>
           </div>
         )}
       </div>
