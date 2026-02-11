@@ -19,17 +19,22 @@ const KEYWORD_MAP = [
 const AnalysisDisplay: React.FC<AnalysisDisplayProps> = ({ prediction, onFollowUp, isFollowUpLoading }) => {
   const [followUpText, setFollowUpText] = useState('');
 
+  // 清洗文本中的 Markdown 加粗符号
+  const cleanPrediction = useMemo(() => {
+    return prediction.replace(/\*\*/g, '');
+  }, [prediction]);
+
   const isCompleted = 
-    prediction.includes('报告审计完毕') || 
-    prediction.includes('能量审计闭环') || 
-    prediction.includes('闭环') || 
-    prediction.includes('？') || 
-    prediction.includes('?');
+    cleanPrediction.includes('报告审计完毕') || 
+    cleanPrediction.includes('能量审计闭环') || 
+    cleanPrediction.includes('闭环') || 
+    cleanPrediction.includes('？') || 
+    cleanPrediction.includes('?');
 
   const sections = useMemo(() => {
-    if (!prediction) return [];
+    if (!cleanPrediction) return [];
     
-    const lines = prediction.split('\n');
+    const lines = cleanPrediction.split('\n');
     const result: { title: string; content: string[]; isActionable: boolean; isConclusion: boolean; isDivider?: boolean }[] = [];
     let currentSection: { title: string; content: string[]; isActionable: boolean; isConclusion: boolean; isDivider?: boolean } | null = null;
 
@@ -71,18 +76,18 @@ const AnalysisDisplay: React.FC<AnalysisDisplayProps> = ({ prediction, onFollowU
 
     if (currentSection) result.push(currentSection);
     return result;
-  }, [prediction]);
+  }, [cleanPrediction]);
 
   const handleFollowUpSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (followUpText.trim() && onFollowUp) {
+    if (followUpText.trim() && onFollowUp && !isFollowUpLoading) {
       onFollowUp(followUpText);
       setFollowUpText('');
     }
   };
 
   return (
-    <div className="space-y-12 report-font leading-relaxed max-w-full overflow-hidden">
+    <div className="space-y-12 report-font leading-relaxed max-w-full overflow-visible relative">
       {/* 状态头 */}
       <div className="border-b border-slate-800/60 pb-8 flex items-end justify-between">
         <div className="space-y-2">
@@ -90,7 +95,7 @@ const AnalysisDisplay: React.FC<AnalysisDisplayProps> = ({ prediction, onFollowU
             <div className={`w-2.5 h-2.5 rounded-full shadow-[0_0_15px_rgba(56,189,248,0.4)] ${isCompleted ? 'bg-logic-blue' : 'bg-logic-blue animate-pulse'}`}></div>
             <span className="text-[13px] text-slate-100 font-black tracking-[0.4em] uppercase">全息高维解析操作报告</span>
           </div>
-          <span className="text-[9px] text-slate-600 font-mono tracking-[0.3em] uppercase block">Operational Protocol V3.6.2</span>
+          <span className="text-[9px] text-slate-600 font-mono tracking-[0.3em] uppercase block">Operational Protocol V3.6.5</span>
         </div>
       </div>
 
@@ -136,33 +141,34 @@ const AnalysisDisplay: React.FC<AnalysisDisplayProps> = ({ prediction, onFollowU
           );
         })}
 
-        {!isCompleted && (
+        {isFollowUpLoading && (
           <div className="pl-5 flex items-center gap-3">
             <div className="w-8 h-px bg-slate-800"></div>
-            <span className="text-[10px] text-slate-600 italic tracking-widest animate-pulse">正在同步跨维度深度数据...</span>
+            <span className="text-[10px] text-slate-600 italic tracking-widest animate-pulse">专家正在研判最新追问逻辑...</span>
           </div>
         )}
       </div>
 
       {onFollowUp && (
-        <div className="mt-16 pt-10 border-t border-slate-900">
-          <div className="bg-slate-900/40 p-6 md:p-8 rounded-[2.5rem] border border-slate-800/60 shadow-inner group">
+        <div className="mt-16 pt-10 border-t border-slate-900 relative z-[100] pointer-events-auto">
+          <div className="bg-slate-900/60 p-6 md:p-8 rounded-[2.5rem] border border-slate-800/60 shadow-inner group transition-all hover:border-logic-blue/30">
             <div className="flex items-center gap-3 mb-6">
-              <div className="w-1.5 h-1.5 bg-logic-blue rounded-full"></div>
+              <div className="w-1.5 h-1.5 bg-logic-blue rounded-full shadow-[0_0_8px_#38bdf8]"></div>
               <h4 className="text-[10px] text-slate-500 font-black tracking-[0.4em] uppercase">发起逻辑追问，获得更深入的全息指导</h4>
             </div>
-            <form onSubmit={handleFollowUpSubmit} className="flex gap-4">
+            <form onSubmit={handleFollowUpSubmit} className="flex gap-4 relative z-[110]">
               <input 
                 type="text"
                 value={followUpText}
                 onChange={(e) => setFollowUpText(e.target.value)}
                 placeholder="在此输入您的深度追问..."
-                className="flex-1 bg-black/40 border border-slate-800 rounded-2xl px-5 py-4 text-[13px] text-slate-200 focus:outline-none focus:border-logic-blue/40 transition-all shadow-inner"
+                className="flex-1 bg-black/60 border border-slate-800 rounded-2xl px-5 py-4 text-[13px] text-slate-200 focus:outline-none focus:border-logic-blue/40 focus:ring-1 focus:ring-logic-blue/20 transition-all shadow-inner placeholder:text-slate-700 pointer-events-auto"
+                disabled={isFollowUpLoading}
               />
               <button 
                 type="submit" 
                 disabled={isFollowUpLoading || !followUpText.trim()}
-                className="px-8 bg-slate-100 hover:bg-white text-slate-950 text-[10px] font-black tracking-widest uppercase rounded-2xl transition-all shadow-xl active:scale-95 disabled:opacity-20"
+                className="px-8 bg-slate-100 hover:bg-white text-slate-950 text-[10px] font-black tracking-widest uppercase rounded-2xl transition-all shadow-xl active:scale-95 disabled:opacity-20 disabled:cursor-not-allowed h-[54px] pointer-events-auto cursor-pointer"
               >
                 {isFollowUpLoading ? '同步中' : '发送'}
               </button>
