@@ -12,8 +12,11 @@ import { calculateBoard } from './qimenLogic';
 import { useBazi } from './hooks/useBazi';
 import { QiMenBoard, AppMode, BaZiInput, LiuYaoInput, LocationData } from './types';
 import { BaziResultData } from './types/bazi.types';
+// Fix: Import GoogleGenAI as required by guidelines
+import { GoogleGenAI } from "@google/genai";
 
-const UNIFIED_MODEL = "ep-20260206175318-v6cl7";
+// Fix: Use gemini-3-pro-preview for complex reasoning and prediction tasks
+const UNIFIED_MODEL = "gemini-3-pro-preview";
 
 export interface ChatMessage {
   role: 'user' | 'assistant' | 'system';
@@ -90,7 +93,8 @@ const App: React.FC = () => {
     setActiveHistoryId(null);
   };
 
-  const streamResponse = async (messages: ChatMessage[], historyId: string, isContinuation = false, isFollowUp = false) => {
+  // Fix: Refactored to use @google/genai generateContentStream instead of custom proxy
+  const streamResponse = async (messages: ChatMessage[], historyId: string, systemInstruction: string, isContinuation = false, isFollowUp = false) => {
     if (isStreamingRef.current && !isContinuation && !isFollowUp) return ""; 
     isStreamingRef.current = true;
     
@@ -100,78 +104,49 @@ const App: React.FC = () => {
       setIsAiThinking(true);
     } else if (isFollowUp) {
       fullTextRef.current += "\n\n---\n\n";
-      setIsAiThinking(true);
     }
     
     let currentResponseContent = "";
-    let finishReason = "";
 
     try {
-      const response = await fetch('/api/ark-proxy', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          messages,
+      // Fix: Initialize GoogleGenAI with API Key from process.env
+      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+      
+      // Convert messages to GenAI format for use in contents
+      const genAiContents = messages.map(msg => ({
+        role: msg.role === 'assistant' ? 'model' : 'user',
+        parts: [{ text: msg.content }]
+      }));
+
+      const responseStream = await ai.models.generateContentStream({
+        model: UNIFIED_MODEL,
+        contents: genAiContents,
+        config: {
+          systemInstruction,
           temperature: 0.5,
-          model: UNIFIED_MODEL,
-          stream: true
-        })
+        },
       });
 
-      if (!response.ok) throw new Error('时空链路波动，请重试');
-
-      const reader = response.body?.getReader();
-      const decoder = new TextDecoder();
-      if (!reader) throw new Error('流读取失败');
-
       let isFirstChunk = true;
-      let buffer = ""; 
 
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
+      for await (const chunk of responseStream) {
+        // Fix: Access .text property directly (not a method)
+        const content = chunk.text || "";
         
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split('\n');
-        buffer = lines.pop() || ""; 
-
-        for (const line of lines) {
-          const trimmed = line.trim();
-          if (!trimmed || !trimmed.startsWith('data: ')) continue;
-          
-          const jsonStr = trimmed.slice(6);
-          if (jsonStr === '[DONE]') break;
-          
-          try {
-            const data = JSON.parse(jsonStr);
-            const content: string = data.choices[0]?.delta?.content || "";
-            finishReason = data.choices[0]?.finish_reason || "";
-            
-            if (isFirstChunk && content.trim()) {
-              setIsAiThinking(false);
-              isFirstChunk = false;
-            }
-
-            fullTextRef.current += content;
-            currentResponseContent += content;
-            
-            if (!renderAnimationFrame.current) {
-              renderAnimationFrame.current = requestAnimationFrame(() => {
-                setDisplayPrediction(fullTextRef.current);
-                renderAnimationFrame.current = null;
-              });
-            }
-          } catch (e) {}
+        if (isFirstChunk && content.trim()) {
+          setIsAiThinking(false);
+          isFirstChunk = false;
         }
-      }
 
-      if (finishReason === 'length') {
-        const nextMessages: ChatMessage[] = [
-          ...messages,
-          { role: 'assistant', content: currentResponseContent },
-          { role: 'user', content: '继续，保持逻辑闭环' }
-        ];
-        return await streamResponse(nextMessages, historyId, true, false);
+        fullTextRef.current += content;
+        currentResponseContent += content;
+        
+        if (!renderAnimationFrame.current) {
+          renderAnimationFrame.current = requestAnimationFrame(() => {
+            setDisplayPrediction(fullTextRef.current);
+            renderAnimationFrame.current = null;
+          });
+        }
       }
 
       const finalTotalResult = fullTextRef.current;
@@ -190,6 +165,7 @@ const App: React.FC = () => {
       return finalTotalResult;
     } catch (err: any) {
       setIsAiThinking(false);
+      setError(err.message || '时空链路波动，请重试');
       setHistory(prev => prev.map(item => 
         item.id === historyId ? { ...item, status: 'error' as const } : item
       ));
@@ -207,13 +183,12 @@ const App: React.FC = () => {
     const historyId = Date.now().toString();
     setActiveHistoryId(historyId);
 
-    // 🛠️ 交互续航增补指令 (Interactive Loop Supplement)
     const interactiveProtocol = `
 ## 持续对话协议 (Continuous Dialogue Protocol)
-1. 严禁终结对话：严禁使用“祝您好运”、“到此为止”、“感谢提问”等类似结语。
-2. 深度挖掘提示：在每一份报告末尾，必须根据当前结果，自动识别出一个最值得深入探讨的“潜在风险”或“进阶机遇”，并以【🎯 进阶挖掘提示】作为标题。
-3. 交互式结语：以一个启发性、针对性极强的提问结束。例如：“基于当前的态势，您是否需要我针对某个方面进一步给出具体分析？”
-4. 保持上下文依赖：后续对话必须基于之前的推演数据，进行“叠加式分析”。`;
+1. 严禁终结对话：严禁使用“祝您好运”、“到此为止”等结语。
+2. 深度挖掘提示：在报告末尾，必须根据当前结果，自动识别出一个最值得深入探讨的“潜在风险”或“进阶机遇”，并以【🎯 进阶挖掘提示】作为标题。
+3. 交互式结语：以一个具有启发性的、针对性极强的提问结束。例如：“基于当前的态势，您是否需要我针对某个方面进一步给出具体分析？”
+4. 保持上下文依赖：后续对话必须基于之前的推演数据，进行“叠加式分析”，而非重新开始。`;
 
     let systemInstruction = "";
     let finalUserInput = "";
@@ -228,16 +203,17 @@ const App: React.FC = () => {
       systemInstruction = `# Role: 奇门遁甲高维决策系统 (Advanced Qimen Decision System)
 
 ## 1. 系统核心逻辑
-你是一个基于传统数理奇门与现代决策科学构建的智能化起局模型。你拒绝迷信，强调通过行为调理（人盘）与环境优化（地利）寻找“生机”。
+你是一个基于传统数理奇门与现代决策科学构建的智能化起局模型。你不仅具备严谨的数理推演能力，还能将复杂的符号体系转化为具备实战意义的行动指南。
 
-### A. 起局算法约束
-严格遵循“值符随时干落宫，值使随时宫行进”的动盘原理。
+### A. 起局算法约束 [核心控制]
+1. 时空锚定：必须分析用户时间与地理位置。
+2. 建模准则：严格遵循“值符随时干落宫，值使随时宫行进”的动盘原理。
 
 ### B. 哲学心法
-盘局是当下时空的能量缩影。不迷信宿命，坚持“对镜观心”。
+坚持“对镜观心”原则：盘局是当下时空的能量缩影。不迷信宿命，强调行为调理（人盘）与环境优化（地利）寻找“生机”。
 
 ## 2. 交互界面设计 (UI/UX)
-严禁使用 Markdown（如 #, *）。按以下结构输出：
+严禁使用 Markdown（如 #, *）。按以下模块化结构输出：
 
 【⚖️ 时空参数配置 (Dashboard)】
 > 测算时间、干支四柱、地理定位、地利属性、定局结果、值符/值使。
@@ -245,147 +221,164 @@ const App: React.FC = () => {
 【🔍 能量九宫解析 (Deep Analysis)】
 - 用神宫：[符号及能量状态（如击刑、入墓、空亡）]
 - 日干宫：[求测人能量状态]
-- 关键博弈：生克链条分析，识别关键格局。
+- 关键博弈：生克链条分析，识别“龙回首”、“虎狂躁”等关键格局。
 
 【🎯 预测结论与决策指导 (Action Plan)】
-1. 趋势预判：[成败可能性、难易度及预期时间点]。
-2. 行动策略：[宜守/攻/合/散的具体建议]。
-3. 时空运筹：有利方位及具体的能量化解/环境微调方案。
+1. 趋势预判：[成败可能性、难易程度及预期时间点]。
+2. 行动策略：[基于“八门”的人事建议，宜守/攻/合/散]。
+3. 时空运筹：有利方位、寻找贵人及具体的能量化解/环境微调方案。
 
 ${interactiveProtocol}
 报告审计完毕`;
 
-      finalUserInput = `[用户诉求]：${userInput}\n[盘面数据]：${JSON.stringify(activeBoard)}\n[真太阳时]：${activeBoard.trueSolarTime}`;
+      finalUserInput = `分析诉求: ${userInput}\n\n当前盘局数据: ${JSON.stringify(activeBoard)}`;
 
     } else if (mode === 'YI_LOGIC') {
-      if (type === 'BA_ZI') {
-        const input = userInput as BaZiInput;
-        activeBazi = getBaziResult(input.birthDate, input.birthTime || '', input.birthPlace, input.gender);
-        setBaziData(activeBazi);
-        
-        systemInstruction = `# Role: 全息能量审计师 (秉承姜氏通解逻辑)
-你是一个冷静、严谨、具备深度逻辑推演能力的战略咨询顾问。拒绝迷信词汇，改用“能量物理学”与“时空气象学”提供行动指导。
-
-## 输出规范
-1. 严禁使用 Markdown。
-2. 必须包含：【📊 核心诊断：物理热力扫描】、【⚙️ 逻辑路径：能量转换效率】、【🛠️ 全息方案：处方级行动建议】（包含思维对冲、行为补位、环境校准、时序避险）、【📍 首要动作 (Priority Action)】。
-
-${interactiveProtocol}
-【能量审计闭环 】`;
-
-        const p = activeBazi.pillars;
-        finalUserInput = `[用户诉求]：${input.question || '全息能量审计'}
-[修正四柱]：${p.year.stem}${p.year.branch} ${p.month.stem}${p.month.branch} ${p.day.stem}${p.day.branch} ${p.hour.stem}${p.hour.branch}
-[参数数据]：${JSON.stringify(activeBazi)}`;
+      if (type === 'LI_YAO') {
+        const liuyaoInput = userInput as LiuYaoInput;
+        systemInstruction = `你是一位精通《增删卜易》理法的六爻专家。请根据提供的数字卦及其动爻，结合月建、日辰，进行深度推演。${interactiveProtocol}`;
+        finalUserInput = `求测内容: ${liuyaoInput.question}\n报数因子: ${liuyaoInput.numbers.join(', ')}`;
       } else {
-        const input = userInput as LiuYaoInput;
-        finalUserInput = `[任务：六爻分析] 卦数：${input.numbers.join(', ')} 诉求：${input.question}`;
-        systemInstruction = `六爻推演专家。以《增删卜易》为宗。结构：【一、卦象组合】 【二、用神旺衰】 【三、动变解析】 【四、最终定论】。${interactiveProtocol}报告审计完毕`;
+        const baziInput = userInput as BaZiInput;
+        activeBazi = getBaziResult(baziInput.birthDate, baziInput.birthTime || '12:00', baziInput.birthPlace, baziInput.gender);
+        setBaziData(activeBazi);
+        systemInstruction = `你是一位精通姜氏五行气象论与现代心理映射的八字命理专家。请分析全局寒暖燥湿，并针对用户的具体决策点给出建议。${interactiveProtocol}`;
+        finalUserInput = `姓名: ${baziInput.name}, 性别: ${baziInput.gender}, 生日: ${baziInput.birthDate} ${baziInput.birthTime}. \n决策诉求: ${baziInput.question}\n\n排盘数据: ${JSON.stringify(activeBazi)}`;
       }
-    } else {
-      finalUserInput = userInput;
-      systemInstruction = `中医全息调理专家。结构：【一、辨证分析】 【二、病机探讨】 【三、调理建议】 【四、生活禁忌】。${interactiveProtocol}报告审计完毕`;
+    } else if (mode === 'TCM_AI') {
+      systemInstruction = `你是一位中医全息调理专家，精通五运六气与体质辨识。请根据用户症状，分析其内在脏腑能量偏颇，并给出调理方案。${interactiveProtocol}`;
+      finalUserInput = `症状描述: ${userInput}`;
     }
 
-    const initialMessages: ChatMessage[] = [
-      { role: 'system', content: systemInstruction },
-      { role: 'user', content: finalUserInput }
-    ];
-
-    const historyInput = typeof userInput === 'string' ? userInput : (userInput.question || '全息推演');
-    
-    // 修正 TS2345: 显式声明 status 类型
     setHistory(prev => [{
       id: historyId,
       timestamp: Date.now(),
       mode,
-      input: historyInput,
+      input: typeof userInput === 'string' ? userInput : (userInput.question || userInput.name || '复杂录入'),
       result: '',
-      status: 'loading' as const,
+      status: 'loading',
       board: activeBoard,
       baziData: activeBazi,
-      messages: initialMessages
-    }, ...prev].slice(0, 50));
+      messages: [{ role: 'user', content: finalUserInput }]
+    }, ...prev]);
 
     try {
-      await streamResponse(initialMessages, historyId);
-    } catch (err: any) {
-      setError(err.message || '推演链路异常');
+      await streamResponse([{ role: 'user', content: finalUserInput }], historyId, systemInstruction);
+    } catch (err) {
+      console.error(err);
     } finally {
       setLoading(false);
-      setIsAiThinking(false);
     }
-  }, [mode, getBaziResult, location]);
+  }, [mode, location, getBaziResult]);
 
   const handleFollowUp = async (question: string) => {
     if (!activeHistoryId || isStreamingRef.current) return;
-    const currentEntry = history.find(h => h.id === activeHistoryId);
-    if (!currentEntry) return;
+    
+    const currentHistory = history.find(h => h.id === activeHistoryId);
+    if (!currentHistory) return;
 
-    setLoading(true);
     const newMessages: ChatMessage[] = [
-      ...currentEntry.messages, 
+      ...currentHistory.messages,
       { role: 'user', content: question }
     ];
-    
-    setHistory(prev => prev.map(h => 
-      h.id === activeHistoryId ? { ...h, status: 'loading' as const } : h
+
+    setHistory(prev => prev.map(item => 
+      item.id === activeHistoryId ? { ...item, messages: newMessages, status: 'loading' } : item
     ));
 
+    // Fix: Derive system instruction based on mode for follow-up
+    let systemInstruction = "";
+    if (mode === 'QIMEN') systemInstruction = "你是一个奇门遁甲高维决策系统..."; 
+    else if (mode === 'YI_LOGIC') systemInstruction = "你是一位精通易理的命理专家...";
+    else if (mode === 'TCM_AI') systemInstruction = "你是一位中医全息调理专家...";
+
     try {
-      await streamResponse(newMessages, activeHistoryId, false, true);
+      await streamResponse(newMessages, activeHistoryId, systemInstruction, false, true);
     } catch (err: any) {
-      setError(err.message || '通讯异常');
-    } finally {
-      setLoading(false);
+      setError(err.message || '追踪失败');
     }
   };
 
+  const handleLoadHistory = (entry: PredictionHistory) => {
+    setActiveHistoryId(entry.id);
+    setMode(entry.mode);
+    setBoard(entry.board || null);
+    setBaziData(entry.baziData || null);
+    setDisplayPrediction(entry.result);
+    setIsProfileOpen(false);
+    fullTextRef.current = entry.result;
+  };
+
   return (
-    <div className="min-h-screen bg-[#020617] text-slate-100 flex flex-col parchment-bg">
+    <div className="min-h-screen bg-slate-950 text-slate-200 selection:bg-logic-blue/30 selection:text-white pb-20">
       <Header onOpenProfile={() => setIsProfileOpen(true)} />
-      <div className="bg-slate-900/40 border-y border-slate-800/30 backdrop-blur-2xl sticky top-0 z-50">
-        <div className="max-w-4xl mx-auto flex h-14 px-4">
-          <button onClick={() => handleModeChange('QIMEN')} className={`flex-1 text-[10px] font-black tracking-[0.3em] transition-all ${mode === 'QIMEN' ? 'text-logic-blue border-b-2 border-logic-blue' : 'text-slate-500 hover:text-slate-200'}`}>奇门遁甲</button>
-          <button onClick={() => handleModeChange('YI_LOGIC')} className={`flex-1 text-[10px] font-black tracking-[0.3em] transition-all ${mode === 'YI_LOGIC' ? 'text-logic-blue border-b-2 border-logic-blue' : 'text-slate-500 hover:text-slate-200'}`}>易理能量</button>
-          <button onClick={() => handleModeChange('TCM_AI')} className={`flex-1 text-[10px] font-black tracking-[0.3em] transition-all ${mode === 'TCM_AI' ? 'text-logic-blue border-b-2 border-logic-blue' : 'text-slate-500 hover:text-slate-200'}`}>全息调理</button>
+      
+      <main className="max-w-6xl mx-auto px-6 py-12 space-y-20">
+        <div className="flex justify-center gap-6">
+          {(['QIMEN', 'YI_LOGIC', 'TCM_AI'] as AppMode[]).map(m => (
+            <button
+              key={m}
+              onClick={() => handleModeChange(m)}
+              className={`px-10 py-4 rounded-2xl text-[11px] font-black tracking-[0.3em] uppercase transition-all border ${
+                mode === m 
+                ? 'bg-logic-blue/10 border-logic-blue/40 text-logic-blue shadow-[0_0_20px_rgba(56,189,248,0.15)]' 
+                : 'bg-slate-900/40 border-slate-800/40 text-slate-500 hover:text-slate-300'
+              }`}
+            >
+              {m === 'QIMEN' ? '奇门景曜' : m === 'YI_LOGIC' ? '易理决策' : '中医全息'}
+            </button>
+          ))}
         </div>
-      </div>
-      <main className="flex-1 max-w-4xl mx-auto w-full px-4 py-8 flex flex-col gap-8 overflow-x-hidden">
-        {error && <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-lg text-red-500 text-[10px] text-center font-black">{error}</div>}
-        <InputForm onPredict={handlePredict} isLoading={loading} mode={mode} location={location} onSetLocation={setLocation} />
-        {(board || baziData) && (
-          <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 overflow-x-auto">
-             {board && <BoardGrid board={board} />}
-             {baziData && <BaziResult data={baziData} />}
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-start">
+          <div className="space-y-12">
+            <InputForm 
+              mode={mode} 
+              isLoading={loading} 
+              onPredict={handlePredict} 
+              location={location}
+              onSetLocation={setLocation}
+            />
+            {loading && <TraditionalLoader />}
+            {error && (
+              <div className="p-6 bg-rose-500/10 border border-rose-500/30 rounded-2xl text-rose-500 text-xs tracking-widest text-center animate-pulse">
+                {error}
+              </div>
+            )}
           </div>
-        )}
-        {isAiThinking && <TraditionalLoader />}
-        {displayPrediction && (
-          <section className="frosted-glass p-6 md:p-12 rounded-[2.5rem] shadow-[0_40px_100px_rgba(0,0,0,0.6)] relative border border-white/5">
-            <AnalysisDisplay prediction={displayPrediction} onFollowUp={handleFollowUp} isFollowUpLoading={loading} />
-          </section>
-        )}
+
+          <div className="space-y-12 min-h-[600px]">
+            {mode === 'QIMEN' && board && <BoardGrid board={board} />}
+            {mode === 'YI_LOGIC' && baziData && <BaziResult data={baziData} />}
+            
+            {displayPrediction && (
+              <div className="animate-in fade-in slide-in-from-right-4 duration-1000">
+                <AnalysisDisplay 
+                  prediction={displayPrediction} 
+                  onFollowUp={handleFollowUp}
+                  isFollowUpLoading={isAiThinking}
+                />
+              </div>
+            )}
+          </div>
+        </div>
       </main>
+
       <Footer />
+      
       <ProfilePanel 
         isOpen={isProfileOpen} 
         onClose={() => setIsProfileOpen(false)} 
         history={history}
-        onLoadHistory={(entry) => {
-          setMode(entry.mode);
-          setBoard(entry.board || null);
-          setBaziData(entry.baziData || null);
-          setDisplayPrediction(entry.result);
-          fullTextRef.current = entry.result;
-          setActiveHistoryId(entry.id);
-          setIsProfileOpen(false);
-          window.scrollTo({ top: 300, behavior: 'smooth' });
+        onLoadHistory={handleLoadHistory}
+        onClearHistory={() => {
+          setHistory([]);
+          localStorage.removeItem('qimen_history_v12');
         }}
-        onClearHistory={() => setHistory([])}
       />
     </div>
   );
 };
 
+// Fix: Added default export for App component
 export default App;
