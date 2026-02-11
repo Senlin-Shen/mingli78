@@ -8,17 +8,23 @@ interface AnalysisDisplayProps {
 }
 
 const KEYWORD_MAP = [
-  { keywords: ['起局', '参数', 'dashboard', '物理热力'], type: 'header', icon: '⚖️' },
-  { keywords: ['九宫', '解析', '透视', '博弈', '深度', '逻辑路径'], type: 'conclusion', icon: '🔍' },
+  { keywords: ['起局', '参数', 'dashboard', '热力扫描'], type: 'header', icon: '⚖️' },
+  { keywords: ['九宫', '解析', '博弈', '深度', '逻辑路径'], type: 'conclusion', icon: '🔍' },
   { keywords: ['结论', '定论', '预判'], type: 'conclusion', icon: '🎯' },
   { keywords: ['建议', '行动', '策略', '方案', '指导', '处方'], type: 'actionable', icon: '🛠️' },
-  { keywords: ['首要动作', 'priority', '立即执行'], type: 'actionable', icon: '📍' }
+  { keywords: ['进阶挖掘', '潜在风险', '机遇'], type: 'conclusion', icon: '🎯' },
+  { keywords: ['首要动作', 'priority'], type: 'actionable', icon: '📍' }
 ];
 
 const AnalysisDisplay: React.FC<AnalysisDisplayProps> = ({ prediction, onFollowUp, isFollowUpLoading }) => {
   const [followUpText, setFollowUpText] = useState('');
 
-  const isCompleted = prediction.includes('报告审计完毕') || prediction.includes('能量审计闭环') || prediction.includes('[END]');
+  const isCompleted = 
+    prediction.includes('报告审计完毕') || 
+    prediction.includes('能量审计闭环') || 
+    prediction.includes('闭环') || 
+    prediction.includes('？') || 
+    prediction.includes('?');
 
   const sections = useMemo(() => {
     if (!prediction) return [];
@@ -30,7 +36,6 @@ const AnalysisDisplay: React.FC<AnalysisDisplayProps> = ({ prediction, onFollowU
     lines.forEach((line) => {
       const trimmed = line.trim();
       
-      // 识别追问分隔符
       if (trimmed === '---') {
         if (currentSection) result.push(currentSection);
         result.push({ title: '', content: [], isActionable: false, isConclusion: false, isDivider: true });
@@ -40,7 +45,6 @@ const AnalysisDisplay: React.FC<AnalysisDisplayProps> = ({ prediction, onFollowU
 
       if (!trimmed && !currentSection) return;
 
-      // 识别标题：支持【】格式或“一、”格式
       const isHeader = (trimmed.startsWith('【') && trimmed.includes('】')) || /^[一二三四五六七八九十]、/.test(trimmed);
 
       if (isHeader) {
@@ -84,29 +88,19 @@ const AnalysisDisplay: React.FC<AnalysisDisplayProps> = ({ prediction, onFollowU
         <div className="space-y-2">
           <div className="flex items-center gap-3">
             <div className={`w-2.5 h-2.5 rounded-full shadow-[0_0_15px_rgba(56,189,248,0.4)] ${isCompleted ? 'bg-logic-blue' : 'bg-logic-blue animate-pulse'}`}></div>
-            <span className="text-[13px] text-slate-100 font-black tracking-[0.4em] uppercase">全息时空解析操作说明书</span>
+            <span className="text-[13px] text-slate-100 font-black tracking-[0.4em] uppercase">全息高维解析操作报告</span>
           </div>
-          <span className="text-[9px] text-slate-600 font-mono tracking-[0.3em] uppercase block">Holographic Operational Protocol V3.5.0</span>
-        </div>
-        
-        <div className="hidden md:flex flex-col items-end gap-1.5">
-          <div className={`flex items-center gap-2 px-3 py-1 rounded-lg border ${isCompleted ? 'bg-logic-blue/10 border-logic-blue/30' : 'bg-slate-900 border-slate-800'}`}>
-            {!isCompleted && <div className="w-1.5 h-1.5 bg-logic-blue rounded-full animate-ping"></div>}
-            <span className={`text-[9px] font-black tracking-[0.2em] uppercase ${isCompleted ? 'text-logic-blue' : 'text-slate-500'}`}>
-              {isCompleted ? '状态：全息逻辑闭环' : '状态：高维演算中'}
-            </span>
-          </div>
+          <span className="text-[9px] text-slate-600 font-mono tracking-[0.3em] uppercase block">Operational Protocol V3.6.2</span>
         </div>
       </div>
 
-      {/* 动态内容区 */}
       <div className="space-y-10">
         {sections.map((sec, idx) => {
           if (sec.isDivider) {
             return (
               <div key={idx} className="flex items-center gap-4 py-8">
                 <div className="h-px flex-1 bg-gradient-to-r from-transparent to-slate-800"></div>
-                <span className="text-[9px] text-slate-700 font-black tracking-[0.5em] uppercase">逻辑追问脉络</span>
+                <span className="text-[9px] text-slate-700 font-black tracking-[0.5em] uppercase">深度决策追问链</span>
                 <div className="h-px flex-1 bg-gradient-to-l from-transparent to-slate-800"></div>
               </div>
             );
@@ -129,7 +123,7 @@ const AnalysisDisplay: React.FC<AnalysisDisplayProps> = ({ prediction, onFollowU
               `}>
                 {sec.content.map((line, lidx) => {
                   const isNumbered = /^\d+[.、]/.test(line.trim());
-                  const isBullet = line.trim().startsWith('-') || line.trim().startsWith('·');
+                  const isBullet = line.trim().startsWith('-') || line.trim().startsWith('·') || line.trim().startsWith('>');
                   return (
                     <div key={lidx} className={`${lidx > 0 ? 'mt-4' : ''} ${(isNumbered || isBullet) ? 'pl-6 relative' : ''}`}>
                       {(isNumbered || isBullet) && <div className="absolute left-0 top-2.5 w-1.5 h-1.5 rounded-full bg-logic-blue/30"></div>}
@@ -145,25 +139,24 @@ const AnalysisDisplay: React.FC<AnalysisDisplayProps> = ({ prediction, onFollowU
         {!isCompleted && (
           <div className="pl-5 flex items-center gap-3">
             <div className="w-8 h-px bg-slate-800"></div>
-            <span className="text-[10px] text-slate-600 italic tracking-widest animate-pulse">正在跨维度同步深度追问数据...</span>
+            <span className="text-[10px] text-slate-600 italic tracking-widest animate-pulse">正在同步跨维度深度数据...</span>
           </div>
         )}
       </div>
 
-      {/* 追问区 */}
-      {onFollowUp && isCompleted && (
+      {onFollowUp && (
         <div className="mt-16 pt-10 border-t border-slate-900">
           <div className="bg-slate-900/40 p-6 md:p-8 rounded-[2.5rem] border border-slate-800/60 shadow-inner group">
             <div className="flex items-center gap-3 mb-6">
               <div className="w-1.5 h-1.5 bg-logic-blue rounded-full"></div>
-              <h4 className="text-[10px] text-slate-500 font-black tracking-[0.4em] uppercase">针对上述演算结果发起深度追问</h4>
+              <h4 className="text-[10px] text-slate-500 font-black tracking-[0.4em] uppercase">发起逻辑追问，获得更深入的全息指导</h4>
             </div>
             <form onSubmit={handleFollowUpSubmit} className="flex gap-4">
               <input 
                 type="text"
                 value={followUpText}
                 onChange={(e) => setFollowUpText(e.target.value)}
-                placeholder="在此输入需要深挖的决策点..."
+                placeholder="在此输入您的深度追问..."
                 className="flex-1 bg-black/40 border border-slate-800 rounded-2xl px-5 py-4 text-[13px] text-slate-200 focus:outline-none focus:border-logic-blue/40 transition-all shadow-inner"
               />
               <button 
@@ -171,7 +164,7 @@ const AnalysisDisplay: React.FC<AnalysisDisplayProps> = ({ prediction, onFollowU
                 disabled={isFollowUpLoading || !followUpText.trim()}
                 className="px-8 bg-slate-100 hover:bg-white text-slate-950 text-[10px] font-black tracking-widest uppercase rounded-2xl transition-all shadow-xl active:scale-95 disabled:opacity-20"
               >
-                {isFollowUpLoading ? '计算中' : '发送'}
+                {isFollowUpLoading ? '同步中' : '发送'}
               </button>
             </form>
           </div>
