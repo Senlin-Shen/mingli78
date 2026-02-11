@@ -12,9 +12,10 @@ import { calculateBoard } from './qimenLogic';
 import { useBazi } from './hooks/useBazi';
 import { QiMenBoard, AppMode, BaZiInput, LiuYaoInput, LocationData } from './types';
 import { BaziResultData } from './types/bazi.types';
+import { GoogleGenAI } from "@google/genai";
 
-// 火山引擎端点 ID
-const ARK_ENDPOINT_ID = "ep-20260206175318-v6cl7";
+// 采用最新的 Gemini 3 Pro 模型处理高维度预测
+const UNIFIED_MODEL = "gemini-3-pro-preview";
 
 export interface ChatMessage {
   role: 'user' | 'assistant' | 'system';
@@ -91,7 +92,7 @@ const App: React.FC = () => {
     setActiveHistoryId(null);
   };
 
-  const streamResponse = async (messages: ChatMessage[], historyId: string, isFollowUp = false) => {
+  const streamResponse = async (messages: ChatMessage[], historyId: string, systemInstruction: string, isFollowUp = false) => {
     if (isStreamingRef.current) return ""; 
     isStreamingRef.current = true;
     
@@ -107,59 +108,40 @@ const App: React.FC = () => {
     let currentResponseContent = "";
 
     try {
-      // 切换回火山 API 代理
-      const response = await fetch('/api/ark-proxy', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model: ARK_ENDPOINT_ID,
-          messages: messages,
-          temperature: 0.7,
-          stream: true
-        })
+      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+      
+      const genAiContents = messages.map(msg => ({
+        role: msg.role === 'assistant' ? 'model' : 'user',
+        parts: [{ text: msg.content }]
+      }));
+
+      const responseStream = await ai.models.generateContentStream({
+        model: UNIFIED_MODEL,
+        contents: genAiContents,
+        config: {
+          systemInstruction,
+          temperature: 0.7, // 提升实战建议的灵活性
+        },
       });
-
-      if (!response.ok) {
-        throw new Error(`时空链路波动 (${response.status})，请重试`);
-      }
-
-      const reader = response.body?.getReader();
-      const decoder = new TextDecoder();
-      if (!reader) throw new Error('流读取失败');
 
       let isFirstChunk = true;
 
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        const chunk = decoder.decode(value, { stream: true });
-        const lines = chunk.split('\n');
+      for await (const chunk of responseStream) {
+        const content = chunk.text || "";
         
-        for (const line of lines) {
-          const trimmed = line.trim();
-          if (!trimmed || trimmed === 'data: [DONE]') continue;
-          if (trimmed.startsWith('data: ')) {
-            try {
-              const data = JSON.parse(trimmed.slice(6));
-              const content = data.choices[0]?.delta?.content || "";
-              
-              if (isFirstChunk && content.trim()) {
-                setIsAiThinking(false);
-                isFirstChunk = false;
-              }
+        if (isFirstChunk && content.trim()) {
+          setIsAiThinking(false);
+          isFirstChunk = false;
+        }
 
-              fullTextRef.current += content;
-              currentResponseContent += content;
-              
-              if (!renderAnimationFrame.current) {
-                renderAnimationFrame.current = requestAnimationFrame(() => {
-                  setDisplayPrediction(fullTextRef.current);
-                  renderAnimationFrame.current = null;
-                });
-              }
-            } catch (e) {}
-          }
+        fullTextRef.current += content;
+        currentResponseContent += content;
+        
+        if (!renderAnimationFrame.current) {
+          renderAnimationFrame.current = requestAnimationFrame(() => {
+            setDisplayPrediction(fullTextRef.current);
+            renderAnimationFrame.current = null;
+          });
         }
       }
 
@@ -178,7 +160,7 @@ const App: React.FC = () => {
 
       return finalTotalResult;
     } catch (err: any) {
-      setError(err.message || '时空链路异常');
+      setError(err.message || '时空链路波动，请重试');
       setHistory(prev => prev.map(item => 
         item.id === historyId ? { ...item, status: 'error' as const } : item
       ));
@@ -191,24 +173,24 @@ const App: React.FC = () => {
 
   const getSystemInstruction = (appMode: AppMode) => {
     const protocol = `
-## 🛠️ 持续对话协议 (Continuous Dialogue Protocol)
-- **严禁终结对话**：绝对禁止使用“祝您好运”、“到此为止”或“感谢提问”等类似结语。
-- **深度挖掘提示**：每次回答后，必须自动识别一个最值得深入探讨的“潜在风险”或“进阶机遇”，并以【🎯 进阶挖掘提示】作为标题。
-- **交互式结语**：以极具启发性的提问结束。例如：“基于当前的态势，您是否需要我针对某个方面进一步给出具体分析？”
-- **上下文依赖**：若用户追问，必须调用此前所有推演数据进行“叠加式分析”。`;
+## 🛠️ 交互续航增补协议 (Continuous Dialogue Protocol)
+- **严禁终结对话**：严禁使用“祝您好运”、“到此为止”等结语。
+- **深度挖掘提示**：报告后，必须自动识别一个最值得探讨的“潜在风险”或“进阶机遇”，标题定为【🎯 进阶挖掘提示】。
+- **交互式结语**：以极具针对性的启发式提问结束。
+- **上下文依赖**：若用户追问，必须调用此前数据进行“叠加式分析”。`;
 
     if (appMode === 'QIMEN') {
       return `# Role: 林毅奇门遁甲实战预测专家
-你是一位精通林毅老师数理奇门体系的预测专家。强调“理、象、数”三位一体，拒绝迷信，侧重于行为调理与时空决策。
+精通数理奇门与实战应期推演。强调“理、象、数”三位一体，以“对镜观心”为核心哲学。
 ${protocol}
-结构要求：【⚖️ 时空参数配置】、【🔍 能量九宫解析】、【🎯 预测结论与决策指导】。`;
+请按照 Dashboard、Deep Analysis、Action Plan 的结构化输出。`;
     } else if (appMode === 'YI_LOGIC') {
-      return `# Role: 易理能量审计师 (姜氏逻辑)
-强调五行气象论，侧重于能量补位与风险审计。
+      return `# Role: 易理能量审计师 (姜氏五行气象逻辑)
+强调时空气象学，拒绝迷信，侧重决策风险对冲与能量补位。
 ${protocol}`;
     } else {
       return `# Role: 中医全息调理专家
-基于五运六气视角提供调理方案。
+从五运六气视角辨证，提供全息调理方案。
 ${protocol}`;
     }
   };
@@ -239,8 +221,7 @@ ${protocol}`;
       finalUserInput = typeof userInput === 'string' ? userInput : JSON.stringify(userInput);
     }
 
-    const systemMsg: ChatMessage = { role: 'system', content: getSystemInstruction(mode) };
-    const userMsg: ChatMessage = { role: 'user', content: finalUserInput };
+    const initialMessages: ChatMessage[] = [{ role: 'user', content: finalUserInput }];
 
     setHistory(prev => [{
       id: historyId,
@@ -251,11 +232,11 @@ ${protocol}`;
       status: 'loading' as const,
       board: activeBoard,
       baziData: activeBazi,
-      messages: [systemMsg, userMsg]
+      messages: initialMessages
     }, ...prev]);
 
     try {
-      await streamResponse([systemMsg, userMsg], historyId);
+      await streamResponse(initialMessages, historyId, getSystemInstruction(mode));
     } catch (err) {
       console.error(err);
     } finally {
@@ -269,7 +250,7 @@ ${protocol}`;
     const currentEntry = history.find(h => h.id === activeHistoryId);
     if (!currentEntry) return;
 
-    // 显式锁定点击状态
+    // 显式设置状态，确保 AnalysisDisplay 收到反馈
     setIsAiThinking(true);
     
     const newMessages: ChatMessage[] = [
@@ -282,9 +263,9 @@ ${protocol}`;
     ));
 
     try {
-      await streamResponse(newMessages, activeHistoryId, true);
+      await streamResponse(newMessages, activeHistoryId, getSystemInstruction(mode), true);
     } catch (err: any) {
-      setError(err.message || '追踪失败');
+      setError(err.message || '通讯异常');
     } finally {
       setIsAiThinking(false);
     }
@@ -333,7 +314,7 @@ ${protocol}`;
             {mode === 'YI_LOGIC' && baziData && <BaziResult data={baziData} />}
             
             {displayPrediction && (
-              <div className="animate-in fade-in slide-in-from-right-4 duration-1000 overflow-visible">
+              <div className="animate-in fade-in slide-in-from-right-4 duration-1000">
                 <AnalysisDisplay 
                   prediction={displayPrediction} 
                   onFollowUp={handleFollowUp}
