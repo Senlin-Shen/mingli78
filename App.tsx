@@ -90,9 +90,6 @@ const App: React.FC = () => {
     setActiveHistoryId(null);
   };
 
-  /**
-   * 增强型流式传输引擎：解决截断、漏字、漏数字
-   */
   const streamResponse = async (messages: ChatMessage[], historyId: string, isContinuation = false) => {
     if (isStreamingRef.current && !isContinuation) return ""; 
     isStreamingRef.current = true;
@@ -112,7 +109,7 @@ const App: React.FC = () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           messages,
-          temperature: 0.6,
+          temperature: 0.5, // 降低温度，增加逻辑稳定性
           model: UNIFIED_MODEL,
           stream: true
         })
@@ -131,7 +128,6 @@ const App: React.FC = () => {
         const { done, value } = await reader.read();
         if (done) break;
         
-        // 关键：缓冲区拼接，防止多字节字符被切断导致漏字
         buffer += decoder.decode(value, { stream: true });
         const lines = buffer.split('\n');
         buffer = lines.pop() || ""; 
@@ -166,12 +162,11 @@ const App: React.FC = () => {
         }
       }
 
-      // 自动续写逻辑 (解决长度不够问题)
       if (finishReason === 'length') {
         const nextMessages: ChatMessage[] = [
           ...messages,
           { role: 'assistant', content: currentResponseContent },
-          { role: 'user', content: '继续，不要重复' }
+          { role: 'user', content: '继续往下写，不要重复，确保逻辑闭环' }
         ];
         return await streamResponse(nextMessages, historyId, true);
       }
@@ -219,10 +214,10 @@ const App: React.FC = () => {
       activeBoard = calculateBoard(targetDate, location?.longitude || 120);
       setBoard(activeBoard);
       
-      systemInstruction = `你是一位资深奇门遁甲时空建模专家。请严格基于盘面数据解析。
-严禁使用 Markdown。数字和关键指标必须清晰完整，保留原文排版。
+      systemInstruction = `你是一位资深奇门遁甲时空建模专家。严格基于盘面数据进行深度解析。
+严禁使用 Markdown。报告需具备极高的逻辑密度。
 
-必须按以下结构输出，每个板块使用【】标题：
+输出结构：
 【⚖️ 时空起局公示】
 【🔍 盘局深度解析】
 【💡 预测结论】
@@ -238,23 +233,32 @@ const App: React.FC = () => {
         activeBazi = getBaziResult(input.birthDate, input.birthTime || '', input.birthPlace, input.gender);
         setBaziData(activeBazi);
         
-        // 植入“全息能量审计师” Master Prompt
         systemInstruction = `# Role: 全息能量审计师 (秉承姜氏通解逻辑)
-你是一个冷静、严谨、具备深度逻辑推演能力的战略咨询顾问。你拒绝迷信词汇，改用“能量物理学”与“时空气象学”为用户提供行动指导。
+你是一个冷静、严谨、具备深度逻辑推演能力的战略咨询顾问。你拒绝迷信词汇，改用“能量物理学”与“时空气象学”为用户提供行动指导。你的核心目标是实现【既定目标的逻辑闭环】。
 
 ## 核心底层逻辑
-1. 气象优先：优先判断全局阴阳平衡与燥湿状态。
-2. 能量路径：分析能量流转路径是否通畅。
-3. 符号映射：将干支精准映射到性格、行为、认知、场景。
+1. 气象优先 (Climate First)：优先判断全局的阴阳平衡与燥湿状态。
+2. 能量路径 (Flow Efficiency)：不谈“缺补”，只谈“路径”是否通畅。
+3. 符号映射 (Holographic Mapping)：将干支精准映射到现实场景。
 
-## 审计规范
-1. 严禁使用 Markdown（# 或 *）。
-2. 输出必须包含以下【】模块：
+## 输出规范 (必须包含以下【】板块)
 【📊 核心诊断：物理热力扫描】
-【⚙️ 逻辑路径：能量转换效率】
-【🛠️ 全息方案：行动决策指导】
+- 分析出生月令气候背景，判定局部的“热力值”与“湿度值”。
 
-报告审计完毕`;
+【⚙️ 逻辑路径：能量转换效率】
+- 识别从“动机”到“成果”的路径中，物理卡点在哪里。
+
+【🛠️ 全息方案：处方级行动建议】
+(此处必须给出具体且符合气象逻辑的指令，严禁空话)
+- 🧠 思维对冲：针对气象失衡给出认知层面的反向补偿逻辑。
+- 🏃 行为补位：给出具体的身体动作、社交节奏或工作模式调整建议。
+- 🏠 环境校准：基于空间物理属性（如湿度、光照、摩擦力）的调适建议。
+- ⏳ 时序避险：基于节律波动给出具体的止损点或冲刺点。
+
+【📍 首要动作 (Priority Action)】
+- 给出用户看完报告后可以立即执行的一个具体、微小且具有破局意义的动作。
+
+【能量审计闭环 】`;
 
         const p = activeBazi.pillars;
         finalUserInput = `[用户诉求]：${input.question || '全息能量审计'}
@@ -264,7 +268,7 @@ const App: React.FC = () => {
       } else {
         const input = userInput as LiuYaoInput;
         finalUserInput = `[任务：六爻分析] 卦数：${input.numbers.join(', ')} 诉求：${input.question}`;
-        systemInstruction = `六爻推演专家。结构：【一、卦象组合】 【二、用神旺衰】 【三、动变解析】 【四、最终定论】。报告审计完毕`;
+        systemInstruction = `六爻推演专家。以《增删卜易》为宗。结构：【一、卦象组合】 【二、用神旺衰】 【三、动变解析】 【四、最终定论】。报告审计完毕`;
       }
     } else {
       finalUserInput = userInput;
