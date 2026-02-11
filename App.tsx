@@ -103,7 +103,7 @@ const App: React.FC = () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           messages,
-          temperature: 0.6, // 略微调高，增加语言流利度
+          temperature: 0.6,
           model: UNIFIED_MODEL,
           stream: true
         })
@@ -142,6 +142,7 @@ const App: React.FC = () => {
 
             fullTextRef.current += content;
             
+            // 使用帧渲染优化，确保长文本渲染不掉帧、不漏字
             if (!renderAnimationFrame.current) {
               renderAnimationFrame.current = requestAnimationFrame(() => {
                 setDisplayPrediction(fullTextRef.current);
@@ -197,8 +198,8 @@ const App: React.FC = () => {
       activeBoard = calculateBoard(targetDate, currentLng);
       setBoard(activeBoard);
       
-      systemInstruction = `你是一位资深奇门遁甲时空建模与预测专家。精通数理逻辑、现代决策科学与心理学。
-严禁使用 Markdown（#，*）。
+      systemInstruction = `你是一位资深奇门遁甲时空建模与预测专家。请严格基于提供的盘面数据进行逻辑解析。
+严禁使用 Markdown（#，*）。数字和关键指标必须清晰完整。
 
 必须严格按以下结构输出，每个板块必须有独立的【】标题：
 【⚖️ 时空起局公示】
@@ -212,11 +213,11 @@ const App: React.FC = () => {
 3. 关键矛盾点：(核心阻碍或突破口)
 
 【💡 预测结论】
-(对趋势给出清晰肯定预判)
+(对趋势给出清晰肯定预判，必须包含确定性的百分比或量化评估)
 
 【🚀 实战运筹建议】
 - 心态指导：(对镜观心建议)
-- 行为决策：(具体行动步骤)
+- 行为决策：(具体行动步骤，需列出 1. 2. 3. 条款)
 - 空间优化：(利事方位建议)
 
 报告审计完毕`;
@@ -229,35 +230,28 @@ const App: React.FC = () => {
         activeBazi = getBaziResult(input.birthDate, input.birthTime || '', input.birthPlace, input.gender);
         setBaziData(activeBazi);
         
-        systemInstruction = `你是一位高级时空能量建模专家 (Life Energy Analyst)。
-基于“气象为先、流通为要、中和为贵”准则，将八字转化为逻辑严密、去迷信化、极具“决策感”的能量操作说明书。
-请采用 CoT 思维链（思维推导），严禁神棍化，严禁使用 Markdown（#，*）。
+        systemInstruction = `你是一位高级时空能量建模专家。基于“气象为先、流通为要、中和为贵”准则进行能量分析。
+严禁神棍化，严禁使用 Markdown。报告需逻辑严密，保留所有数字和定量描述。
 
-必须严格按照以下结构输出，每个标题必须独立成行并使用【】：
-
+结构要求：
 【📊 能量维度定量分析】
-(以0-100打分并简评：执行力、资源力、逻辑力、自律力、创新力)
+(对各项能量指标进行 1-100 打分)
 
 【🧊 命局气象透视】
-- 能效状态关键词：(如：烈火锻金，宜“慢火细熬”)
-- 定量描述：描述出生时空的热力、湿度与物理状态隐喻。
+- 能效状态关键词
+- 定量描述
 
 【🤝 人际能量博弈】
-- 社交站位：结合命局合冲关系，分析用户在社交博弈中的心理站位与博弈位。
+- 社交站位分析
 
 【⚙️ 核心运作逻辑】
-- 动力分析：分析个体的核心行为驱动力。
-- 财富路径：揭示最顺畅的能量转化链条。
-
-【⚠️ 关键认知对冲】
-- 反直觉预警：明确指出为什么不能盲目补齐缺失五行。
+- 动力与财富路径分析
 
 【⏳ 时空波动窗口】
-- 动能周期：未来3-5年的能量转折点。
+- 未来关键时间节点
 
 【🛠️ 全息场景方案】
-- 谈判/决策/生活建议。
-- 能量微动作：(24小时内可立即执行的一个行为动作)
+- 决策建议与微动作建议
 
 报告审计完毕`;
 
@@ -269,11 +263,11 @@ const App: React.FC = () => {
       } else {
         const input = userInput as LiuYaoInput;
         finalUserInput = `[任务：六爻分析] 卦数：${input.numbers.join(', ')} 诉求：${input.question}`;
-        systemInstruction = `你是一位六爻推演专家。以《增删卜易》为宗，严禁 Markdown。结构：【一、卦象组合】 【二、用神旺衰】 【三、动变解析】 【四、最终定论】。报告审计完毕`;
+        systemInstruction = `你是一位六爻推演专家。以《增删卜易》为宗，分析需保留数字细节。结构：【一、卦象组合】 【二、用神旺衰】 【三、动变解析】 【四、最终定论】。报告审计完毕`;
       }
     } else {
       finalUserInput = userInput;
-      systemInstruction = `中医全息调理专家。以五行气象论为基础，分析脏腑虚实。严禁 Markdown。结构：【一、辨证分析】 【二、病机探讨】 【三、调理建议】 【四、生活禁忌】。报告审计完毕`;
+      systemInstruction = `中医全息调理专家。基于五行气象论分析。结构：【一、辨证分析】 【二、病机探讨】 【三、调理建议】 【四、生活禁忌】。报告审计完毕`;
     }
 
     const historyInput: string = typeof userInput === 'string' 
@@ -346,13 +340,13 @@ const App: React.FC = () => {
         </div>
       </div>
 
-      <main className="flex-1 max-w-4xl mx-auto w-full px-4 py-8 flex flex-col gap-8">
+      <main className="flex-1 max-w-4xl mx-auto w-full px-4 py-8 flex flex-col gap-8 overflow-x-hidden">
         {error && <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-lg text-red-500 text-[10px] text-center font-black animate-shake">{error}</div>}
         
         <InputForm onPredict={handlePredict} isLoading={loading} mode={mode} location={location} onSetLocation={setLocation} />
         
         {(board || baziData) && (
-          <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+          <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 overflow-x-auto">
              {board && <BoardGrid board={board} />}
              {baziData && <BaziResult data={baziData} />}
           </div>
@@ -363,8 +357,8 @@ const App: React.FC = () => {
         )}
 
         {displayPrediction && (
-          <section className="frosted-glass p-6 md:p-10 rounded-[2rem] shadow-[0_30px_80px_rgba(0,0,0,0.5)] relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-64 h-64 bg-logic-blue/5 blur-[100px] pointer-events-none"></div>
+          <section className="frosted-glass p-6 md:p-12 rounded-[2.5rem] shadow-[0_40px_100px_rgba(0,0,0,0.6)] relative overflow-hidden border border-white/5">
+            <div className="absolute top-0 right-0 w-80 h-80 bg-logic-blue/5 blur-[120px] pointer-events-none"></div>
             <AnalysisDisplay prediction={displayPrediction} onFollowUp={handleFollowUp} isFollowUpLoading={loading} />
           </section>
         )}

@@ -7,13 +7,9 @@ interface AnalysisDisplayProps {
   isFollowUpLoading?: boolean;
 }
 
-/**
- * 容错性更强的章节识别关键字
- * 用于解决 AI 输出标题不完全匹配的问题
- */
 const KEYWORD_MAP = [
   { keywords: ['起局', '公示', '参数'], type: 'header', icon: '⚖️' },
-  { keywords: ['解析', '盘局', '透视', '深度', '推演'], type: 'conclusion', icon: '🔍' },
+  { keywords: ['解析', '盘局', '透视', '深度', '推播'], type: 'conclusion', icon: '🔍' },
   { keywords: ['结论', '定论', '预判'], type: 'conclusion', icon: '🎯' },
   { keywords: ['建议', '运筹', '行动', '方案', '调理', '策略'], type: 'actionable', icon: '💡' },
   { keywords: ['能量', '维度', '定量', '打分'], type: 'conclusion', icon: '📊' },
@@ -26,36 +22,47 @@ const KEYWORD_MAP = [
 const AnalysisDisplay: React.FC<AnalysisDisplayProps> = ({ prediction, onFollowUp, isFollowUpLoading }) => {
   const [followUpText, setFollowUpText] = useState('');
 
+  const isCompleted = prediction.includes('报告审计完毕') || prediction.includes('[END]');
+
   const sections = useMemo(() => {
     if (!prediction) return [];
     
-    // 按【】或一、二、三、等模式分割，且支持换行后的标题
-    const rawParts = prediction.split(/(?=\n【|\n[一二三四五]、|【)/g);
-    const parts = rawParts.map(p => p.trim()).filter(Boolean);
-    
-    return parts.map(part => {
-      // 提取标题行
-      const lines = part.split('\n');
-      const firstLine = lines[0].trim();
-      const isTitle = (firstLine.startsWith('【') && firstLine.includes('】')) || /^[一二三四五]、/.test(firstLine);
-      
-      const title = isTitle ? firstLine : '';
-      const content = isTitle ? lines.slice(1).join('\n').trim() : part;
+    // 预处理：保护所有数字和关键符号，防止被错误分割
+    const lines = prediction.split('\n');
+    const result: { title: string; content: string[]; isActionable: boolean; isConclusion: boolean }[] = [];
+    let currentSection: { title: string; content: string[]; isActionable: boolean; isConclusion: boolean } | null = null;
 
-      // 模糊匹配类型
-      let isActionable = false;
-      let isConclusion = false;
-      
-      const lowerTitle = title.toLowerCase();
-      KEYWORD_MAP.forEach(km => {
-        if (km.keywords.some(k => lowerTitle.includes(k))) {
-          if (km.type === 'actionable') isActionable = true;
-          if (km.type === 'conclusion') isConclusion = true;
+    lines.forEach(line => {
+      const trimmed = line.trim();
+      if (!trimmed) return;
+
+      // 识别标题：支持【】格式或“一、”格式
+      const isHeader = (trimmed.startsWith('【') && trimmed.includes('】')) || /^[一二三四五六七八九十]、/.test(trimmed);
+
+      if (isHeader) {
+        if (currentSection) result.push(currentSection);
+        
+        let isActionable = false;
+        let isConclusion = false;
+        const lowerTitle = trimmed.toLowerCase();
+        KEYWORD_MAP.forEach(km => {
+          if (km.keywords.some(k => lowerTitle.includes(k))) {
+            if (km.type === 'actionable') isActionable = true;
+            if (km.type === 'conclusion') isConclusion = true;
+          }
+        });
+
+        currentSection = { title: trimmed, content: [], isActionable, isConclusion };
+      } else {
+        if (!currentSection) {
+          currentSection = { title: '', content: [], isActionable: false, isConclusion: false };
         }
-      });
-
-      return { title, content, isActionable, isConclusion };
+        currentSection.content.push(line); // 保持原样，不轻易修剪，保留缩进和数字
+      }
     });
+
+    if (currentSection) result.push(currentSection);
+    return result;
   }, [prediction]);
 
   const handleFollowUpSubmit = (e: React.FormEvent) => {
@@ -67,90 +74,104 @@ const AnalysisDisplay: React.FC<AnalysisDisplayProps> = ({ prediction, onFollowU
   };
 
   return (
-    <div className="space-y-12 report-font leading-relaxed">
-      <div className="border-b border-slate-800 pb-6 flex items-center justify-between">
-        <div className="flex flex-col gap-1.5">
-          <span className="text-[10px] text-logic-blue font-black tracking-[0.5em] uppercase">全息时空解析操作说明书</span>
-          <span className="text-[7px] text-slate-600 font-mono tracking-widest uppercase">SYMMETRIC HOLOGRAPHIC OPERATIONAL MANUAL</span>
+    <div className="space-y-12 report-font leading-relaxed max-w-full overflow-hidden">
+      {/* 状态头 */}
+      <div className="border-b border-slate-800/60 pb-8 flex items-end justify-between">
+        <div className="space-y-2">
+          <div className="flex items-center gap-3">
+            <div className={`w-2.5 h-2.5 rounded-full shadow-[0_0_15px_rgba(56,189,248,0.4)] ${isCompleted ? 'bg-logic-blue' : 'bg-logic-blue animate-pulse'}`}></div>
+            <span className="text-[13px] text-slate-100 font-black tracking-[0.4em] uppercase">全息时空解析操作说明书</span>
+          </div>
+          <span className="text-[9px] text-slate-600 font-mono tracking-[0.3em] uppercase block">Holographic Operational Protocol V3.1.2</span>
         </div>
-        {/* 流式状态指示器 */}
-        {!prediction.includes('报告审计完毕') && !prediction.includes('[END]') && (
-          <div className="flex items-center gap-1">
-            <div className="w-1 h-1 bg-logic-blue rounded-full animate-ping"></div>
-            <span className="text-[8px] text-slate-700 font-black uppercase tracking-tighter">Connecting...</span>
+        
+        <div className="hidden md:flex flex-col items-end gap-1.5">
+          {isCompleted ? (
+            <div className="flex items-center gap-2 px-3 py-1 bg-logic-blue/10 border border-logic-blue/30 rounded-lg">
+              <span className="text-[9px] text-logic-blue font-black tracking-[0.2em] uppercase">状态：逻辑自洽 VERIFIED</span>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 px-3 py-1 bg-slate-900 border border-slate-800 rounded-lg">
+              <div className="w-1.5 h-1.5 bg-logic-blue rounded-full animate-ping"></div>
+              <span className="text-[9px] text-slate-500 font-black tracking-[0.2em] uppercase">状态：变量计算中 SYNCING</span>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* 动态内容区 */}
+      <div className="space-y-10">
+        {sections.map((sec, idx) => (
+          <div key={idx} className="animate-in fade-in slide-in-from-bottom-2 duration-700">
+            {sec.title && (
+              <div className="flex items-center gap-4 mb-5">
+                <div className={`h-4 w-1 rounded-full ${sec.isActionable ? 'bg-slate-200 shadow-[0_0_10px_#fff]' : sec.isConclusion ? 'bg-logic-blue shadow-[0_0_10px_#38bdf8]' : 'bg-slate-700'}`}></div>
+                <h3 className={`text-[16px] font-black tracking-[0.2em] uppercase ${sec.isActionable ? 'text-slate-100' : sec.isConclusion ? 'text-logic-blue' : 'text-slate-400'}`}>
+                  {sec.title}
+                </h3>
+              </div>
+            )}
+            
+            <div className={`text-[14px] md:text-[15px] leading-relaxed break-words whitespace-pre-wrap font-variant-numeric-tabular-nums
+              ${sec.isActionable ? 'bg-white/[0.03] p-6 md:p-10 rounded-[2rem] border border-white/10 text-slate-100/90 shadow-2xl' : 'pl-5 text-slate-300'}
+              ${sec.isConclusion ? 'bg-logic-blue/[0.03] p-6 md:p-10 rounded-[2rem] border border-logic-blue/10 text-slate-100 shadow-2xl' : ''}
+            `}>
+              {sec.content.map((line, lidx) => {
+                const isNumbered = /^\d+[.、]/.test(line.trim());
+                const isBullet = line.trim().startsWith('-') || line.trim().startsWith('·');
+                
+                return (
+                  <div key={lidx} className={`
+                    ${lidx > 0 ? 'mt-4' : ''}
+                    ${isNumbered || isBullet ? 'pl-6 relative' : ''}
+                  `}>
+                    {/* 列表项修饰，但不替换原文数字 */}
+                    {(isNumbered || isBullet) && (
+                      <div className="absolute left-0 top-2 w-1.5 h-1.5 rounded-full bg-logic-blue/30"></div>
+                    )}
+                    {line}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+
+        {!isCompleted && (
+          <div className="pl-5 flex items-center gap-3">
+            <div className="w-8 h-px bg-slate-800"></div>
+            <span className="text-[10px] text-slate-600 italic tracking-widest animate-pulse">正在推演后续因果链条...</span>
           </div>
         )}
       </div>
 
-      {sections.map((sec, idx) => (
-        <div key={idx} className="animate-in fade-in slide-in-from-left-2 duration-700">
-          {sec.title && (
-            <div className="flex items-center gap-4 mb-6">
-              <div className={`w-1 h-5 rounded-full ${sec.isActionable ? 'bg-slate-100 shadow-[0_0_12px_#fff]' : sec.isConclusion ? 'bg-logic-blue shadow-[0_0_12px_#38bdf8]' : 'bg-slate-700'}`}></div>
-              <h3 className={`text-[15px] md:text-[16px] font-black tracking-[0.2em] uppercase ${sec.isActionable ? 'text-slate-100' : sec.isConclusion ? 'text-logic-blue' : 'text-slate-400'}`}>
-                {sec.title}
-              </h3>
+      {/* 追问区 */}
+      {onFollowUp && isCompleted && (
+        <div className="mt-16 pt-10 border-t border-slate-900 animate-in fade-in zoom-in-95 duration-1000">
+          <div className="bg-slate-900/40 p-6 md:p-8 rounded-[2.5rem] border border-slate-800/60 shadow-inner group">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="w-1.5 h-1.5 bg-logic-blue rounded-full"></div>
+              <h4 className="text-[10px] text-slate-500 font-black tracking-[0.4em] uppercase">针对上述演算结果发起逻辑追问</h4>
             </div>
-          )}
-          
-          <div className={`text-[14px] md:text-[15px] leading-loose
-            ${sec.isActionable ? 'bg-slate-100/5 p-6 md:p-10 rounded-3xl border border-slate-100/10 text-slate-100/90 shadow-inner' : 'pl-5 text-slate-300'}
-            ${sec.isConclusion ? 'bg-logic-blue/5 p-6 md:p-10 rounded-3xl border border-logic-blue/10 text-slate-200 shadow-inner' : ''}
-          `}>
-            {sec.content.split('\n').map((line, lidx) => {
-              const l = line.trim();
-              if (!l) return null;
-              
-              const isYearItem = /^\d{4}年/.test(l);
-              const isNumbered = /^\d+[.、]/.test(l);
-              const isBullet = l.startsWith('-') || l.startsWith('·');
-              const isSubHeader = (l.includes('：') || l.includes(':')) && l.length < 45 && !isYearItem && !isNumbered;
-
-              return (
-                <p key={lidx} className={`
-                  ${lidx > 0 ? 'mt-5' : ''}
-                  ${isYearItem ? 'bg-slate-900/60 p-5 rounded-2xl border-l-2 border-logic-blue/40 my-3 text-slate-100 shadow-md ring-1 ring-white/5' : ''}
-                  ${isSubHeader ? 'text-slate-100 font-black tracking-widest border-b border-slate-800/60 pb-1 mb-2 inline-block text-[13px]' : ''}
-                  ${isNumbered || isBullet ? 'pl-5 relative before:content-[""] before:absolute before:left-0 before:top-3 before:w-1.5 before:h-1.5 before:bg-logic-blue/40 before:rounded-full' : ''}
-                `}>
-                  {l.replace(/^[-·]\s*/, '')}
-                </p>
-              );
-            })}
-          </div>
-        </div>
-      ))}
-
-      {onFollowUp && (
-        <div className="mt-16 pt-10 border-t border-slate-800/40">
-          <div className="bg-slate-900/50 p-6 md:p-8 rounded-[2rem] border border-slate-800/50 shadow-2xl">
-            <h4 className="text-[10px] text-slate-500 font-black tracking-[0.4em] uppercase mb-6 flex items-center gap-3">
-              <div className="w-1.5 h-1.5 bg-logic-blue rounded-full animate-pulse"></div>
-              根据决策逻辑持续追问
-            </h4>
             <form onSubmit={handleFollowUpSubmit} className="flex gap-4">
               <input 
                 type="text"
                 value={followUpText}
                 onChange={(e) => setFollowUpText(e.target.value)}
-                placeholder="追问具体的场景方案细节..."
-                className="flex-1 bg-slate-950/80 border border-slate-800 rounded-2xl px-5 py-3.5 text-[12px] text-slate-200 focus:outline-none focus:border-logic-blue/50 transition-all shadow-inner"
+                placeholder="在此输入需要深挖的细节..."
+                className="flex-1 bg-black/40 border border-slate-800 rounded-2xl px-5 py-4 text-[13px] text-slate-200 focus:outline-none focus:border-logic-blue/40 transition-all shadow-inner"
               />
               <button 
                 type="submit" 
                 disabled={isFollowUpLoading || !followUpText.trim()}
-                className="px-8 bg-slate-100 hover:bg-white text-slate-950 text-[10px] font-black tracking-widest uppercase rounded-2xl transition-all shadow-lg active:scale-95 whitespace-nowrap"
+                className="px-8 bg-slate-100 hover:bg-white text-slate-950 text-[10px] font-black tracking-widest uppercase rounded-2xl transition-all shadow-xl active:scale-95 disabled:opacity-20"
               >
-                {isFollowUpLoading ? '计算' : '发送'}
+                {isFollowUpLoading ? '计算中' : '发送'}
               </button>
             </form>
           </div>
         </div>
       )}
-      
-      <div className="pt-10 opacity-30 text-center">
-        <p className="text-[9px] tracking-[0.6em] font-light uppercase">FIN OF STRATEGIC OPERATION MANUAL</p>
-      </div>
     </div>
   );
 };
