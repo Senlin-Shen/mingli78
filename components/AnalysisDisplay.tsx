@@ -23,8 +23,8 @@ const AnalysisDisplay: React.FC<AnalysisDisplayProps> = ({ prediction, onFollowU
     prediction.includes('报告审计完毕') || 
     prediction.includes('能量审计闭环') || 
     prediction.includes('闭环') || 
-    prediction.endsWith('？') || 
-    prediction.endsWith('?');
+    prediction.includes('？') || 
+    prediction.includes('?');
 
   const sections = useMemo(() => {
     if (!prediction) return [];
@@ -75,14 +75,14 @@ const AnalysisDisplay: React.FC<AnalysisDisplayProps> = ({ prediction, onFollowU
 
   const handleFollowUpSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (followUpText.trim() && onFollowUp && !isFollowUpLoading) {
+    if (followUpText.trim() && onFollowUp) {
       onFollowUp(followUpText);
       setFollowUpText('');
     }
   };
 
   return (
-    <div className="space-y-12 report-font leading-relaxed max-w-full overflow-visible relative">
+    <div className="space-y-12 report-font leading-relaxed max-w-full overflow-hidden">
       {/* 状态头 */}
       <div className="border-b border-slate-800/60 pb-8 flex items-end justify-between">
         <div className="space-y-2">
@@ -90,7 +90,7 @@ const AnalysisDisplay: React.FC<AnalysisDisplayProps> = ({ prediction, onFollowU
             <div className={`w-2.5 h-2.5 rounded-full shadow-[0_0_15px_rgba(56,189,248,0.4)] ${isCompleted ? 'bg-logic-blue' : 'bg-logic-blue animate-pulse'}`}></div>
             <span className="text-[13px] text-slate-100 font-black tracking-[0.4em] uppercase">全息高维解析操作报告</span>
           </div>
-          <span className="text-[9px] text-slate-600 font-mono tracking-[0.3em] uppercase block">Lin Yi Practical System V4.0</span>
+          <span className="text-[9px] text-slate-600 font-mono tracking-[0.3em] uppercase block">Operational Protocol V3.6.2</span>
         </div>
       </div>
 
@@ -121,28 +121,35 @@ const AnalysisDisplay: React.FC<AnalysisDisplayProps> = ({ prediction, onFollowU
                 ${sec.isActionable ? 'bg-white/[0.03] p-6 md:p-10 rounded-[2rem] border border-white/10 text-slate-100/90 shadow-2xl' : 'pl-5 text-slate-300'}
                 ${sec.isConclusion ? 'bg-logic-blue/[0.03] p-6 md:p-10 rounded-[2rem] border border-logic-blue/10 text-slate-100 shadow-2xl' : ''}
               `}>
-                {sec.content.map((line, lidx) => (
-                  <div key={lidx} className={lidx > 0 ? 'mt-4' : ''}>{line}</div>
-                ))}
+                {sec.content.map((line, lidx) => {
+                  const isNumbered = /^\d+[.、]/.test(line.trim());
+                  const isBullet = line.trim().startsWith('-') || line.trim().startsWith('·') || line.trim().startsWith('>');
+                  return (
+                    <div key={lidx} className={`${lidx > 0 ? 'mt-4' : ''} ${(isNumbered || isBullet) ? 'pl-6 relative' : ''}`}>
+                      {(isNumbered || isBullet) && <div className="absolute left-0 top-2.5 w-1.5 h-1.5 rounded-full bg-logic-blue/30"></div>}
+                      {line}
+                    </div>
+                  );
+                })}
               </div>
             </div>
           );
         })}
 
-        {isFollowUpLoading && (
+        {!isCompleted && (
           <div className="pl-5 flex items-center gap-3">
             <div className="w-8 h-px bg-slate-800"></div>
-            <span className="text-[10px] text-slate-600 italic tracking-widest animate-pulse">专家正在深度研判时空链路...</span>
+            <span className="text-[10px] text-slate-600 italic tracking-widest animate-pulse">正在同步跨维度深度数据...</span>
           </div>
         )}
       </div>
 
       {onFollowUp && (
-        <div className="mt-16 pt-10 border-t border-slate-900 overflow-visible relative z-20">
+        <div className="mt-16 pt-10 border-t border-slate-900">
           <div className="bg-slate-900/40 p-6 md:p-8 rounded-[2.5rem] border border-slate-800/60 shadow-inner group">
             <div className="flex items-center gap-3 mb-6">
-              <div className="w-1.5 h-1.5 bg-logic-blue rounded-full shadow-[0_0_5px_#38bdf8]"></div>
-              <h4 className="text-[10px] text-slate-500 font-black tracking-[0.4em] uppercase">发起逻辑追问 · 继续深挖时空定数</h4>
+              <div className="w-1.5 h-1.5 bg-logic-blue rounded-full"></div>
+              <h4 className="text-[10px] text-slate-500 font-black tracking-[0.4em] uppercase">发起逻辑追问，获得更深入的全息指导</h4>
             </div>
             <form onSubmit={handleFollowUpSubmit} className="flex gap-4">
               <input 
@@ -150,15 +157,14 @@ const AnalysisDisplay: React.FC<AnalysisDisplayProps> = ({ prediction, onFollowU
                 value={followUpText}
                 onChange={(e) => setFollowUpText(e.target.value)}
                 placeholder="在此输入您的深度追问..."
-                className="flex-1 bg-black/40 border border-slate-800 rounded-2xl px-5 py-4 text-[13px] text-slate-200 focus:outline-none focus:border-logic-blue/40 transition-all shadow-inner placeholder:text-slate-700"
-                disabled={isFollowUpLoading}
+                className="flex-1 bg-black/40 border border-slate-800 rounded-2xl px-5 py-4 text-[13px] text-slate-200 focus:outline-none focus:border-logic-blue/40 transition-all shadow-inner"
               />
               <button 
                 type="submit" 
                 disabled={isFollowUpLoading || !followUpText.trim()}
-                className="px-8 bg-slate-100 hover:bg-white text-slate-950 text-[10px] font-black tracking-widest uppercase rounded-2xl transition-all shadow-xl active:scale-95 disabled:opacity-20 disabled:cursor-not-allowed h-[54px]"
+                className="px-8 bg-slate-100 hover:bg-white text-slate-950 text-[10px] font-black tracking-widest uppercase rounded-2xl transition-all shadow-xl active:scale-95 disabled:opacity-20"
               >
-                {isFollowUpLoading ? '推演中' : '发送'}
+                {isFollowUpLoading ? '同步中' : '发送'}
               </button>
             </form>
           </div>
