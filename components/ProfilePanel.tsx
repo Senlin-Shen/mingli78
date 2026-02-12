@@ -8,9 +8,10 @@ interface ProfilePanelProps {
   history: PredictionHistory[];
   onLoadHistory: (entry: PredictionHistory) => void;
   onClearHistory: () => void;
+  onLogout?: () => void; // 新增登出回调
 }
 
-const ProfilePanel: React.FC<ProfilePanelProps> = ({ isOpen, onClose, history, onLoadHistory, onClearHistory }) => {
+const ProfilePanel: React.FC<ProfilePanelProps> = ({ isOpen, onClose, history, onLoadHistory, onClearHistory, onLogout }) => {
   if (!isOpen) return null;
 
   return (
@@ -25,7 +26,10 @@ const ProfilePanel: React.FC<ProfilePanelProps> = ({ isOpen, onClose, history, o
         <div className="flex-1 overflow-y-auto px-8 py-8 space-y-6">
           <div className="flex items-center justify-between">
             <h3 className="text-[10px] text-emerald-800 font-black uppercase tracking-[0.3em]">历史推演纪要</h3>
-            {history.length > 0 && <button onClick={onClearHistory} className="text-[9px] text-rose-800 hover:text-rose-500 font-black uppercase">清理因果</button>}
+            <div className="flex gap-4">
+              {onLogout && <button onClick={onLogout} className="text-[9px] text-slate-600 hover:text-white font-black uppercase transition-colors">注销身份</button>}
+              {history.length > 0 && <button onClick={onClearHistory} className="text-[9px] text-rose-800 hover:text-rose-500 font-black uppercase">清理因果</button>}
+            </div>
           </div>
 
           {history.length === 0 ? (
@@ -48,13 +52,6 @@ const ProfilePanel: React.FC<ProfilePanelProps> = ({ isOpen, onClose, history, o
                     </span>
                   </div>
                   <p className="text-[12px] text-slate-400 line-clamp-2 leading-relaxed">{entry.input}</p>
-                  {entry.status === 'loading' && (
-                    <div className="mt-3 flex gap-1">
-                      <div className="w-1 h-1 bg-emerald-500 rounded-full animate-bounce"></div>
-                      <div className="w-1 h-1 bg-emerald-500 rounded-full animate-bounce [animation-delay:0.2s]"></div>
-                      <div className="w-1 h-1 bg-emerald-500 rounded-full animate-bounce [animation-delay:0.4s]"></div>
-                    </div>
-                  )}
                 </button>
               ))}
             </div>
