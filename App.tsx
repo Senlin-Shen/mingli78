@@ -8,6 +8,7 @@ import Footer from './components/Footer';
 import InputForm from './components/InputForm';
 import ProfilePanel from './components/ProfilePanel';
 import TraditionalLoader from './components/TraditionalLoader';
+import AdminDashboard from './components/AdminDashboard'; // 新增组件
 import { calculateBoard } from './qimenLogic';
 import { useBazi } from './hooks/useBazi';
 import { QiMenBoard, AppMode, BaZiInput, LiuYaoInput, LocationData } from './types';
@@ -41,6 +42,7 @@ const App: React.FC = () => {
   const [error, setError] = useState('');
   const [displayPrediction, setDisplayPrediction] = useState('');
   const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [isAdminOpen, setIsAdminOpen] = useState(false);
   const [history, setHistory] = useState<PredictionHistory[]>([]);
   const [activeHistoryId, setActiveHistoryId] = useState<string | null>(null);
   const [location, setLocation] = useState<LocationData | null>(null);
@@ -49,6 +51,21 @@ const App: React.FC = () => {
   const fullTextRef = useRef('');
   const isStreamingRef = useRef(false);
   const renderAnimationFrame = useRef<number | null>(null);
+
+  // 用户追踪 ID 初始化
+  useEffect(() => {
+    let uid = localStorage.getItem('qimen_client_uid');
+    if (!uid) {
+      uid = 'qm_' + Math.random().toString(36).substr(2, 9) + Date.now().toString(36);
+      localStorage.setItem('qimen_client_uid', uid);
+    }
+    
+    // 静默注册/登录同步到 Supabase
+    fetch('/api/user-tracking', {
+      method: 'POST',
+      body: JSON.stringify({ uid, mode: 'INITIAL_SYNC' })
+    }).catch(() => {});
+  }, []);
 
   useEffect(() => {
     const saved = localStorage.getItem('qimen_history_v12');
@@ -75,6 +92,14 @@ const App: React.FC = () => {
   useEffect(() => {
     localStorage.setItem('qimen_history_v12', JSON.stringify(history));
   }, [history]);
+
+  const trackActivity = async (currentMode: AppMode) => {
+    const uid = localStorage.getItem('qimen_client_uid');
+    fetch('/api/user-tracking', {
+      method: 'POST',
+      body: JSON.stringify({ uid, mode: currentMode })
+    }).catch(() => {});
+  };
 
   const handleModeChange = (newMode: AppMode) => {
     if (newMode === mode) return;
@@ -196,6 +221,8 @@ const App: React.FC = () => {
       throw err;
     } finally {
       isStreamingRef.current = false;
+      setIsAiThinking(false);
+      setLoading(false);
     }
   };
 
@@ -204,16 +231,18 @@ const App: React.FC = () => {
     setError('');
     setDisplayPrediction('');
     
+    // 追踪本次使用行为
+    trackActivity(mode);
+
     const historyId = Date.now().toString();
     setActiveHistoryId(historyId);
 
-    // 🛠️ 交互续航增补指令 (Interactive Loop Supplement)
     const interactiveProtocol = `
 ## 持续对话协议 (Continuous Dialogue Protocol)
-1. 严禁终结对话：严禁使用“祝您好运”、“到此为止”、“感谢提问”等类似结语。
-2. 深度挖掘提示：在每一份报告末尾，必须根据当前结果，自动识别出一个最值得深入探讨的“潜在风险”或“进阶机遇”，并以【🎯 进阶挖掘提示】作为标题。
-3. 交互式结语：以一个启发性、针对性极强的提问结束。例如：“基于当前的态势，您是否需要我针对某个方面进一步给出具体分析？”
-4. 保持上下文依赖：后续对话必须基于之前的推演数据，进行“叠加式分析”。`;
+1. 严禁终结对话：严禁使用“祝您好运”、“感谢提问”等类似结语。
+2. ⚠️格式红线：严禁输出任何 Markdown 加粗符号（即禁止输出 ** 符号）。如需强调，请使用【】包裹或直接输出。
+3. 深度挖掘提示：报告末尾必须包含【🎯 进阶挖掘提示】。
+4. 交互式结语：以启发式提问结束。`;
 
     let systemInstruction = "";
     let finalUserInput = "";
@@ -225,33 +254,14 @@ const App: React.FC = () => {
       activeBoard = calculateBoard(targetDate, location?.longitude || 120);
       setBoard(activeBoard);
       
-      systemInstruction = `# Role: 奇门遁甲高维决策系统 (Advanced Qimen Decision System)
-
+      systemInstruction = `# Role: 奇门遁甲高维决策系统
 ## 1. 系统核心逻辑
-你是一个基于传统数理奇门与现代决策科学构建的智能化起局模型。你拒绝迷信，强调通过行为调理（人盘）与环境优化（地利）寻找“生机”。
-
-### A. 起局算法约束
-严格遵循“值符随时干落宫，值使随时宫行进”的动盘原理。
-
-### B. 哲学心法
-盘局是当下时空的能量缩影。不迷信宿命，坚持“对镜观心”。
-
-## 2. 交互界面设计 (UI/UX)
-严禁使用 Markdown（如 #, *）。按以下结构输出：
-
+你精通林毅老师数理奇门体系。强调“理、象、数”三位一体。
+## 2. 交互界面设计
+⚠️警告：禁止在输出中使用 ** 符号。
 【⚖️ 时空参数配置 (Dashboard)】
-> 测算时间、干支四柱、地理定位、地利属性、定局结果、值符/值使。
-
 【🔍 能量九宫解析 (Deep Analysis)】
-- 用神宫：[符号及能量状态（如击刑、入墓、空亡）]
-- 日干宫：[求测人能量状态]
-- 关键博弈：生克链条分析，识别关键格局。
-
 【🎯 预测结论与决策指导 (Action Plan)】
-1. 趋势预判：[成败可能性、难易度及预期时间点]。
-2. 行动策略：[宜守/攻/合/散的具体建议]。
-3. 时空运筹：有利方位及具体的能量化解/环境微调方案。
-
 ${interactiveProtocol}
 报告审计完毕`;
 
@@ -263,28 +273,21 @@ ${interactiveProtocol}
         activeBazi = getBaziResult(input.birthDate, input.birthTime || '', input.birthPlace, input.gender);
         setBaziData(activeBazi);
         
-        systemInstruction = `# Role: 全息能量审计师 (秉承姜氏通解逻辑)
-你是一个冷静、严谨、具备深度逻辑推演能力的战略咨询顾问。拒绝迷信词汇，改用“能量物理学”与“时空气象学”提供行动指导。
-
-## 输出规范
-1. 严禁使用 Markdown。
-2. 必须包含：【📊 核心诊断：物理热力扫描】、【⚙️ 逻辑路径：能量转换效率】、【🛠️ 全息方案：处方级行动建议】（包含思维对冲、行为补位、环境校准、时序避险）、【📍 首要动作 (Priority Action)】。
-
+        systemInstruction = `# Role: 全息能量审计师
+⚠️禁止输出 ** 符号。必须包含：【📊 核心诊断】、【⚙️ 逻辑路径】、【🛠️ 全息方案】。
 ${interactiveProtocol}
 【能量审计闭环 】`;
 
         const p = activeBazi.pillars;
-        finalUserInput = `[用户诉求]：${input.question || '全息能量审计'}
-[修正四柱]：${p.year.stem}${p.year.branch} ${p.month.stem}${p.month.branch} ${p.day.stem}${p.day.branch} ${p.hour.stem}${p.hour.branch}
-[参数数据]：${JSON.stringify(activeBazi)}`;
+        finalUserInput = `[用户诉求]：${input.question || '全息能量审计'}\n[参数数据]：${JSON.stringify(activeBazi)}`;
       } else {
         const input = userInput as LiuYaoInput;
         finalUserInput = `[任务：六爻分析] 卦数：${input.numbers.join(', ')} 诉求：${input.question}`;
-        systemInstruction = `六爻推演专家。以《增删卜易》为宗。结构：【一、卦象组合】 【二、用神旺衰】 【三、动变解析】 【四、最终定论】。${interactiveProtocol}报告审计完毕`;
+        systemInstruction = `六爻推演专家。严禁输出 ** 符号。${interactiveProtocol}报告审计完毕`;
       }
     } else {
       finalUserInput = userInput;
-      systemInstruction = `中医全息调理专家。结构：【一、辨证分析】 【二、病机探讨】 【三、调理建议】 【四、生活禁忌】。${interactiveProtocol}报告审计完毕`;
+      systemInstruction = `中医全息调理专家。严禁输出 ** 符号。${interactiveProtocol}报告审计完毕`;
     }
 
     const initialMessages: ChatMessage[] = [
@@ -310,9 +313,6 @@ ${interactiveProtocol}
       await streamResponse(initialMessages, historyId);
     } catch (err: any) {
       setError(err.message || '推演链路异常');
-    } finally {
-      setLoading(false);
-      setIsAiThinking(false);
     }
   }, [mode, getBaziResult, location]);
 
@@ -321,8 +321,8 @@ ${interactiveProtocol}
     const currentEntry = history.find(h => h.id === activeHistoryId);
     if (!currentEntry) return;
 
-    setLoading(true);
-    setIsAiThinking(true); // 显式开启 AI Thinking 状态
+    setError('');
+    setIsAiThinking(true); 
 
     const newMessages: ChatMessage[] = [
       ...currentEntry.messages, 
@@ -337,9 +337,6 @@ ${interactiveProtocol}
       await streamResponse(newMessages, activeHistoryId, false, true);
     } catch (err: any) {
       setError(err.message || '通讯异常');
-    } finally {
-      setLoading(false);
-      setIsAiThinking(false); // 确保重置状态，解锁交互
     }
   };
 
@@ -362,14 +359,14 @@ ${interactiveProtocol}
              {baziData && <BaziResult data={baziData} />}
           </div>
         )}
-        {isAiThinking && <TraditionalLoader />}
+        {isAiThinking && !displayPrediction && <TraditionalLoader />}
         {displayPrediction && (
           <section className="frosted-glass p-6 md:p-12 rounded-[2.5rem] shadow-[0_40px_100px_rgba(0,0,0,0.6)] relative border border-white/5 overflow-visible">
-            <AnalysisDisplay prediction={displayPrediction} onFollowUp={handleFollowUp} isFollowUpLoading={loading} />
+            <AnalysisDisplay prediction={displayPrediction} onFollowUp={handleFollowUp} isFollowUpLoading={isAiThinking} />
           </section>
         )}
       </main>
-      <Footer />
+      <Footer onToggleAdmin={() => setIsAdminOpen(true)} />
       <ProfilePanel 
         isOpen={isProfileOpen} 
         onClose={() => setIsProfileOpen(false)} 
@@ -386,6 +383,7 @@ ${interactiveProtocol}
         }}
         onClearHistory={() => setHistory([])}
       />
+      {isAdminOpen && <AdminDashboard isOpen={isAdminOpen} onClose={() => setIsAdminOpen(false)} />}
     </div>
   );
 };
