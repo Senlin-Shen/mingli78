@@ -13,11 +13,9 @@ import { calculateBoard } from './qimenLogic';
 import { useBazi } from './hooks/useBazi';
 import { QiMenBoard, AppMode, BaZiInput, LiuYaoInput, LocationData } from './types';
 import { BaziResultData } from './types/bazi.types';
-// Correct import of GoogleGenAI client
-import { GoogleGenAI, GenerateContentResponse } from "@google/genai";
 
-// Use recommended model for complex reasoning and divination tasks
-const UNIFIED_MODEL = "gemini-3-pro-preview";
+// 恢复原有的模型 ID
+const UNIFIED_MODEL = "ep-20260206175318-v6cl7";
 
 export interface ChatMessage {
   role: 'user' | 'assistant' | 'system';
@@ -52,7 +50,6 @@ const App: React.FC = () => {
   
   const { getBaziResult } = useBazi();
   const fullTextRef = useRef('');
-  // Fix: Removed the incorrect 'const isStreamingRef.current = false;' line that caused redeclaration errors
   const isStreamingRef = useRef(false);
   const renderAnimationFrame = useRef<number | null>(null);
 
@@ -134,47 +131,75 @@ const App: React.FC = () => {
     }
     
     let currentResponseContent = "";
+    let finishReason = "";
 
     try {
-      // Initialize the client with mandatory API_KEY named parameter
-      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-      
-      const systemMessage = messages.find(m => m.role === 'system');
-      const chatContents = messages.filter(m => m.role !== 'system').map(m => ({
-        role: m.role === 'assistant' ? 'model' : 'user',
-        parts: [{ text: m.content }]
-      }));
-
-      // Start streaming from Gemini API
-      const responseStream = await ai.models.generateContentStream({
-        model: UNIFIED_MODEL,
-        contents: chatContents,
-        config: {
-          systemInstruction: systemMessage?.content,
+      // 恢复使用 ark-proxy API 接口
+      const response = await fetch('/api/ark-proxy', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          messages,
           temperature: 0.5,
-        }
+          model: UNIFIED_MODEL,
+          stream: true
+        })
       });
 
+      if (!response.ok) throw new Error('时空链路波动，请重试');
+
+      const reader = response.body?.getReader();
+      const decoder = new TextDecoder();
+      if (!reader) throw new Error('流读取失败');
+
       let isFirstChunk = true;
+      let buffer = ""; 
 
-      for await (const chunk of responseStream) {
-        // Direct property access: chunk.text
-        const content = chunk.text || "";
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
         
-        if (isFirstChunk && content.trim()) {
-          setIsAiThinking(false);
-          isFirstChunk = false;
-        }
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || ""; 
 
-        fullTextRef.current += content;
-        currentResponseContent += content;
-        
-        if (!renderAnimationFrame.current) {
-          renderAnimationFrame.current = requestAnimationFrame(() => {
-            setDisplayPrediction(fullTextRef.current);
-            renderAnimationFrame.current = null;
-          });
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (!trimmed || !trimmed.startsWith('data: ')) continue;
+          
+          const jsonStr = trimmed.slice(6);
+          if (jsonStr === '[DONE]') break;
+          
+          try {
+            const data = JSON.parse(jsonStr);
+            const content: string = data.choices[0]?.delta?.content || "";
+            finishReason = data.choices[0]?.finish_reason || "";
+            
+            if (isFirstChunk && content.trim()) {
+              setIsAiThinking(false);
+              isFirstChunk = false;
+            }
+
+            fullTextRef.current += content;
+            currentResponseContent += content;
+            
+            if (!renderAnimationFrame.current) {
+              renderAnimationFrame.current = requestAnimationFrame(() => {
+                setDisplayPrediction(fullTextRef.current);
+                renderAnimationFrame.current = null;
+              });
+            }
+          } catch (e) {}
         }
+      }
+
+      if (finishReason === 'length') {
+        const nextMessages: ChatMessage[] = [
+          ...messages,
+          { role: 'assistant', content: currentResponseContent },
+          { role: 'user', content: '继续，保持逻辑闭环' }
+        ];
+        return await streamResponse(nextMessages, historyId, true, false);
       }
 
       const finalTotalResult = fullTextRef.current;
