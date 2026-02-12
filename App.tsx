@@ -8,8 +8,7 @@ import Footer from './components/Footer';
 import InputForm from './components/InputForm';
 import ProfilePanel from './components/ProfilePanel';
 import TraditionalLoader from './components/TraditionalLoader';
-import AdminDashboard from './components/AdminDashboard';
-import AuthScreen from './components/AuthScreen'; // 新增认证屏幕
+import AdminDashboard from './components/AdminDashboard'; // 新增组件
 import { calculateBoard } from './qimenLogic';
 import { useBazi } from './hooks/useBazi';
 import { QiMenBoard, AppMode, BaZiInput, LiuYaoInput, LocationData } from './types';
@@ -35,7 +34,6 @@ export interface PredictionHistory {
 }
 
 const App: React.FC = () => {
-  const [currentUser, setCurrentUser] = useState<any>(null); // 用户身份状态
   const [mode, setMode] = useState<AppMode>('QIMEN');
   const [board, setBoard] = useState<QiMenBoard | null>(null);
   const [baziData, setBaziData] = useState<BaziResultData | null>(null);
@@ -54,22 +52,29 @@ const App: React.FC = () => {
   const isStreamingRef = useRef(false);
   const renderAnimationFrame = useRef<number | null>(null);
 
-  // 初始化：检查已存在的用户会话
+  // 用户追踪 ID 初始化
   useEffect(() => {
-    const savedUser = localStorage.getItem('qimen_session');
-    if (savedUser) {
-      try {
-        setCurrentUser(JSON.parse(savedUser));
-      } catch (e) {
-        localStorage.removeItem('qimen_session');
-      }
+    let uid = localStorage.getItem('qimen_client_uid');
+    if (!uid) {
+      uid = 'qm_' + Math.random().toString(36).substr(2, 9) + Date.now().toString(36);
+      localStorage.setItem('qimen_client_uid', uid);
     }
+    
+    // 静默注册/登录同步到 Supabase
+    fetch('/api/user-tracking', {
+      method: 'POST',
+      body: JSON.stringify({ uid, mode: 'INITIAL_SYNC' })
+    }).catch(() => {});
+  }, []);
 
-    const savedHistory = localStorage.getItem('qimen_history_v12');
-    if (savedHistory) {
+  useEffect(() => {
+    const saved = localStorage.getItem('qimen_history_v12');
+    if (saved) {
       try {
-        setHistory(JSON.parse(savedHistory));
-      } catch (e) {}
+        setHistory(JSON.parse(saved));
+      } catch (e) {
+        console.error("Failed to load history", e);
+      }
     }
     
     if ("geolocation" in navigator) {
@@ -84,32 +89,15 @@ const App: React.FC = () => {
     };
   }, []);
 
-  const handleAuthSuccess = (user: any) => {
-    setCurrentUser(user);
-    localStorage.setItem('qimen_session', JSON.stringify(user));
-    // 异步同步一次追踪数据
-    fetch('/api/user-tracking', {
-      method: 'POST',
-      body: JSON.stringify({ uid: user.uid, mode: 'LOGIN_SYNC' })
-    }).catch(() => {});
-  };
-
-  const handleLogout = () => {
-    setCurrentUser(null);
-    localStorage.removeItem('qimen_session');
-  };
-
   useEffect(() => {
-    if (currentUser) {
-      localStorage.setItem('qimen_history_v12', JSON.stringify(history));
-    }
-  }, [history, currentUser]);
+    localStorage.setItem('qimen_history_v12', JSON.stringify(history));
+  }, [history]);
 
   const trackActivity = async (currentMode: AppMode) => {
-    if (!currentUser) return;
+    const uid = localStorage.getItem('qimen_client_uid');
     fetch('/api/user-tracking', {
       method: 'POST',
-      body: JSON.stringify({ uid: currentUser.uid, mode: currentMode })
+      body: JSON.stringify({ uid, mode: currentMode })
     }).catch(() => {});
   };
 
@@ -326,7 +314,7 @@ ${interactiveProtocol}
     } catch (err: any) {
       setError(err.message || '推演链路异常');
     }
-  }, [mode, getBaziResult, location, currentUser]);
+  }, [mode, getBaziResult, location]);
 
   const handleFollowUp = async (question: string) => {
     if (!activeHistoryId || isStreamingRef.current) return;
@@ -351,11 +339,6 @@ ${interactiveProtocol}
       setError(err.message || '通讯异常');
     }
   };
-
-  // 如果未登录，展示登录/注册屏幕
-  if (!currentUser) {
-    return <AuthScreen onSuccess={handleAuthSuccess} />;
-  }
 
   return (
     <div className="min-h-screen bg-[#020617] text-slate-100 flex flex-col parchment-bg">
@@ -399,7 +382,6 @@ ${interactiveProtocol}
           window.scrollTo({ top: 300, behavior: 'smooth' });
         }}
         onClearHistory={() => setHistory([])}
-        onLogout={handleLogout} // 传入登出逻辑
       />
       {isAdminOpen && <AdminDashboard isOpen={isAdminOpen} onClose={() => setIsAdminOpen(false)} />}
     </div>
