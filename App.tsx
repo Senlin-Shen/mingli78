@@ -8,13 +8,16 @@ import Footer from './components/Footer';
 import InputForm from './components/InputForm';
 import ProfilePanel from './components/ProfilePanel';
 import TraditionalLoader from './components/TraditionalLoader';
-import AdminDashboard from './components/AdminDashboard'; // 新增组件
+import AdminDashboard from './components/AdminDashboard';
 import { calculateBoard } from './qimenLogic';
 import { useBazi } from './hooks/useBazi';
 import { QiMenBoard, AppMode, BaZiInput, LiuYaoInput, LocationData } from './types';
 import { BaziResultData } from './types/bazi.types';
+// Correct import of GoogleGenAI client
+import { GoogleGenAI, GenerateContentResponse } from "@google/genai";
 
-const UNIFIED_MODEL = "ep-20260206175318-v6cl7";
+// Use recommended model for complex reasoning and divination tasks
+const UNIFIED_MODEL = "gemini-3-pro-preview";
 
 export interface ChatMessage {
   role: 'user' | 'assistant' | 'system';
@@ -49,10 +52,11 @@ const App: React.FC = () => {
   
   const { getBaziResult } = useBazi();
   const fullTextRef = useRef('');
+  // Fix: Removed the incorrect 'const isStreamingRef.current = false;' line that caused redeclaration errors
   const isStreamingRef = useRef(false);
   const renderAnimationFrame = useRef<number | null>(null);
 
-  // 用户追踪 ID 初始化
+  // 用户追踪 ID 初始化 (静默识别)
   useEffect(() => {
     let uid = localStorage.getItem('qimen_client_uid');
     if (!uid) {
@@ -60,7 +64,7 @@ const App: React.FC = () => {
       localStorage.setItem('qimen_client_uid', uid);
     }
     
-    // 静默注册/登录同步到 Supabase
+    // 同步到 Supabase 统计
     fetch('/api/user-tracking', {
       method: 'POST',
       body: JSON.stringify({ uid, mode: 'INITIAL_SYNC' })
@@ -95,6 +99,7 @@ const App: React.FC = () => {
 
   const trackActivity = async (currentMode: AppMode) => {
     const uid = localStorage.getItem('qimen_client_uid');
+    if (!uid) return;
     fetch('/api/user-tracking', {
       method: 'POST',
       body: JSON.stringify({ uid, mode: currentMode })
@@ -129,74 +134,47 @@ const App: React.FC = () => {
     }
     
     let currentResponseContent = "";
-    let finishReason = "";
 
     try {
-      const response = await fetch('/api/ark-proxy', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          messages,
+      // Initialize the client with mandatory API_KEY named parameter
+      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+      
+      const systemMessage = messages.find(m => m.role === 'system');
+      const chatContents = messages.filter(m => m.role !== 'system').map(m => ({
+        role: m.role === 'assistant' ? 'model' : 'user',
+        parts: [{ text: m.content }]
+      }));
+
+      // Start streaming from Gemini API
+      const responseStream = await ai.models.generateContentStream({
+        model: UNIFIED_MODEL,
+        contents: chatContents,
+        config: {
+          systemInstruction: systemMessage?.content,
           temperature: 0.5,
-          model: UNIFIED_MODEL,
-          stream: true
-        })
+        }
       });
 
-      if (!response.ok) throw new Error('时空链路波动，请重试');
-
-      const reader = response.body?.getReader();
-      const decoder = new TextDecoder();
-      if (!reader) throw new Error('流读取失败');
-
       let isFirstChunk = true;
-      let buffer = ""; 
 
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
+      for await (const chunk of responseStream) {
+        // Direct property access: chunk.text
+        const content = chunk.text || "";
         
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split('\n');
-        buffer = lines.pop() || ""; 
-
-        for (const line of lines) {
-          const trimmed = line.trim();
-          if (!trimmed || !trimmed.startsWith('data: ')) continue;
-          
-          const jsonStr = trimmed.slice(6);
-          if (jsonStr === '[DONE]') break;
-          
-          try {
-            const data = JSON.parse(jsonStr);
-            const content: string = data.choices[0]?.delta?.content || "";
-            finishReason = data.choices[0]?.finish_reason || "";
-            
-            if (isFirstChunk && content.trim()) {
-              setIsAiThinking(false);
-              isFirstChunk = false;
-            }
-
-            fullTextRef.current += content;
-            currentResponseContent += content;
-            
-            if (!renderAnimationFrame.current) {
-              renderAnimationFrame.current = requestAnimationFrame(() => {
-                setDisplayPrediction(fullTextRef.current);
-                renderAnimationFrame.current = null;
-              });
-            }
-          } catch (e) {}
+        if (isFirstChunk && content.trim()) {
+          setIsAiThinking(false);
+          isFirstChunk = false;
         }
-      }
 
-      if (finishReason === 'length') {
-        const nextMessages: ChatMessage[] = [
-          ...messages,
-          { role: 'assistant', content: currentResponseContent },
-          { role: 'user', content: '继续，保持逻辑闭环' }
-        ];
-        return await streamResponse(nextMessages, historyId, true, false);
+        fullTextRef.current += content;
+        currentResponseContent += content;
+        
+        if (!renderAnimationFrame.current) {
+          renderAnimationFrame.current = requestAnimationFrame(() => {
+            setDisplayPrediction(fullTextRef.current);
+            renderAnimationFrame.current = null;
+          });
+        }
       }
 
       const finalTotalResult = fullTextRef.current;
@@ -231,7 +209,6 @@ const App: React.FC = () => {
     setError('');
     setDisplayPrediction('');
     
-    // 追踪本次使用行为
     trackActivity(mode);
 
     const historyId = Date.now().toString();
@@ -278,7 +255,6 @@ ${interactiveProtocol}
 ${interactiveProtocol}
 【能量审计闭环 】`;
 
-        const p = activeBazi.pillars;
         finalUserInput = `[用户诉求]：${input.question || '全息能量审计'}\n[参数数据]：${JSON.stringify(activeBazi)}`;
       } else {
         const input = userInput as LiuYaoInput;

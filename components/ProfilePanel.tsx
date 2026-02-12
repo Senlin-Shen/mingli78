@@ -25,7 +25,9 @@ const ProfilePanel: React.FC<ProfilePanelProps> = ({ isOpen, onClose, history, o
         <div className="flex-1 overflow-y-auto px-8 py-8 space-y-6">
           <div className="flex items-center justify-between">
             <h3 className="text-[10px] text-emerald-800 font-black uppercase tracking-[0.3em]">历史推演纪要</h3>
-            {history.length > 0 && <button onClick={onClearHistory} className="text-[9px] text-rose-800 hover:text-rose-500 font-black uppercase">清理因果</button>}
+            <div className="flex gap-4">
+              {history.length > 0 && <button onClick={onClearHistory} className="text-[9px] text-rose-800 hover:text-rose-500 font-black uppercase">清理因果</button>}
+            </div>
           </div>
 
           {history.length === 0 ? (
